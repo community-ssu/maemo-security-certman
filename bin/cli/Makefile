@@ -3,7 +3,7 @@ include ../../make/Makefile.inc
 LDFLAGS+= -L ../../lib -lssl -lstdc++
 CFLAGS+= -I../../include
 CPPFLAGS+= -I../../include
-LIBS=../../lib/libbb5.a  ../../lib/libngswsecurity.a
+LIBS=../../lib/libngswsecurity.a ../../lib/libbb5.a
 
 all: sscli cmcli
 

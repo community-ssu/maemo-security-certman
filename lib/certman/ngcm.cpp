@@ -218,7 +218,7 @@ static const char cert_dir_name [] = "/etc/certs";
 extern "C" {
 
 	int 
-	ngcm_open(X509_STORE** my_cert_store)
+	ngsw_certman_open(X509_STORE** my_cert_store)
 	{
 		// OpenSSL initialization.
 		CRYPTO_malloc_init();
@@ -230,7 +230,7 @@ extern "C" {
 		return(0);
 	}
 
-	int ngcm_collect(const char* domain, X509_STORE* my_cert_store)
+	int ngsw_certman_collect(const char* domain, X509_STORE* my_cert_store)
 	{
 		string dirname;
 		vector<string> x;
@@ -255,7 +255,7 @@ extern "C" {
 	}
 
 	int
-	ngcm_close(X509_STORE* my_cert_store)
+	ngsw_certman_close(X509_STORE* my_cert_store)
 	{
 		X509_STORE_free(my_cert_store);
 		RAND_cleanup();

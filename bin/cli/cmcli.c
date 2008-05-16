@@ -55,9 +55,9 @@ main(int argc, char* argv[])
 	X509* my_cert = NULL;
 	FILE* fp;
 
-	rc = ngcm_open(&certs);
+	rc = ngsw_certman_open(&certs);
 	if (rc != 0) {
-		fprintf(stderr, "ERROR: cannot open ngcm (%d)\n", rc);
+		fprintf(stderr, "ERROR: cannot open certificate repository (%d)\n", rc);
 		return(-1);
 	}
 
@@ -73,7 +73,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 'd':
-			rc = ngcm_collect(optarg, certs);
+			rc = ngsw_certman_collect(optarg, certs);
 			if (rc != 0) {
 				fprintf(stderr, "ERROR: cannot open domain '%s' (%d)\n", 
 						optarg, rc);
@@ -134,6 +134,6 @@ main(int argc, char* argv[])
 		X509_free(my_cert);
 	}
 
-	ngcm_close(certs);
+	ngsw_certman_close(certs);
 	return(0);
 }

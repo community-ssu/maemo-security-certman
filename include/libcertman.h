@@ -12,7 +12,7 @@
  * @param my_cert_store, (out) the certificate store
  * @return 0 on success, otherwise an error code
  */
-extern int ngcm_open(X509_STORE** my_cert_store);
+extern int ngsw_certman_open(X509_STORE** my_cert_store);
 
 /**
  * @name ngcm_collect
@@ -22,7 +22,7 @@ extern int ngcm_open(X509_STORE** my_cert_store);
  * @param my_cert_store, (in) the store where to add the certificates
  * @return 0 on success, otherwise an error code
  */
-extern int ngcm_collect(const char* domain, X509_STORE* my_cert_store);
+extern int ngsw_certman_collect(const char* domain, X509_STORE* my_cert_store);
 
 /**
  * @name ngcm_close
@@ -30,6 +30,6 @@ extern int ngcm_collect(const char* domain, X509_STORE* my_cert_store);
  * @param handle, (in) the handle to the store got from ngcm_open
  * @return 0 on success, otherwise an error code
  */
-extern int ngcm_close(X509_STORE* my_cert_store);
+extern int ngsw_certman_close(X509_STORE* my_cert_store);
 
 #endif

@@ -2,6 +2,7 @@
 
 #include <sec_common.h>
 #include <sec_storage.h>
+using namespace ngsw_sec;
 
 extern int debug_level;
 
@@ -22,7 +23,7 @@ int
 main(int argc, char* argv[])
 {
 	char a;
-	secure::storage* ss = NULL;
+	storage* ss = NULL;
 
     while (1) {
 		a = getopt(argc, argv, "s:a:d:v::D");
@@ -36,7 +37,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 's':
-			ss = new secure::storage(optarg, secure::storage::prot_sign);
+			ss = new storage(optarg, storage::prot_sign);
 			break;
 
 		case 'a':
@@ -59,7 +60,7 @@ main(int argc, char* argv[])
 					printf("Verification fails\n");
 				}
 			} else {
-				secure::storage::stringlist files;
+				storage::stringlist files;
 				ss->get_files(files);
 				for (size_t i = 0; i < files.size(); i++) {
 					printf("%s: ", files[i]);

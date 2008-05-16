@@ -11,7 +11,7 @@
 #include <map>
 using namespace std;
 
-namespace secure {
+namespace ngsw_sec {
 
 	class storage
 	{

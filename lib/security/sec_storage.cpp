@@ -1,7 +1,7 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 
 #include "sec_storage.h"
-using namespace secure;
+using namespace ngsw_sec;
 
 #include <string.h>
 #include <stdio.h>
