@@ -1,4 +1,16 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4; -*- */
+// -*- mode:c; tab-width:4; c-basic-offset:4; -*-
+/**
+ \file cmcli.c
+ \ingroup libcertman
+ \brief A command-line utility for managing certificate stores
+
+ This command-line utility can be used to list contents of certificate 
+ stores, create new stores and manipulate the existing ones by adding
+ and deleting certificates in them. It also serves as an example of how
+ to use the certman library.
+ 
+*/
+
 
 #include <stdio.h>
 #include <errno.h>
@@ -10,8 +22,16 @@
 
 extern int debug_level;
 
+/**
+ * \brief How to verify a certificata against a store
+ * \param store A certificate store, for instance one created
+ * by ngcm_open+ngcm_collect
+ * \param cert The ceritificate to be verified
+ * \returns 1 on success, 0 on failure
+ */
+
 int
-verify_cert(X509_STORE* ctx, X509* cert)
+verify_cert(X509_STORE* store, X509* cert)
 {
 	X509_STORE_CTX *csc;
 	int retval;
@@ -23,7 +43,7 @@ verify_cert(X509_STORE* ctx, X509* cert)
 		return(0);
 	}
 
-	rc = X509_STORE_CTX_init(csc, ctx, cert, NULL);
+	rc = X509_STORE_CTX_init(csc, store, cert, NULL);
 	if (rc == 0) {
 		fprintf(stderr, "ERROR: cannot initialize new context\n");
 		return(0);

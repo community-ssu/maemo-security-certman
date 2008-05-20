@@ -15,7 +15,8 @@ all:
 	@for d in $(SUBDIRS) ; do if [ -d $$d ] ; then cd $$d ; make ; cd .. ; fi ; done
 
 clean:
+	rm -f *~
 	@for d in $(SUBDIRS) ; do if [ -d $$d ] ; then cd $$d ; make clean ; cd .. ; fi ; done
 
-doc:
-	doxygen doc/doxygen.cfg
+docs:
+	@doxygen doc/doxygen.cfg > /dev/null

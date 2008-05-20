@@ -1,4 +1,4 @@
-SUBDIRS=cli
+SUBDIRS=cli launcher
 
 all:
 	@for d in $(SUBDIRS) ; do if [ -d $$d ] ; then cd $$d ; make ; cd .. ; fi ; done
