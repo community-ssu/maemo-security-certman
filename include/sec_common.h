@@ -65,7 +65,7 @@ bool absolute_pathname(const char* name, string& to_this);
  * \def ERROR
  * \brief Report an error 
  * \param format,args Format string and a list of optional arguments
- * as in "printf"
+ * as in "printf". The newline is appended automatically.
  */
 #define ERROR(format,args...) \
 	do {\
@@ -80,7 +80,7 @@ bool absolute_pathname(const char* name, string& to_this);
  * printed that have the detail level less than or equal than the
  * current value of the \ref debug_level
  * \param format,args Format string and a list of optional arguments
- * as in "printf"
+ * as in "printf". The newline is appended automatically.
  */
 #define DEBUG(level,format,args...)	\
 	do { \

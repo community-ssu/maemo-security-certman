@@ -23,10 +23,11 @@ int
 main(int argc, char* argv[])
 {
 	char a;
+	char* storagename = NULL;
 	storage* ss = NULL;
 
     while (1) {
-		a = getopt(argc, argv, "s:a:d:v::D");
+		a = getopt(argc, argv, "s:c:a:d:v::D");
 		if (a < 0) {
 			break;
 		}
@@ -37,21 +38,40 @@ main(int argc, char* argv[])
 			break;
 
 		case 's':
-			ss = new storage(optarg, storage::prot_sign);
+			storagename = optarg;
+			break;
+
+		case 'c':
+			if (!storagename) {
+				ERROR("must give storage name first");
+				return(-1);
+			}
+			if (*optarg == 'e') {
+				ss = new storage(storagename, storage::prot_encrypt);
+			} else if (*optarg == 's') {
+				ss = new storage(storagename, storage::prot_sign);
+			} else
+				ERROR("Invalid protection mode");
 			break;
 
 		case 'a':
 			if (!ss) {
-				ERROR("create storage first");
-				return(-1);
+				if (!storagename) {
+					ERROR("create storage first");
+					return(-1);
+				} else
+					ss = new storage(storagename);
 			}
 			ss->add_file(optarg);
 			break;
 
 		case 'v':
 			if (!ss) {
-				ERROR("create storage first");
-				return(-1);
+				if (!storagename) {
+					ERROR("create storage first");
+					return(-1);
+				} else
+					ss = new storage(storagename);
 			}
 			if (optarg) {
 				if (ss->verify_file(optarg)) {
@@ -76,8 +96,11 @@ main(int argc, char* argv[])
 
 		case 'd':
 			if (!ss) {
-				ERROR("create storage first");
-				return(-1);
+				if (!storagename) {
+					ERROR("create storage first");
+					return(-1);
+				} else
+					ss = new storage(storagename);
 			}
 			ss->remove_file(optarg);
 			break;

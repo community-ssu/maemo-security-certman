@@ -1,6 +1,10 @@
 /* -*- mode:c; tab-width:4; c-basic-offset:4; -*- */
 
-#include "libbb5.h"
+#include <sys/time.h>
+
+extern "C" {
+#include "libbb5stub.h"
+}
 
 #include <errno.h>
 #include <openssl/bio.h>
@@ -81,6 +85,7 @@ extern "C" {
 	bb5_init(void)
 	{
 		X509_STORE* cstore;
+		struct timeval now;
 
 		cstore = X509_STORE_new();
 		if (cstore == NULL) {
@@ -90,6 +95,9 @@ extern "C" {
 		}
 		load_root_certificate(cstore);
 		load_root_key();
+
+		gettimeofday(&now, NULL);
+		srand(now.tv_usec);
 		return(cstore);
 	}
 
@@ -135,4 +143,18 @@ extern "C" {
 			return(-ENOMEM);
 		}
 	}
+
+	ssize_t 
+	bb5_get_random(unsigned char *buf, size_t len)
+	{
+		ssize_t res = 0;
+		while (len--) {
+			*buf++ = rand() % 256;
+			res++;
+		}
+		return(res);
+	}
+
 } // extern "C"
+
+

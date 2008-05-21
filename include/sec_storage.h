@@ -37,6 +37,8 @@ namespace ngsw_sec {
 		map<string, string> m_contents;
 		string m_name;
 		int m_fd;
+		unsigned char* m_symkey;
+		int m_symkey_len;
 
 		void compute_digest(const char* pathname, string& digest);
 		unsigned char* map_file(const char* pathname, int* fd, ssize_t* len);
@@ -50,11 +52,18 @@ namespace ngsw_sec {
 		typedef enum {prot_sign, prot_encrypt} protection_t;
 		
 		/**
-		 * \brief Create a new storage or open an existing one
+		 * \brief Create a new storage or open am existing one
 		 * \param name (in) The logical name of the storage
 		 * \param protect (in) The protection level of the storage
 		 */
 		storage(const char* name, protection_t protect);
+
+		/**
+		 * \brief Open an existing storage
+		 * \param name (in) The logical name of the storage
+		 */
+		storage(const char* name);
+
 
 		/**
 		 * \brief Destructor. Release memory allocations.
@@ -139,7 +148,11 @@ namespace ngsw_sec {
 		 */
 		void commit();
 
+	private:
+		protection_t m_prot;
+		void init_storage(const char* name, protection_t protect);
 	};
+
 };
 
 #endif

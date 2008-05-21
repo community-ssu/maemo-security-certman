@@ -13,6 +13,7 @@ using namespace ngsw_sec;
 #include <openssl/x509v3.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <openssl/aes.h>
 
 #include "sec_common.h"
 #include "libbb5stub.h"
@@ -28,6 +29,7 @@ static const char sec_root[] = "/secure";
 static int ccount = 0;
 
 #define signature_mark "SIGNATURE:"
+#define key_mark       "CRYPTOKEY:"
 
 static unsigned char
 hex2bin(char* hex2str)
@@ -42,7 +44,8 @@ hex2bin(char* hex2str)
 }
 
 
-storage::storage(const char* name, protection_t protect) 
+void
+storage::init_storage(const char* name, protection_t protect) 
 {
 	char* end, *c = NULL;
 	unsigned char* data = NULL;
@@ -52,6 +55,9 @@ storage::storage(const char* name, protection_t protect)
 	EVP_MD_CTX vfctx;
 
 	m_name = name;
+	m_symkey = NULL;
+	m_symkey_len = 64;
+	m_prot = protect;
 
 	if (ccount == 0) {
 		// certs = bb5_init();
@@ -69,6 +75,19 @@ storage::storage(const char* name, protection_t protect)
 
 	data = map_file(filename.c_str(), &fd, &len);
 	if (data == MAP_FAILED) {
+
+		// Generate a new symkey
+		if (m_prot == prot_encrypt) {
+			m_symkey = (unsigned char*)malloc(m_symkey_len);
+			if (!m_symkey) {
+				ERROR("allocation error");
+			}
+			rc = bb5_get_random(m_symkey, m_symkey_len);
+			if (rc != m_symkey_len) {
+				ERROR("cannot generate new encryption key");
+			}
+		}
+
 		DEBUG(1, "'%s' does not exist, created", filename.c_str());
 		goto end;
 	}
@@ -114,8 +133,10 @@ storage::storage(const char* name, protection_t protect)
 	}
 
 	// Check signature
-	if (memcmp(c, signature_mark, strlen(signature_mark)) == 0) {
-		unsigned char mdref [255];
+	if (memcmp(c, signature_mark, strlen(signature_mark)) == 0) 
+	{
+		// TODO: remove ugly plain number
+		unsigned char mdref [128];
 		size_t mdlen = 0;
 		
 		// Compute the current digest
@@ -127,10 +148,11 @@ storage::storage(const char* name, protection_t protect)
 		}
 
 		// Read the stored signature
-		while (*c && *c != '\n') c++;
+		while (c < end && *c && *c != '\n') 
+			c++;
 		if (*c == '\n') {
 			c++;
-			while (*c && *c != '-' && mdlen < sizeof(mdref)) {
+			while (c < end && *c && mdlen < sizeof(mdref)) {
 				if (*c != '\n') {
 					mdref[mdlen++] = hex2bin(c);
 					c += 2;
@@ -140,6 +162,7 @@ storage::storage(const char* name, protection_t protect)
 		}
 
 		DEBUG(1, "loaded %d bytes of signature", mdlen);
+
 		rc = EVP_VerifyFinal(&vfctx, mdref, mdlen, X509_get_pubkey(bb5_get_cert()));
 		if (rc != EVPOK) {
 			ERROR("EVP_VerifyFinal returns %d", rc);
@@ -151,8 +174,61 @@ storage::storage(const char* name, protection_t protect)
 	} else
 		ERROR("invalid signature");
 
+	if (c < end && *c == '\n')
+		c++;
+
+	// Check if this is an encrypted storage
+	if (c + strlen(key_mark) >= end
+		|| memcmp(c, key_mark, strlen(key_mark)) != 0)
+	{
+		if (m_prot == prot_encrypt) {
+			ERROR("missing encryption key");
+			goto end;
+		}
+	} else {
+		// There is an encryption key
+		unsigned char* to; 
+		int keylen = 0;
+
+		m_prot = prot_encrypt;
+		if (!m_symkey) {
+			m_symkey = (unsigned char*)malloc(m_symkey_len);
+			if (!m_symkey) {
+				ERROR("allocation error");
+			}
+		}
+		c += strlen(key_mark);
+		if (c < end && *c == '\n')
+			c++;
+		to = m_symkey;
+		while (c < end && *c && keylen < m_symkey_len) {
+			if (*c != '\n') {
+				*to++ = hex2bin(c);
+				keylen++;
+				c += 2;
+			} else
+				c++;
+		}
+		if (keylen != m_symkey_len) {
+			ERROR("corrupt encryption key");
+			goto end;
+		}
+	}
+
   end:
 	unmap_file(data, fd, len);
+}
+
+
+storage::storage(const char* name)
+{
+	init_storage(name, prot_sign);
+}
+
+
+storage::storage(const char* name, protection_t protect) 
+{
+	init_storage(name, protect);
 }
 
 
@@ -161,6 +237,8 @@ storage::~storage()
 	ccount--;
 	if (ccount == 0)
 		bb5_finish();
+	if (m_symkey)
+		free(m_symkey);
 }
 
 
@@ -348,6 +426,8 @@ storage::commit(void)
 	int rc, fd = -1;
 	EVP_MD_CTX signctx;
 	unsigned char signmd[255];
+	char tmp[3];
+	int cols;
 
 	filename = sec_root;
 	filename.append("/");
@@ -386,11 +466,10 @@ storage::commit(void)
 	rc = bb5_rsakp_sign(&signctx, signmd, sizeof(signmd));
 	if (rc > 0) {
 		string signature;
-		char tmp[3];
-		int cols = 0;
-
+		
 		checked_write(fd, signature_mark "\n", NULL);
 
+		cols = 0;
 		for (size_t i = 0; i < (size_t)rc; i++) {
 			sprintf(tmp, "%02x", signmd[i]);
 			signature.append(tmp, 2);
@@ -400,6 +479,22 @@ storage::commit(void)
 			}
 		}
 		checked_write(fd, signature.c_str(), NULL);
+	}
+
+	if (m_prot == prot_encrypt) {
+		string key;
+		checked_write(fd, key_mark "\n", NULL);
+
+		cols = 0;
+		for (int i = 0; i < m_symkey_len; i++) {
+			sprintf(tmp, "%02x", m_symkey[i]);
+			key.append(tmp, 2);
+			if (++cols == 32) {
+				key.append("\n");
+				cols = 0;
+			}
+		}
+		checked_write(fd, key.c_str(), NULL);
 	}
 
 end:

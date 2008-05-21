@@ -34,7 +34,7 @@ using namespace std;
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 
-#include <libbb5.h>
+// #include <libbb5.h>
 #include <libbb5stub.h>
 #include <sec_common.h>
 #include <sec_storage.h>
