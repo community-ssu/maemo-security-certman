@@ -18,11 +18,14 @@ using namespace ngsw_sec;
 #include "sec_common.h"
 #include "libbb5stub.h"
 
-extern "C" {
-
 #define DIGESTTYP EVP_sha1
 #define DIGESTLEN EVP_MD_size(DIGESTTYP())
 #define EVPOK 1
+#define SYMKEYLEN 32
+
+// This is just pretty printing; wrap long hexadecimal 
+// lines after this many pairs
+#define WRAPPOINT 32
 
 static const char sec_root[] = "/secure";
 // static X509_STORE* certs = NULL;
@@ -56,7 +59,7 @@ storage::init_storage(const char* name, protection_t protect)
 
 	m_name = name;
 	m_symkey = NULL;
-	m_symkey_len = 64;
+	m_symkey_len = SYMKEYLEN;
 	m_prot = protect;
 
 	if (ccount == 0) {
@@ -73,7 +76,7 @@ storage::init_storage(const char* name, protection_t protect)
 	filename.append("/");
 	filename.append(name);
 
-	data = map_file(filename.c_str(), &fd, &len);
+	data = map_file(filename.c_str(), O_RDONLY, &fd, &len);
 	if (data == MAP_FAILED) {
 
 		// Generate a new symkey
@@ -86,6 +89,7 @@ storage::init_storage(const char* name, protection_t protect)
 			if (rc != m_symkey_len) {
 				ERROR("cannot generate new encryption key");
 			}
+			// TODO: encrypt the key by BB5 secret key
 		}
 
 		DEBUG(1, "'%s' does not exist, created", filename.c_str());
@@ -137,6 +141,7 @@ storage::init_storage(const char* name, protection_t protect)
 	{
 		// TODO: remove ugly plain number
 		unsigned char mdref [128];
+		// unsigned char mdref [DIGESTLEN];
 		size_t mdlen = 0;
 		
 		// Compute the current digest
@@ -148,7 +153,7 @@ storage::init_storage(const char* name, protection_t protect)
 		}
 
 		// Read the stored signature
-		while (c < end && *c && *c != '\n') 
+		while (c < end && *c != '\n') 
 			c++;
 		if (*c == '\n') {
 			c++;
@@ -201,7 +206,7 @@ storage::init_storage(const char* name, protection_t protect)
 		if (c < end && *c == '\n')
 			c++;
 		to = m_symkey;
-		while (c < end && *c && keylen < m_symkey_len) {
+		while (c < end && keylen < m_symkey_len) {
 			if (*c != '\n') {
 				*to++ = hex2bin(c);
 				keylen++;
@@ -259,14 +264,14 @@ storage::get_files(stringlist& names)
 
 
 unsigned char* 
-storage::map_file(const char* pathname, int* fd, ssize_t* len)
+storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len)
 {
-	int lfd;
+	int lfd, mflags, mprot;
 	struct stat fs;
 	unsigned char* res;
 	ssize_t llen = 0;
 
-	lfd = open(pathname, O_RDONLY);
+	lfd = open(pathname, mode);
 	if (lfd < 0) {
 		return((unsigned char*)MAP_FAILED);
 	}
@@ -283,15 +288,28 @@ storage::map_file(const char* pathname, int* fd, ssize_t* len)
 		ERROR("'%s' is empty", pathname);
 		return((unsigned char*)MAP_FAILED);
 	}
+	/*
+	 * TODO: when reading an encrypted file, how to make sure
+	 * that decrypted pages are not swapped out and encrypted
+	 * content fetched from disk by mmu?
+	 */
+	if (mode == O_RDONLY) {
+		mflags = MAP_PRIVATE;
+		if (m_prot == prot_sign)
+			mprot = PROT_READ;
+		else
+			mprot = PROT_READ | PROT_WRITE;
+	} else {
+		mflags = MAP_SHARED;
+		mprot = PROT_READ | PROT_WRITE;
+	}
 
-	res = (unsigned char*)mmap(NULL, llen + 1, PROT_READ | PROT_WRITE, 
-							   MAP_PRIVATE, lfd, 0);
+	res = (unsigned char*)mmap(NULL, llen, mprot, mflags, lfd, 0);
+
 	if (res == MAP_FAILED) {
 		close(lfd);
 		ERROR("cannot mmap '%s' of %d bytes", pathname, llen);
 		return((unsigned char*)MAP_FAILED);
-	} else {
-		*(res + llen) = '\0';
 	}
 	*fd = lfd;
 	return(res);
@@ -320,11 +338,16 @@ storage::compute_digest(const char* pathname, string& digest)
 	unsigned char md[DIGESTLEN];
 
 	digest.clear();
-	data = map_file(pathname, &fd, &len);
+	data = map_file(pathname, O_RDONLY, &fd, &len);
 	if (data == MAP_FILE) {
 		ERROR("cannot map '%s'", pathname);
 		return;
 	}
+
+#if 0
+	if (m_prot == prot_encrypt)
+		cryptop(AES_DECRYPT, data, len);
+#endif
 
 	EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
@@ -368,6 +391,8 @@ storage::add_file(const char* pathname)
 	absolute_pathname(pathname, truename);
 	compute_digest(truename.c_str(), digest);
 	m_contents[truename] = digest;
+	if (m_prot == prot_encrypt)
+		encrypt_file(truename.c_str());
 	DEBUG(1, "%s => %s", truename.c_str(), digest.c_str());
 }
 
@@ -473,7 +498,7 @@ storage::commit(void)
 		for (size_t i = 0; i < (size_t)rc; i++) {
 			sprintf(tmp, "%02x", signmd[i]);
 			signature.append(tmp, 2);
-			if (++cols == 32) {
+			if (++cols == WRAPPOINT) {
 				signature.append("\n");
 				cols = 0;
 			}
@@ -489,7 +514,7 @@ storage::commit(void)
 		for (int i = 0; i < m_symkey_len; i++) {
 			sprintf(tmp, "%02x", m_symkey[i]);
 			key.append(tmp, 2);
-			if (++cols == 32) {
+			if (++cols == WRAPPOINT) {
 				key.append("\n");
 				cols = 0;
 			}
@@ -501,4 +526,66 @@ end:
 	close(fd);
 }
 
-} // extern "C"
+
+void
+storage::cryptop(int op, unsigned char* data, ssize_t len)
+{
+	int rc;
+	AES_KEY ck;
+	unsigned char *from;
+	unsigned char ibuf[AES_BLOCK_SIZE];
+	unsigned char obuf[AES_BLOCK_SIZE];
+
+	// TODO: Decrypt the symkey
+	if (op == AES_ENCRYPT)
+		rc = AES_set_encrypt_key(m_symkey, 8 * m_symkey_len, &ck);
+	else if (op == AES_DECRYPT)
+		rc = AES_set_decrypt_key(m_symkey, 8 * m_symkey_len, &ck);
+	else {
+		ERROR("unsupported cryptop %d", op);
+		return;
+	}
+	// TODO: zero memory used by the plaintext symkey
+
+	DEBUG(0, "AES set key ret %d", rc);
+
+	// TODO: check if AES can be performed in-place without
+	// memcpy
+
+	from = data;
+	while (len >= AES_BLOCK_SIZE) {
+		if (op == AES_ENCRYPT)
+			AES_encrypt(from, obuf, &ck);
+		else
+			AES_decrypt(from, obuf, &ck);
+		memcpy(from, obuf, AES_BLOCK_SIZE);
+		from += AES_BLOCK_SIZE;
+		len -= AES_BLOCK_SIZE;
+	}
+	if (len) {
+		memset(ibuf, '\0', sizeof(ibuf));
+		memcpy(ibuf, from, len);
+		if (op == AES_ENCRYPT)
+			AES_encrypt(from, obuf, &ck);
+		else
+			AES_decrypt(from, obuf, &ck);
+		memcpy(from, obuf, len);
+	}
+	memset(&ck, '\0', sizeof(ck));
+}
+
+
+void
+storage::encrypt_file(const char* pathname)
+{
+	unsigned char* data;
+	ssize_t len;
+	int fd;
+
+	data = map_file(pathname, O_RDWR, &fd, &len);
+	if (!data) {
+		return;
+	}
+	cryptop(AES_ENCRYPT, data, len);
+	unmap_file(data, fd, len);
+}

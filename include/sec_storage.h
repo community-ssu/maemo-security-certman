@@ -41,8 +41,10 @@ namespace ngsw_sec {
 		int m_symkey_len;
 
 		void compute_digest(const char* pathname, string& digest);
-		unsigned char* map_file(const char* pathname, int* fd, ssize_t* len);
+		unsigned char* map_file(const char* pathname, int prot, int* fd, ssize_t* len);
 		void unmap_file(unsigned char* data, int fd, ssize_t len);
+		void encrypt_file(const char* pathname);
+		void cryptop(int op, unsigned char* data, ssize_t len);
 
 	public:
 

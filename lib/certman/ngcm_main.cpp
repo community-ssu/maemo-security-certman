@@ -266,6 +266,51 @@ extern "C" {
 		ERR_free_strings();
 		return(0);
 	}
+
+	int 
+	ngsw_cert_is_valid(X509_STORE* my_cert_store, X509* cert)
+	{
+		return(0);
+	}
+
+
+	int 
+	ngsw_certman_create_domain(const char* name_domain, int flags)
+	{
+		return(-1);
+	}
+
+
+	int 
+	ngsw_certman_open_domain(const char* name_domain, int* handle)
+	{
+		return(-1);
+	}
+
+	int 
+	ngsw_certman_iterate_domain(int the_domain, int cb_func(int,X509*))
+	{
+		cb_func(0,NULL);
+		return(-1);
+	}
+
+	int 
+	ngsw_certman_add_cert(int to_domain, X509* cert)
+	{
+		return(-1);
+	}
+
+	int
+	ngsw_certman_rm_cert(int to_domain, X509* cert)
+	{
+		return(-1);
+	}
+
+	int 
+	ngsw_certman_close_domain(int handle)
+	{
+		return(-1);
+	}
 } // extern "C"
 
 #if 0

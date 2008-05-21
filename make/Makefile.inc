@@ -7,3 +7,7 @@
 # CLEAN_OBJS=for p in *.o ; do if [ -f $$p ] ; then rm -f $$p ; fi ; done
 
 CLEAN_OBJS=@rm -f *.o
+
+LDFLAGS+=-g
+CFLAGS+=-g
+CPPFLAGS+=-g
