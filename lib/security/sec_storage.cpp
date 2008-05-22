@@ -54,7 +54,7 @@ storage::init_storage(const char* name, protection_t protect)
 	unsigned char* data = NULL;
 	string filename;
 	int fd = -1, rc;
-	ssize_t len;
+	ssize_t len, rlen;
 	EVP_MD_CTX vfctx;
 
 	m_name = name;
@@ -76,7 +76,7 @@ storage::init_storage(const char* name, protection_t protect)
 	filename.append("/");
 	filename.append(name);
 
-	data = map_file(filename.c_str(), O_RDONLY, &fd, &len);
+	data = map_file(filename.c_str(), O_RDONLY, &fd, &len, &rlen);
 	if (data == MAP_FAILED) {
 
 		// Generate a new symkey
@@ -263,8 +263,20 @@ storage::get_files(stringlist& names)
 }
 
 
+bool
+storage::contains_file(const char* pathname)
+{
+	string truename;
+	map<string,string>::iterator ii;
+
+	absolute_pathname(pathname, truename);
+	ii = m_contents.find(truename);
+	return (ii != m_contents.end());
+}
+
+
 unsigned char* 
-storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len)
+storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len, ssize_t* rlen)
 {
 	int lfd, mflags, mprot;
 	struct stat fs;
@@ -281,7 +293,7 @@ storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len)
 		ERROR("cannot stat '%s'", pathname);
 		return((unsigned char*)MAP_FAILED);
 	}
-	*len = llen = fs.st_size;
+	*rlen = llen = fs.st_size;
 	DEBUG(1, "'%s' is %d bytes long", pathname, llen);
 	if (llen == 0) {
 		close(lfd);
@@ -302,8 +314,12 @@ storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len)
 	} else {
 		mflags = MAP_SHARED;
 		mprot = PROT_READ | PROT_WRITE;
+		if ((llen % AES_BLOCK_SIZE) == 0)
+			llen += 1;
+		else
+			llen += AES_BLOCK_SIZE - (llen % AES_BLOCK_SIZE) + 1;
 	}
-
+	
 	res = (unsigned char*)mmap(NULL, llen, mprot, mflags, lfd, 0);
 
 	if (res == MAP_FAILED) {
@@ -311,6 +327,7 @@ storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len)
 		ERROR("cannot mmap '%s' of %d bytes", pathname, llen);
 		return((unsigned char*)MAP_FAILED);
 	}
+	*len = llen;
 	*fd = lfd;
 	return(res);
 }
@@ -331,23 +348,18 @@ storage::compute_digest(const char* pathname, string& digest)
 {
 	int fd, rc;
 	unsigned char* data;
-	ssize_t len;
+	ssize_t len, rlen;
 	unsigned int mdlen;
 	char hlp [3];
 	EVP_MD_CTX mdctx;
 	unsigned char md[DIGESTLEN];
 
 	digest.clear();
-	data = map_file(pathname, O_RDONLY, &fd, &len);
+	data = map_file(pathname, O_RDONLY, &fd, &len, &rlen);
 	if (data == MAP_FILE) {
 		ERROR("cannot map '%s'", pathname);
 		return;
 	}
-
-#if 0
-	if (m_prot == prot_encrypt)
-		cryptop(AES_DECRYPT, data, len);
-#endif
 
 	EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
@@ -357,6 +369,7 @@ storage::compute_digest(const char* pathname, string& digest)
 	}
 
 	DEBUG(1, "computing digest over %d bytes", len);
+
 	rc = EVP_DigestUpdate(&mdctx, data, len);
 	if (rc != EVPOK) {
 		ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
@@ -379,6 +392,7 @@ storage::compute_digest(const char* pathname, string& digest)
 	}
 	unmap_file(data, fd, len);
 	EVP_MD_CTX_cleanup(&mdctx);
+	DEBUG(1, "Computed digest is '%s'", digest.c_str());
 }
 
 
@@ -389,10 +403,18 @@ storage::add_file(const char* pathname)
 	string digest;
 
 	absolute_pathname(pathname, truename);
-	compute_digest(truename.c_str(), digest);
+	if (contains_file(truename.c_str())) {
+		DEBUG(0, "'%s' already belongs to '%s'", 
+			  truename.c_str(), m_name.c_str());
+		return;
+	}
+	if (m_prot == prot_encrypt) {
+		if (!encrypt_file(truename.c_str(), digest)) {
+			return;
+		}
+	} else
+		compute_digest(truename.c_str(), digest);
 	m_contents[truename] = digest;
-	if (m_prot == prot_encrypt)
-		encrypt_file(truename.c_str());
 	DEBUG(1, "%s => %s", truename.c_str(), digest.c_str());
 }
 
@@ -400,12 +422,16 @@ storage::add_file(const char* pathname)
 void
 storage::remove_file(const char* pathname)
 {
-	string truename = pathname;
-	// map<string,string>::const_iterator ii;
-	map<string,string>::iterator ii;
+	string truename;
 
+	absolute_pathname(pathname, truename);
+	if (!contains_file(truename.c_str())) {
+		DEBUG(0, "'%s' not found", truename.c_str());
+		return;
+	}
 	m_contents.erase(m_contents.find(truename));
 }
+
 
 bool 
 storage::verify_file(const char* pathname)
@@ -423,12 +449,14 @@ storage::verify_file(const char* pathname)
 	}
 
 	if (ii->first == truename) {
-		compute_digest(truename.c_str(), digest);
+		if (m_prot == prot_encrypt)
+			decrypt_file(truename.c_str(), NULL, NULL, digest);
+		else
+			compute_digest(truename.c_str(), digest);
 		return(ii->second == digest);
 	} else
 		return(false);
 }
-
 
 
 static void 
@@ -443,6 +471,7 @@ checked_write(int to_fd, const char* str, EVP_MD_CTX* signature)
 	} else if (signature)
 		EVP_SignUpdate(signature, str, len);
 }
+
 
 void
 storage::commit(void)
@@ -527,8 +556,8 @@ end:
 }
 
 
-void
-storage::cryptop(int op, unsigned char* data, ssize_t len)
+bool
+storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EVP_MD_CTX* digest)
 {
 	int rc;
 	AES_KEY ck;
@@ -536,56 +565,232 @@ storage::cryptop(int op, unsigned char* data, ssize_t len)
 	unsigned char ibuf[AES_BLOCK_SIZE];
 	unsigned char obuf[AES_BLOCK_SIZE];
 
+	if (len % AES_BLOCK_SIZE != 0) {
+		ERROR("invalid length %d", len);
+		return(false);
+	}
+
 	// TODO: Decrypt the symkey
+
 	if (op == AES_ENCRYPT)
 		rc = AES_set_encrypt_key(m_symkey, 8 * m_symkey_len, &ck);
 	else if (op == AES_DECRYPT)
 		rc = AES_set_decrypt_key(m_symkey, 8 * m_symkey_len, &ck);
 	else {
 		ERROR("unsupported cryptop %d", op);
-		return;
+		return(false);
 	}
+
 	// TODO: zero memory used by the plaintext symkey
-
-	DEBUG(0, "AES set key ret %d", rc);
-
-	// TODO: check if AES can be performed in-place without
-	// memcpy
+	DEBUG(1, "AES set key ret %d", rc);
 
 	from = data;
-	while (len >= AES_BLOCK_SIZE) {
-		if (op == AES_ENCRYPT)
+	while (len > 0) {
+		if (op == AES_ENCRYPT) {
+			// TODO: check if AES can be performed in-place without
+			// memcpy
 			AES_encrypt(from, obuf, &ck);
-		else
+			if (digest) {
+				rc = EVP_DigestUpdate(digest, from, AES_BLOCK_SIZE);
+				if (rc != EVPOK) {
+					ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
+				}
+			}
+			memcpy(from, obuf, AES_BLOCK_SIZE);
+		} else {
 			AES_decrypt(from, obuf, &ck);
-		memcpy(from, obuf, AES_BLOCK_SIZE);
+			if (digest) {
+				rc = EVP_DigestUpdate(digest, obuf, AES_BLOCK_SIZE);
+				if (rc != EVPOK) {
+					ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
+					abort();
+				}
+			}
+			if (to) {
+				memcpy(to, obuf, AES_BLOCK_SIZE);
+				to += AES_BLOCK_SIZE;
+			}
+		}
 		from += AES_BLOCK_SIZE;
 		len -= AES_BLOCK_SIZE;
 	}
-	if (len) {
-		memset(ibuf, '\0', sizeof(ibuf));
-		memcpy(ibuf, from, len);
-		if (op == AES_ENCRYPT)
-			AES_encrypt(from, obuf, &ck);
-		else
-			AES_decrypt(from, obuf, &ck);
-		memcpy(from, obuf, len);
-	}
 	memset(&ck, '\0', sizeof(ck));
+	return(true);
+}
+
+
+bool
+storage::encrypt_file(const char* pathname, string& digest)
+{
+	unsigned char* data;
+	ssize_t len, rlen;
+	int fd, rc;
+	bool res;
+	unsigned int mdlen;
+	char hlp [3];
+	EVP_MD_CTX mdctx;
+	unsigned char md[DIGESTLEN];
+
+
+	data = map_file(pathname, O_RDWR, &fd, &len, &rlen);
+	if (!data) {
+		return(false);
+	}
+
+	// Fill the tail with zeroes
+	memset(data + rlen, '\0', len - rlen);
+
+	EVP_MD_CTX_init(&mdctx);
+	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
+	if (rc != EVPOK) {
+		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
+		return(false);
+	}
+
+	res = cryptop(AES_ENCRYPT, data, NULL, len - 1, &mdctx);
+	if (res) {
+		*(data + len - 1) = len - rlen;
+	}
+
+	// write the tail
+	DEBUG(0, "lseek ret %d", lseek(fd, rlen, SEEK_SET));
+	DEBUG(0, "write ret %d", write(fd, data + rlen, len - rlen));
+	unmap_file(data, fd, len);
+
+	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
+	if (rc != EVPOK) {
+		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
+		return(false);
+	}
+
+	if ((int)mdlen != DIGESTLEN) {
+		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
+		return(false);
+	}
+
+	for (unsigned int i = 0; i < mdlen; i++) {
+		sprintf(hlp, "%02x", md[i]);
+		digest.append(hlp,2);
+	}
+
+	EVP_MD_CTX_cleanup(&mdctx);
+	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+
+	return(res);
+}
+
+
+bool
+storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest)
+{
+	int fd, rc;
+	unsigned char* data, *locbuf;
+	ssize_t llen, rlen;
+	unsigned int mdlen;
+	char hlp [3];
+	EVP_MD_CTX mdctx;
+	unsigned char md[DIGESTLEN];
+
+	digest.clear();
+	data = map_file(pathname, O_RDONLY, &fd, &llen, &rlen);
+	if (data == MAP_FILE) {
+		ERROR("cannot map '%s'", pathname);
+		return(false);
+	}
+	rlen -= *(data + llen - 1);
+	DEBUG(1, "real len is %d bytes", rlen);
+	if (to_buf) {
+		*to_buf = locbuf = (unsigned char*) malloc (rlen);
+		if (!locbuf) {
+			ERROR("cannot allocate %d bytes", rlen);
+			return(false);
+		}
+		memset(locbuf, '\0', rlen);
+	} else
+		locbuf = NULL;
+
+	EVP_MD_CTX_init(&mdctx);
+	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
+	if (rc != EVPOK) {
+		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
+		return(false);
+	}
+
+	if (!cryptop(AES_DECRYPT, data, locbuf, llen - 1, &mdctx)) {
+		ERROR("Decryption failed");
+		return(false);
+	}
+
+	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
+	if (rc != EVPOK) {
+		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
+		return(false);
+	}
+	if ((int)mdlen != DIGESTLEN) {
+		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
+		return(false);
+	}
+
+	for (unsigned int i = 0; i < mdlen; i++) {
+		sprintf(hlp, "%02x", md[i]);
+		digest.append(hlp,2);
+	}
+	unmap_file(data, fd, llen);
+	*len = rlen;
+	EVP_MD_CTX_cleanup(&mdctx);
+	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+}
+
+
+int
+storage::get_file(const char* pathname, int* handle, unsigned char** to_buf, ssize_t* bytes)
+{
+	string truename, digest;
+	ssize_t rlen;
+
+	if (!to_buf || !bytes) {
+		return(EINVAL);
+	}
+
+	absolute_pathname(pathname, truename);
+	if (!contains_file(truename.c_str())) {
+		ERROR("'%s' not found", truename.c_str());
+		return(EINVAL);
+	}
+
+	if (m_prot == prot_encrypt) {
+		if (decrypt_file(truename.c_str(), to_buf, bytes, digest)) {
+			if (digest == m_contents[truename]) {
+				*handle = -1;
+				return(0);
+			} else {
+				ERROR("Digest does not match");
+				return(-1);
+			}
+		} else
+			return(-1);
+	} else {
+		// TODO: this should be made a bit more atomaric
+		if (!verify_file(pathname)) {
+			ERROR("'%s' does not match checksum", truename.c_str());
+			return(EINVAL);
+		}
+		*to_buf = map_file(truename.c_str(), O_RDONLY, handle, bytes, &rlen);
+		if (*to_buf) {
+			return(0);
+		} else
+			return(errno);
+	}
 }
 
 
 void
-storage::encrypt_file(const char* pathname)
+storage::close_file(int handle, unsigned char** buf, ssize_t bytes)
 {
-	unsigned char* data;
-	ssize_t len;
-	int fd;
-
-	data = map_file(pathname, O_RDWR, &fd, &len);
-	if (!data) {
-		return;
+	if (m_prot == prot_encrypt) {
+		free(*buf);
+	} else {
+		unmap_file(*buf, handle, bytes);
+		*buf = NULL;
 	}
-	cryptop(AES_ENCRYPT, data, len);
-	unmap_file(data, fd, len);
 }

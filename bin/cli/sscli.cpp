@@ -16,6 +16,8 @@ usage(void)
 		" -a to add/update a file to the storage\n"
 		" -d to remove a file from the storage\n"
 		" -v to verify the file contents\n"
+		" -x to decrypt an encrypted file and print it to stdout\n"
+		" -e to read from stdin and update and encrypted file\n"
 		);
 }
 
@@ -27,7 +29,7 @@ main(int argc, char* argv[])
 	storage* ss = NULL;
 
     while (1) {
-		a = getopt(argc, argv, "s:c:a:d:v::D");
+		a = getopt(argc, argv, "s:c:a:d:x:e:v::D");
 		if (a < 0) {
 			break;
 		}
@@ -104,6 +106,30 @@ main(int argc, char* argv[])
 			}
 			ss->remove_file(optarg);
 			break;
+
+		case 'x':
+			if (!ss) {
+				if (!storagename) {
+					ERROR("create storage first");
+					return(-1);
+				} else
+					ss = new storage(storagename);
+			}
+			{
+				unsigned char* buf;
+				ssize_t len;
+				int handle;
+				ss->get_file(optarg, &handle, &buf, &len);
+				for (ssize_t i = 0; i < len; i++) {
+					putchar(*(buf + i));
+				}
+				ss->close_file(handle, &buf, len);
+			}
+			break;
+
+		case 'e':
+			ERROR("not implemented yet");
+			return(-1);
 		   
 		default:
 			usage();

@@ -21,6 +21,9 @@
 #ifndef SEC_STORAGE_H
 #define SEC_STORAGE_H
 
+// OpenSSL headers
+#include <openssl/evp.h>
+
 // STL headers
 #include <string.h>
 
@@ -40,11 +43,13 @@ namespace ngsw_sec {
 		unsigned char* m_symkey;
 		int m_symkey_len;
 
+		bool contains_file(const char* pathname);
 		void compute_digest(const char* pathname, string& digest);
-		unsigned char* map_file(const char* pathname, int prot, int* fd, ssize_t* len);
+		unsigned char* map_file(const char* pathname, int prot, int* fd, ssize_t* len, ssize_t* rlen);
 		void unmap_file(unsigned char* data, int fd, ssize_t len);
-		void encrypt_file(const char* pathname);
-		void cryptop(int op, unsigned char* data, ssize_t len);
+		bool decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest);
+		bool encrypt_file(const char* pathname, string& digest);
+		bool cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EVP_MD_CTX* digest);
 
 	public:
 
@@ -118,7 +123,7 @@ namespace ngsw_sec {
 		int get_file(const char* pathname, 
 					 int* handle, 
 					 unsigned char** to_buf, 
-					 size_t* bytes);
+					 ssize_t* bytes);
 
 		/**
 		 * \brief Write a file to the filesystem.
@@ -129,7 +134,7 @@ namespace ngsw_sec {
 		 * \param (in) The number of bytes to be written
 		 * \returns 0 on success, otherwise and error code
 		 */
-		int put_file(int handle, unsigned char* data, size_t bytes);
+		int put_file(int handle, unsigned char* data, ssize_t bytes);
 
 		/*
 		 * \brief Close an open file
@@ -138,7 +143,7 @@ namespace ngsw_sec {
 		 * \param buf (in) The buffer returned from \ref get_file or
 		 * NULL
 		 */
-		void close_file(int handle, unsigned char** buf);
+		void close_file(int handle, unsigned char** buf, ssize_t bytes);
 		
 		/*
 		 * \brief Sign the storage
