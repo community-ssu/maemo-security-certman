@@ -74,7 +74,7 @@ namespace ngsw_sec {
 		size_t get_files(stringlist &names);
 
 		/**
-		 * \brief Add a file into the storage
+		 * \brief Add an existing file into the storage
 		 * \param pathname (in) The name of the file. Relative pathnames
 		 * are automatically converted to absolute.
 		 */
@@ -101,7 +101,8 @@ namespace ngsw_sec {
 		 * \param handle (out) A handle to the file
 		 * \param to_buf (out) The buffer where the 
 		 * (plaintext) contents are copied. The parameter
-		 * needs not to have any value at entry.
+		 * needs not to have any value at entry. Use close_file
+		 * to release the buffer.
 		 * \param bytes (out) The number of bytes available
 		 * in the buffer.
 		 * \returns 0 on success, otherwise an error code
@@ -110,17 +111,6 @@ namespace ngsw_sec {
 					 int* handle, 
 					 unsigned char** to_buf, 
 					 ssize_t* bytes);
-
-		/**
-		 * \brief Write a file to the filesystem.
-		 * \param handle (in) The handle returned from \ref get_file or
-		 * \ref create_file
-		 * \param data (in) The data to be written and optionally
-		 * encrypted
-		 * \param (in) The number of bytes to be written
-		 * \returns 0 on success, otherwise and error code
-		 */
-		int put_file(int handle, unsigned char* data, ssize_t bytes);
 
 		/*
 		 * \brief Close an open file
@@ -131,6 +121,17 @@ namespace ngsw_sec {
 		 */
 		void close_file(int handle, unsigned char** buf, ssize_t bytes);
 		
+		/**
+		 * \brief Write a file to the filesystem. Encrypt if needed.
+		 * \param handle (in) The handle returned from \ref get_file or
+		 * \ref create_file
+		 * \param data (in) The data to be written and optionally
+		 * encrypted
+		 * \param (in) The number of bytes to be written
+		 * \returns 0 on success, otherwise and error code
+		 */
+		int put_file(const char* pathname, unsigned char* data, ssize_t bytes);
+
 		/*
 		 * \brief Sign the storage
 		 * Write the checksums into the storage file. A file that has
@@ -151,13 +152,16 @@ namespace ngsw_sec {
 
 		void init_storage(const char* name, protection_t protect);
 		bool contains_file(const char* pathname);
-		void compute_digest(const char* pathname, string& digest);
+		bool compute_digest(unsigned char* data, ssize_t bytes, string& digest);
+		void compute_digest_of_file(const char* pathname, string& digest);
 		unsigned char* map_file(const char* pathname, int prot, int* fd, ssize_t* len, ssize_t* rlen);
 		void unmap_file(unsigned char* data, int fd, ssize_t len);
 		bool decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest);
-		bool encrypt_file(const char* pathname, string& digest);
+		bool encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len, string& digest);
+		bool encrypt_file_in_place(const char* pathname, string& digest);
 		bool cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EVP_MD_CTX* digest);
 		bool set_aes_key(int op, AES_KEY *ck);
+		ssize_t encrypted_length(ssize_t of_data);
 
 	};
 

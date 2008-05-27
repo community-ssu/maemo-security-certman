@@ -31,6 +31,9 @@ main(int argc, char* argv[])
 	char* storagename = NULL;
 	storage* ss = NULL;
 	int len;
+	X509_STORE* certs;
+
+	certs = bb5_init();
 
     while (1) {
 		a = getopt(argc, argv, "s:c:a:d:p:u:r:v::D");
@@ -97,8 +100,8 @@ main(int argc, char* argv[])
 				}
 			}
 			delete(ss);
-			return(0);
-			break;
+			ss = NULL;
+			goto end;
 
 		case 'd':
 			if (!ss) {
@@ -122,18 +125,66 @@ main(int argc, char* argv[])
 			{
 				unsigned char* buf;
 				ssize_t len;
-				int handle;
-				ss->get_file(optarg, &handle, &buf, &len);
-				for (ssize_t i = 0; i < len; i++) {
-					putchar(*(buf + i));
+				int handle, rc;
+				
+				rc = ss->get_file(optarg, &handle, &buf, &len);
+				if (0 == rc) {
+					for (ssize_t i = 0; i < len; i++) {
+						putchar(*(buf + i));
+					}
+				} else {
+					ERROR("failed to open file (%d)", rc);
 				}
 				ss->close_file(handle, &buf, len);
 			}
 			break;
 
-		case 'e':
-			ERROR("not implemented yet");
-			return(-1);
+		case 'u':
+			if (!ss) {
+				if (!storagename) {
+					ERROR("create storage first");
+					return(-1);
+				} else
+					ss = new storage(storagename);
+			}
+			{
+				int rc, c;
+				unsigned char* buf;
+				ssize_t len = 0, blen = 1024;
+
+				buf = (unsigned char*)malloc(blen);
+				if (!buf) {
+					ERROR("cannot malloc");
+					return(-1);
+				}
+				do {
+					c = getchar();
+					if (c >= 0) {
+						if (len == blen) {
+							unsigned char* swp;
+
+							blen *= 2;
+							swp = (unsigned char*)malloc(blen);
+							if (!swp) {
+								ERROR("cannot malloc %d", blen);
+								return(-1);
+							}
+							memcpy(swp, buf, len);
+							free(buf);
+							buf = swp;
+						}
+						buf[len++] = (unsigned char)c;
+					} else
+						break;
+				} while (true);
+
+				rc = ss->put_file(optarg, buf, len);
+				if (rc != 0) {
+					ERROR("cannot update '%s' (%d)", optarg, rc);
+				}
+				free(buf);
+			}
+			break;
 
 		case 'r':
 			len = atoi(optarg);
@@ -148,7 +199,7 @@ main(int argc, char* argv[])
 				} else
 					ERROR("cannot malloc");
 			}
-			return(0);
+			goto end;
 		   
 		default:
 			usage();
@@ -161,6 +212,10 @@ main(int argc, char* argv[])
 		delete(ss);
 	} else
 		usage();
+
+  end:
+	X509_STORE_free(certs);
+	bb5_finish();
 
 	return(0);
 }

@@ -11,6 +11,9 @@ extern "C" {
 
 #include <openssl/bio.h>
 #include <openssl/pem.h>
+#include <openssl/err.h>
+#include <openssl/x509v3.h>
+#include <openssl/rand.h>
 
 #include "sec_common.h"
 
@@ -109,6 +112,13 @@ extern "C" {
 	{
 		if (root_key)
 			EVP_PKEY_free(root_key);
+
+		RAND_cleanup();
+		EVP_cleanup();
+		X509_TRUST_cleanup();
+		CRYPTO_cleanup_all_ex_data();
+		ERR_remove_state(0);
+		ERR_free_strings();
 	}
 
 

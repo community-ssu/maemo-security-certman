@@ -10,6 +10,7 @@ using namespace ngsw_sec;
 #include <sys/mman.h>
 #include <sys/fcntl.h>
 
+#include <openssl/err.h>
 #include <openssl/x509v3.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
@@ -30,8 +31,6 @@ using namespace ngsw_sec;
 #define WRAPPOINT 32
 
 static const char sec_root[] = "/secure";
-// static X509_STORE* certs = NULL;
-static int ccount = 0;
 
 #define signature_mark "SIGNATURE:"
 #define key_mark       "CRYPTOKEY:"
@@ -49,6 +48,7 @@ hex2bin(char* hex2str)
 }
 
 
+// TODO: This function contains a number of memory leaks with errors
 void
 storage::init_storage(const char* name, protection_t protect) 
 {
@@ -58,19 +58,20 @@ storage::init_storage(const char* name, protection_t protect)
 	int fd = -1, rc;
 	ssize_t len, rlen;
 	EVP_MD_CTX vfctx;
+	EVP_PKEY* pubkey;
 
 	m_name = name;
 	m_symkey = NULL;
 	m_symkey_len = 0;
 	m_prot = protect;
 
-	if (ccount == 0) {
-		// certs = bb5_init();
-		bb5_init();
-	}
-	ccount++;
 	if (bb5_get_cert() == NULL) {
 		ERROR("Initialization error");
+		return;
+	}
+	pubkey = X509_get_pubkey(bb5_get_cert());
+	if (NULL == pubkey) {
+		ERROR("Cannot get public key");
 		return;
 	}
 
@@ -79,15 +80,13 @@ storage::init_storage(const char* name, protection_t protect)
 	filename.append(name);
 
 	data = map_file(filename.c_str(), O_RDONLY, &fd, &len, &rlen);
-	if (data == MAP_FAILED) {
-
-		if (m_prot == prot_encrypt) {
+	if (MAP_FAILED == data) {
+		if (prot_encrypt == m_prot) {
 			// Generate a new symmetric key and encrypt it by using
 			// the BB5 public key
-			EVP_PKEY* pubkey = X509_get_pubkey(bb5_get_cert());
 			RSA *rsakey = NULL;
 
-			if (pubkey && EVP_PKEY_type(pubkey->type) == EVP_PKEY_RSA) 
+			if (EVP_PKEY_RSA == EVP_PKEY_type(pubkey->type)) 
 				rsakey = EVP_PKEY_get1_RSA(pubkey);
 			
 			if (!rsakey) {
@@ -123,14 +122,14 @@ storage::init_storage(const char* name, protection_t protect)
 											cipkey,
 											rsakey,
 											RSA_PKCS1_PADDING);
+
 				DEBUG(1,"encrypt %d => %d", m_symkey_len, ciplen);
 				RSA_free(rsakey);
-				if (ciplen != RSA_size(rsakey)) {
+				if (RSA_size(rsakey) != ciplen) {
 					ERROR("RSA_public_encrypt failed (%d)", ciplen);
 				}
 				memcpy(m_symkey, cipkey, ciplen);
 				m_symkey_len = ciplen;
-													
 			}
 		}
 
@@ -141,6 +140,7 @@ storage::init_storage(const char* name, protection_t protect)
 		m_symkey_len = CIPKEYLEN;
 	}
 
+	EVP_MD_CTX_init(&vfctx);
 	rc = EVP_VerifyInit(&vfctx, DIGESTTYP());
 	if (rc != EVPOK) {
 		ERROR("EVP_VerifyInit returns %d (%s)", rc, strerror(errno));
@@ -193,14 +193,14 @@ storage::init_storage(const char* name, protection_t protect)
 		DEBUG(1, "checking %d bytes of data", c - (char*)data);
 		rc = EVP_VerifyUpdate(&vfctx, data, c - (char*)data);
 		if (rc != EVPOK) {
-			ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
+			ERROR("EVP_VerifyUpdate returns %d (%d)", rc, errno);
 			return;
 		}
 
 		// Read the stored signature
 		while (c < end && *c != '\n') 
 			c++;
-		if (*c == '\n') {
+		if ('\n' == *c) {
 			c++;
 			while (c < end && *c && mdlen < sizeof(mdref)) {
 				if (*c != '\n') {
@@ -213,25 +213,27 @@ storage::init_storage(const char* name, protection_t protect)
 
 		DEBUG(1, "loaded %d bytes of signature", mdlen);
 
-		rc = EVP_VerifyFinal(&vfctx, mdref, mdlen, X509_get_pubkey(bb5_get_cert()));
+		rc = EVP_VerifyFinal(&vfctx, mdref, mdlen, pubkey);
+		EVP_MD_CTX_cleanup(&vfctx);
+		EVP_PKEY_free(pubkey);
 		if (rc != EVPOK) {
-			ERROR("EVP_VerifyFinal returns %d", rc);
+			ERROR("Storage integrity test failed");
 			return;
 		} else {
-			DEBUG(1, "Checksum file verifies OK");
+			DEBUG(1, "Storage integrity test OK");
 		}
 
 	} else
 		ERROR("invalid signature");
 
-	if (c < end && *c == '\n')
+	if (c < end && '\n' == *c)
 		c++;
 
 	// Check if this is an encrypted storage
 	if (c + strlen(key_mark) >= end
 		|| memcmp(c, key_mark, strlen(key_mark)) != 0)
 	{
-		if (m_prot == prot_encrypt) {
+		if (prot_encrypt == m_prot) {
 			ERROR("missing encryption key");
 			goto end;
 		}
@@ -248,7 +250,7 @@ storage::init_storage(const char* name, protection_t protect)
 			}
 		}
 		c += strlen(key_mark);
-		if (c < end && *c == '\n')
+		if (c < end && '\n' == *c)
 			c++;
 		to = m_symkey;
 		while (c < end && keylen < m_symkey_len) {
@@ -284,9 +286,6 @@ storage::storage(const char* name, protection_t protect)
 
 storage::~storage()
 {
-	ccount--;
-	if (ccount == 0)
-		bb5_finish();
 	if (m_symkey)
 		free(m_symkey);
 }
@@ -305,6 +304,16 @@ storage::get_files(stringlist& names)
 		names.push_back(ii->first.c_str());
 	}
 	return(pos);
+}
+
+
+ssize_t
+storage::encrypted_length(ssize_t of_bytes)
+{
+	if (0 == (of_bytes % AES_BLOCK_SIZE))
+		return(of_bytes + 1);
+	else
+		return (of_bytes + AES_BLOCK_SIZE - (of_bytes % AES_BLOCK_SIZE) + 1);
 }
 
 
@@ -340,34 +349,27 @@ storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len, ssize_t
 	}
 	*rlen = llen = fs.st_size;
 	DEBUG(1, "'%s' is %d bytes long", pathname, llen);
-	if (llen == 0) {
+	if (0 == llen) {
 		close(lfd);
 		ERROR("'%s' is empty", pathname);
 		return((unsigned char*)MAP_FAILED);
 	}
-	/*
-	 * TODO: when reading an encrypted file, how to make sure
-	 * that decrypted pages are not swapped out and encrypted
-	 * content fetched from disk by mmu?
-	 */
-	if (mode == O_RDONLY) {
+
+	if (O_RDONLY == mode) {
 		mflags = MAP_PRIVATE;
-		if (m_prot == prot_sign)
+		if (prot_sign == m_prot)
 			mprot = PROT_READ;
 		else
 			mprot = PROT_READ | PROT_WRITE;
 	} else {
 		mflags = MAP_SHARED;
 		mprot = PROT_READ | PROT_WRITE;
-		if ((llen % AES_BLOCK_SIZE) == 0)
-			llen += 1;
-		else
-			llen += AES_BLOCK_SIZE - (llen % AES_BLOCK_SIZE) + 1;
+		llen = encrypted_length(llen);
 	}
 	
 	res = (unsigned char*)mmap(NULL, llen, mprot, mflags, lfd, 0);
 
-	if (res == MAP_FAILED) {
+	if (MAP_FAILED == res) {
 		close(lfd);
 		ERROR("cannot mmap '%s' of %d bytes", pathname, llen);
 		return((unsigned char*)MAP_FAILED);
@@ -388,55 +390,65 @@ storage::unmap_file(unsigned char* data, int fd, ssize_t len)
 }
 
 
-void
-storage::compute_digest(const char* pathname, string& digest)
+bool
+storage::compute_digest(unsigned char* data, ssize_t bytes, string& digest)
 {
-	int fd, rc;
-	unsigned char* data;
-	ssize_t len, rlen;
-	unsigned int mdlen;
-	char hlp [3];
 	EVP_MD_CTX mdctx;
 	unsigned char md[DIGESTLEN];
-
-	digest.clear();
-	data = map_file(pathname, O_RDONLY, &fd, &len, &rlen);
-	if (data == MAP_FILE) {
-		ERROR("cannot map '%s'", pathname);
-		return;
-	}
+	unsigned int mdlen;
+	char hlp [3];
+	int rc;
 
 	EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
-	if (rc != EVPOK) {
+	if (EVPOK != rc) {
 		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
-		return;
+		return(false);
 	}
 
-	DEBUG(1, "computing digest over %d bytes", len);
+	DEBUG(1, "computing digest over %d bytes", bytes);
 
-	rc = EVP_DigestUpdate(&mdctx, data, len);
-	if (rc != EVPOK) {
+	rc = EVP_DigestUpdate(&mdctx, data, bytes);
+	if (EVPOK != rc) {
 		ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
-		return;
+		return(false);
 	}
 
 	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
 	if (rc != EVPOK) {
 		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
-		return;
+		return(false);
 	}
+	EVP_MD_CTX_cleanup(&mdctx);
+
 	if ((int)mdlen != DIGESTLEN) {
 		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
-		return;
+		return(false);
 	}
 
 	for (unsigned int i = 0; i < mdlen; i++) {
 		sprintf(hlp, "%02x", md[i]);
 		digest.append(hlp,2);
 	}
+	return(true);
+}
+
+
+void
+storage::compute_digest_of_file(const char* pathname, string& digest)
+{
+	int fd, rc;
+	unsigned char* data;
+	ssize_t len, rlen;
+
+	digest.clear();
+	data = map_file(pathname, O_RDONLY, &fd, &len, &rlen);
+	if (MAP_FAILED == data) {
+		ERROR("cannot map '%s'", pathname);
+		return;
+	}
+	compute_digest(data, len, digest);
 	unmap_file(data, fd, len);
-	EVP_MD_CTX_cleanup(&mdctx);
 	DEBUG(1, "Computed digest is '%s'", digest.c_str());
 }
 
@@ -453,12 +465,12 @@ storage::add_file(const char* pathname)
 			  truename.c_str(), m_name.c_str());
 		return;
 	}
-	if (m_prot == prot_encrypt) {
-		if (!encrypt_file(truename.c_str(), digest)) {
+	if (prot_encrypt == m_prot) {
+		if (!encrypt_file_in_place(truename.c_str(), digest)) {
 			return;
 		}
 	} else
-		compute_digest(truename.c_str(), digest);
+		compute_digest_of_file(truename.c_str(), digest);
 	m_contents[truename] = digest;
 	DEBUG(1, "%s => %s", truename.c_str(), digest.c_str());
 }
@@ -488,7 +500,7 @@ storage::verify_file(const char* pathname)
 	absolute_pathname(pathname, truename);
 	ii = m_contents.find(truename);
 
-	if (ii == m_contents.end()) {
+	if ( m_contents.end() == ii) {
 		DEBUG(0, "'%s' not found", truename.c_str());
 		return(false);
 	}
@@ -497,7 +509,7 @@ storage::verify_file(const char* pathname)
 		if (m_prot == prot_encrypt)
 			decrypt_file(truename.c_str(), NULL, NULL, digest);
 		else
-			compute_digest(truename.c_str(), digest);
+			compute_digest_of_file(truename.c_str(), digest);
 		return(ii->second == digest);
 	} else
 		return(false);
@@ -572,7 +584,7 @@ storage::commit(void)
 		for (size_t i = 0; i < (size_t)rc; i++) {
 			sprintf(tmp, "%02x", signmd[i]);
 			signature.append(tmp, 2);
-			if (++cols == WRAPPOINT) {
+			if (WRAPPOINT == ++cols) {
 				signature.append("\n");
 				cols = 0;
 			}
@@ -580,7 +592,7 @@ storage::commit(void)
 		checked_write(fd, signature.c_str(), NULL);
 	}
 
-	if (m_prot == prot_encrypt) {
+	if (prot_encrypt == m_prot) {
 		string key;
 		checked_write(fd, key_mark "\n", NULL);
 
@@ -588,7 +600,7 @@ storage::commit(void)
 		for (int i = 0; i < m_symkey_len; i++) {
 			sprintf(tmp, "%02x", m_symkey[i]);
 			key.append(tmp, 2);
-			if (++cols == WRAPPOINT) {
+			if (WRAPPOINT == ++cols) {
 				key.append("\n");
 				cols = 0;
 			}
@@ -611,9 +623,9 @@ storage::set_aes_key(int op, AES_KEY *ck)
 
 	plainsize = bb5_rsakp_decrypt(0, 0, m_symkey, m_symkey_len, &plakey);
 	if (plainsize > 0) {
-		if (op == AES_ENCRYPT)
+		if (AES_ENCRYPT == op)
 			rc = AES_set_encrypt_key(plakey, 8 * plainsize, ck);
-		else if (op == AES_DECRYPT)
+		else if (AES_DECRYPT == op)
 			rc = AES_set_decrypt_key(plakey, 8 * plainsize, ck);
 		else {
 			ERROR("unsupported cryptop %d", op);
@@ -656,7 +668,7 @@ storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EV
 
 	from = data;
 	while (len > 0) {
-		if (op == AES_ENCRYPT) {
+		if (AES_ENCRYPT == op) {
 			if (digest) {
 				rc = EVP_DigestUpdate(digest, from, AES_BLOCK_SIZE);
 				if (rc != EVPOK) {
@@ -700,7 +712,7 @@ storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EV
 
 
 bool
-storage::encrypt_file(const char* pathname, string& digest)
+storage::encrypt_file_in_place(const char* pathname, string& digest)
 {
 	unsigned char* data;
 	ssize_t len, rlen, tst;
@@ -710,7 +722,6 @@ storage::encrypt_file(const char* pathname, string& digest)
 	char hlp [3];
 	EVP_MD_CTX mdctx;
 	unsigned char md[DIGESTLEN];
-
 
 	data = map_file(pathname, O_RDWR, &fd, &len, &rlen);
 	if (!data) {
@@ -767,6 +778,85 @@ storage::encrypt_file(const char* pathname, string& digest)
 }
 
 
+bool 
+storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len, string& digest)
+{
+	unsigned char* locdata;
+	ssize_t rlen, tst;
+	int fd, rc;
+	bool res;
+	unsigned int mdlen;
+	char hlp [3];
+	EVP_MD_CTX mdctx;
+	unsigned char md[DIGESTLEN];
+
+	rlen = encrypted_length(len);
+
+	locdata = (unsigned char*) malloc(rlen);
+	if (!locdata) {
+		ERROR("cannot allocate");
+		return(false);
+	}
+
+	memcpy(locdata, from_buf, len);
+	// Fill the tail with zeroes
+	memset(locdata + len, '\0', rlen - len);
+
+	EVP_MD_CTX_init(&mdctx);
+	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
+	if (rc != EVPOK) {
+		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
+		free(locdata);
+		return(false);
+	}
+
+	res = cryptop(AES_ENCRYPT, locdata, NULL, rlen - 1, &mdctx);
+	if (res) {
+		*(locdata + rlen - 1) = rlen - len;
+	}
+
+	fd = open(pathname, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+	if (fd < 0) {
+		ERROR("cannot create '%s' (%d)", pathname, errno);
+		free(locdata);
+		return(false);
+	}
+
+	tst = write(fd, locdata, rlen);
+	if (tst != rlen) {
+		ERROR("cannot write %d bytes to '%s', written only %d (%d)", 
+			  rlen, pathname, tst, errno);
+		free(locdata);
+		close(fd);
+		return(false);
+	}
+
+	free(locdata);
+	close(fd);
+
+	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
+	if (rc != EVPOK) {
+		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
+		return(false);
+	}
+
+	if ((int)mdlen != DIGESTLEN) {
+		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
+		return(false);
+	}
+
+	for (unsigned int i = 0; i < mdlen; i++) {
+		sprintf(hlp, "%02x", md[i]);
+		digest.append(hlp,2);
+	}
+
+	EVP_MD_CTX_cleanup(&mdctx);
+	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+
+	return(res);
+}
+
+
 bool
 storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest)
 {
@@ -780,16 +870,16 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 
 	digest.clear();
 	data = map_file(pathname, O_RDONLY, &fd, &llen, &rlen);
-	if (data == MAP_FILE) {
+	if (MAP_FAILED == data) {
 		ERROR("cannot map '%s'", pathname);
 		return(false);
 	}
 	rlen -= *(data + llen - 1);
 	DEBUG(1, "real len is %d bytes", rlen);
 	if (to_buf) {
-		*to_buf = locbuf = (unsigned char*) malloc (rlen);
+		*to_buf = locbuf = (unsigned char*) malloc (llen - 1);
 		if (!locbuf) {
-			ERROR("cannot allocate %d bytes", rlen);
+			ERROR("cannot allocate %d bytes", llen - 1);
 			return(false);
 		}
 		memset(locbuf, '\0', rlen);
@@ -798,7 +888,7 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 
 	EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
-	if (rc != EVPOK) {
+	if (EVPOK != rc) {
 		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
 		return(false);
 	}
@@ -827,6 +917,7 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 		*len = rlen;
 	EVP_MD_CTX_cleanup(&mdctx);
 	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+	return(true);
 }
 
 
@@ -846,7 +937,7 @@ storage::get_file(const char* pathname, int* handle, unsigned char** to_buf, ssi
 		return(EINVAL);
 	}
 
-	if (m_prot == prot_encrypt) {
+	if (prot_encrypt == m_prot) {
 		if (decrypt_file(truename.c_str(), to_buf, bytes, digest)) {
 			if (digest == m_contents[truename]) {
 				*handle = -1;
@@ -855,27 +946,73 @@ storage::get_file(const char* pathname, int* handle, unsigned char** to_buf, ssi
 				ERROR("Digest does not match");
 				return(-1);
 			}
-		} else
+		} else {
+			ERROR("Failed to decrypt");
 			return(-1);
-	} else {
-		// TODO: this should be made a bit more atomaric
-		if (!verify_file(pathname)) {
-			ERROR("'%s' does not match checksum", truename.c_str());
-			return(EINVAL);
 		}
+	} else {
 		*to_buf = map_file(truename.c_str(), O_RDONLY, handle, bytes, &rlen);
-		if (*to_buf) {
-			return(0);
-		} else
+		if (MAP_FAILED != *to_buf) {
+			compute_digest(*to_buf, *bytes, digest);
+			if (digest == m_contents[truename]) {
+				return(0);
+			} else {
+				ERROR("Digest does not match");
+				return(-1);
+			}
+		} else {
+			ERROR("map failed");
 			return(errno);
+		}
 	}
 }
+
+
+int
+storage::put_file(const char* pathname, unsigned char* data, ssize_t bytes)
+{
+	string truename, digest;
+	ssize_t rlen;
+	int fd, rc;
+
+	if (!data || !bytes) {
+		return(EINVAL);
+	}
+
+	if (prot_encrypt == m_prot) {
+		if (!encrypt_file(pathname, data, bytes, digest)) {
+			return(EFAULT);
+		}
+
+	} else {
+		fd = open(pathname, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+		if (-1 == fd) {
+			ERROR("cannot open '%s' (%d)", pathname, errno);
+			return(errno);
+		}
+
+		rlen = write(fd, data, bytes);
+		if (rlen != bytes) {
+			ERROR("cannot write %d bytes to '%s', written only %d (%d)", 
+				  bytes, pathname, rlen, errno);
+			close(fd);
+			return(errno);
+		}
+
+		close(fd);
+		compute_digest(data, bytes, digest);
+	}
+
+	absolute_pathname(pathname, truename);
+	m_contents[truename] = digest;
+}
+
 
 
 void
 storage::close_file(int handle, unsigned char** buf, ssize_t bytes)
 {
-	if (m_prot == prot_encrypt) {
+	if (prot_encrypt == m_prot) {
 		free(*buf);
 	} else {
 		unmap_file(*buf, handle, bytes);
