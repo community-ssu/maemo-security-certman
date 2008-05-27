@@ -17,6 +17,8 @@ extern void        bb5_finish();
 extern ssize_t     bb5_get_random(unsigned char *buf, size_t len);
 extern X509*       bb5_get_cert(void);
 extern int         bb5_rsakp_sign(EVP_MD_CTX* ctx, unsigned char* md, size_t maxlen);
+extern ssize_t     bb5_rsakp_decrypt(int set, int key, const unsigned char *msg,
+									 size_t len, unsigned char **plain);
 
 #ifdef	__cplusplus
 }

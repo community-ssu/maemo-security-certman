@@ -1,12 +1,14 @@
 /* -*- mode:c; tab-width:4; c-basic-offset:4; -*- */
 
 #include <sys/time.h>
+#include <sys/fcntl.h>
 
 extern "C" {
 #include "libbb5stub.h"
 }
 
 #include <errno.h>
+
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 
@@ -147,13 +149,51 @@ extern "C" {
 	ssize_t 
 	bb5_get_random(unsigned char *buf, size_t len)
 	{
+		int fd;
 		ssize_t res = 0;
+
+		fd = open("/dev/random", O_RDONLY);
+		if (fd != -1) {
+			res = read(fd, buf, len);
+			if (res >= 0) {
+				len -= res;
+			} else
+				ERROR("cannot read /dev/random");
+			close(fd);
+		}
+		// backup method
 		while (len--) {
 			*buf++ = rand() % 256;
 			res++;
 		}
 		return(res);
 	}
+
+
+	ssize_t     
+	bb5_rsakp_decrypt(int set, 
+					  int key, 
+					  const unsigned char *msg,
+					  size_t len, 
+					  unsigned char **plain) 
+	{
+		ssize_t res;
+		RSA *rsakey = EVP_PKEY_get1_RSA(root_key);
+
+		if (!rsakey) {
+			ERROR("No RSA key available");
+			return(-1);
+		}
+		*plain = (unsigned char*) malloc(RSA_size(rsakey));
+		if (!*plain) {
+			ERROR("cannot malloc");
+			return(-1);
+		}
+		res = RSA_private_decrypt(len, msg, *plain, rsakey, RSA_PKCS1_PADDING);
+		RSA_free(rsakey);
+		return(res);
+	}
+
 
 } // extern "C"
 

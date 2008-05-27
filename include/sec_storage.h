@@ -23,6 +23,7 @@
 
 // OpenSSL headers
 #include <openssl/evp.h>
+#include <openssl/aes.h>
 
 // STL headers
 #include <string.h>
@@ -36,21 +37,6 @@ namespace ngsw_sec {
 
 	class storage
 	{
-	private:
-		map<string, string> m_contents;
-		string m_name;
-		int m_fd;
-		unsigned char* m_symkey;
-		int m_symkey_len;
-
-		bool contains_file(const char* pathname);
-		void compute_digest(const char* pathname, string& digest);
-		unsigned char* map_file(const char* pathname, int prot, int* fd, ssize_t* len, ssize_t* rlen);
-		void unmap_file(unsigned char* data, int fd, ssize_t len);
-		bool decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest);
-		bool encrypt_file(const char* pathname, string& digest);
-		bool cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EVP_MD_CTX* digest);
-
 	public:
 
 		/**
@@ -157,7 +143,22 @@ namespace ngsw_sec {
 
 	private:
 		protection_t m_prot;
+		map<string, string> m_contents;
+		string m_name;
+		int m_fd;
+		unsigned char* m_symkey;
+		int m_symkey_len;
+
 		void init_storage(const char* name, protection_t protect);
+		bool contains_file(const char* pathname);
+		void compute_digest(const char* pathname, string& digest);
+		unsigned char* map_file(const char* pathname, int prot, int* fd, ssize_t* len, ssize_t* rlen);
+		void unmap_file(unsigned char* data, int fd, ssize_t len);
+		bool decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest);
+		bool encrypt_file(const char* pathname, string& digest);
+		bool cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EVP_MD_CTX* digest);
+		bool set_aes_key(int op, AES_KEY *ck);
+
 	};
 
 };

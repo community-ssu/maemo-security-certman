@@ -14,6 +14,7 @@ using namespace ngsw_sec;
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/aes.h>
+#include <openssl/rand.h>
 
 #include "sec_common.h"
 #include "libbb5stub.h"
@@ -22,6 +23,7 @@ using namespace ngsw_sec;
 #define DIGESTLEN EVP_MD_size(DIGESTTYP())
 #define EVPOK 1
 #define SYMKEYLEN 32
+#define CIPKEYLEN 128
 
 // This is just pretty printing; wrap long hexadecimal 
 // lines after this many pairs
@@ -59,7 +61,7 @@ storage::init_storage(const char* name, protection_t protect)
 
 	m_name = name;
 	m_symkey = NULL;
-	m_symkey_len = SYMKEYLEN;
+	m_symkey_len = 0;
 	m_prot = protect;
 
 	if (ccount == 0) {
@@ -79,21 +81,64 @@ storage::init_storage(const char* name, protection_t protect)
 	data = map_file(filename.c_str(), O_RDONLY, &fd, &len, &rlen);
 	if (data == MAP_FAILED) {
 
-		// Generate a new symkey
 		if (m_prot == prot_encrypt) {
-			m_symkey = (unsigned char*)malloc(m_symkey_len);
+			// Generate a new symmetric key and encrypt it by using
+			// the BB5 public key
+			EVP_PKEY* pubkey = X509_get_pubkey(bb5_get_cert());
+			RSA *rsakey = NULL;
+
+			if (pubkey && EVP_PKEY_type(pubkey->type) == EVP_PKEY_RSA) 
+				rsakey = EVP_PKEY_get1_RSA(pubkey);
+			
+			if (!rsakey) {
+				ERROR("No RSA public key available");
+				goto end;
+			}
+
+			m_symkey_len = SYMKEYLEN;
+			m_symkey = (unsigned char*)malloc(RSA_size(rsakey));
 			if (!m_symkey) {
 				ERROR("allocation error");
 			}
+
+			// Seed RSA PRNG
+			rc = bb5_get_random(m_symkey, CIPKEYLEN);
+			if (rc != CIPKEYLEN) {
+				ERROR("out of random numbers");
+			}
+			RAND_seed(m_symkey, CIPKEYLEN);
+
+			// Generate random encryption key
 			rc = bb5_get_random(m_symkey, m_symkey_len);
 			if (rc != m_symkey_len) {
 				ERROR("cannot generate new encryption key");
+				goto end;
+
+			} else {
+				unsigned char cipkey [RSA_size(rsakey)];
+				int ciplen;
+
+				ciplen = RSA_public_encrypt(m_symkey_len,
+											m_symkey,
+											cipkey,
+											rsakey,
+											RSA_PKCS1_PADDING);
+				DEBUG(1,"encrypt %d => %d", m_symkey_len, ciplen);
+				RSA_free(rsakey);
+				if (ciplen != RSA_size(rsakey)) {
+					ERROR("RSA_public_encrypt failed (%d)", ciplen);
+				}
+				memcpy(m_symkey, cipkey, ciplen);
+				m_symkey_len = ciplen;
+													
 			}
-			// TODO: encrypt the key by BB5 secret key
 		}
 
 		DEBUG(1, "'%s' does not exist, created", filename.c_str());
 		goto end;
+
+	} else {
+		m_symkey_len = CIPKEYLEN;
 	}
 
 	rc = EVP_VerifyInit(&vfctx, DIGESTTYP());
@@ -557,13 +602,46 @@ end:
 
 
 bool
+storage::set_aes_key(int op, AES_KEY *ck)
+{
+	unsigned char* plakey;
+	ssize_t plainsize;
+	bool res = true;
+	int rc = 0;
+
+	plainsize = bb5_rsakp_decrypt(0, 0, m_symkey, m_symkey_len, &plakey);
+	if (plainsize > 0) {
+		if (op == AES_ENCRYPT)
+			rc = AES_set_encrypt_key(plakey, 8 * plainsize, ck);
+		else if (op == AES_DECRYPT)
+			rc = AES_set_decrypt_key(plakey, 8 * plainsize, ck);
+		else {
+			ERROR("unsupported cryptop %d", op);
+			res = false;
+		}
+		memset(plakey, '\0', plainsize);
+		if (rc != 0) {
+			ERROR("Cannot set AES key (%d)", rc);
+			res = false;
+		}
+	} else {
+		ERROR("cannot decrypt (%d)", plainsize);
+	}
+	if (plakey)
+		free(plakey);
+	return(res);
+}
+
+
+bool
 storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EVP_MD_CTX* digest)
 {
-	int rc;
+	int rc, i;
 	AES_KEY ck;
 	unsigned char *from;
 	unsigned char ibuf[AES_BLOCK_SIZE];
 	unsigned char obuf[AES_BLOCK_SIZE];
+	unsigned char cnt = 0;
 
 	if (len % AES_BLOCK_SIZE != 0) {
 		ERROR("invalid length %d", len);
@@ -571,48 +649,50 @@ storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EV
 	}
 
 	// TODO: Decrypt the symkey
-
-	if (op == AES_ENCRYPT)
-		rc = AES_set_encrypt_key(m_symkey, 8 * m_symkey_len, &ck);
-	else if (op == AES_DECRYPT)
-		rc = AES_set_decrypt_key(m_symkey, 8 * m_symkey_len, &ck);
-	else {
-		ERROR("unsupported cryptop %d", op);
+	if (!set_aes_key(op, &ck)) {
+		ERROR("no cryptokey available");
 		return(false);
 	}
-
-	// TODO: zero memory used by the plaintext symkey
-	DEBUG(1, "AES set key ret %d", rc);
 
 	from = data;
 	while (len > 0) {
 		if (op == AES_ENCRYPT) {
-			// TODO: check if AES can be performed in-place without
-			// memcpy
-			AES_encrypt(from, obuf, &ck);
 			if (digest) {
 				rc = EVP_DigestUpdate(digest, from, AES_BLOCK_SIZE);
 				if (rc != EVPOK) {
 					ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
 				}
 			}
-			memcpy(from, obuf, AES_BLOCK_SIZE);
+			for (i = 0; i < AES_BLOCK_SIZE; i++)
+				from[i] ^= cnt;
+			AES_encrypt(from, from, &ck);
 		} else {
-			AES_decrypt(from, obuf, &ck);
+			if (!to) {
+				AES_decrypt(from, obuf, &ck);
+				for (i = 0; i < AES_BLOCK_SIZE; i++)
+					obuf[i] ^= cnt;
+			} else {
+				AES_decrypt(from, to, &ck);
+				for (i = 0; i < AES_BLOCK_SIZE; i++)
+					to[i] ^= cnt;
+			}
 			if (digest) {
-				rc = EVP_DigestUpdate(digest, obuf, AES_BLOCK_SIZE);
+				if (to)
+					rc = EVP_DigestUpdate(digest, to, AES_BLOCK_SIZE);
+				else
+					rc = EVP_DigestUpdate(digest, obuf, AES_BLOCK_SIZE);
 				if (rc != EVPOK) {
 					ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
 					abort();
 				}
 			}
 			if (to) {
-				memcpy(to, obuf, AES_BLOCK_SIZE);
 				to += AES_BLOCK_SIZE;
 			}
 		}
 		from += AES_BLOCK_SIZE;
 		len -= AES_BLOCK_SIZE;
+		cnt++;
 	}
 	memset(&ck, '\0', sizeof(ck));
 	return(true);
@@ -623,7 +703,7 @@ bool
 storage::encrypt_file(const char* pathname, string& digest)
 {
 	unsigned char* data;
-	ssize_t len, rlen;
+	ssize_t len, rlen, tst;
 	int fd, rc;
 	bool res;
 	unsigned int mdlen;
@@ -653,8 +733,15 @@ storage::encrypt_file(const char* pathname, string& digest)
 	}
 
 	// write the tail
-	DEBUG(0, "lseek ret %d", lseek(fd, rlen, SEEK_SET));
-	DEBUG(0, "write ret %d", write(fd, data + rlen, len - rlen));
+	tst = lseek(fd, rlen, SEEK_SET);
+	if (tst != rlen) {
+		ERROR("Seek error");
+	}
+	tst = write(fd, data + rlen, len - rlen);
+	if (tst <= 0) {
+		ERROR("Write error");
+	}
+
 	unmap_file(data, fd, len);
 
 	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
@@ -736,7 +823,8 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 		digest.append(hlp,2);
 	}
 	unmap_file(data, fd, llen);
-	*len = rlen;
+	if (len)
+		*len = rlen;
 	EVP_MD_CTX_cleanup(&mdctx);
 	DEBUG(1, "Computed digest is '%s'", digest.c_str());
 }
