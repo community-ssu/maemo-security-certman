@@ -21,13 +21,13 @@
 #ifndef SEC_STORAGE_H
 #define SEC_STORAGE_H
 
+#include <string.h>
+
 // OpenSSL headers
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 
 // STL headers
-#include <string.h>
-
 #include <string>
 #include <vector>
 #include <map>
@@ -40,14 +40,19 @@ namespace ngsw_sec {
 	public:
 
 		/**
-		 * \brief The protection level astorage
+		 * \brief The protection level of a storage. It's given
+		 * when a storage is created and cannot be changed
+		 * afterwards.
 		 */
 		typedef enum {prot_sign, prot_encrypt} protection_t;
 		
 		/**
-		 * \brief Create a new storage or open am existing one
+		 * \brief Create a new storage or open an existing one
 		 * \param name (in) The logical name of the storage
-		 * \param protect (in) The protection level of the storage
+		 * \param protect (in) The protection level of the storage.
+		 * If the storage exists already, the parameter is 
+		 * ignored (or should an error be raised if the parameter
+		 * does not match?)
 		 */
 		storage(const char* name, protection_t protect);
 
@@ -98,29 +103,27 @@ namespace ngsw_sec {
 		 * \brief Read an entire file into memory. Verification
 		 * and decryption are performed automatically.
 		 * \param pathname (in) The name of the file
-		 * \param handle (out) A handle to the file
 		 * \param to_buf (out) The buffer where the 
-		 * (plaintext) contents are copied. The parameter
-		 * needs not to have any value at entry. Use close_file
-		 * to release the buffer.
+		 * file contents are copied. Decryption is done
+		 * automatically if needed. The parameter
+		 * needs not to have any value at entry. Use 
+		 * \ref release_buffer to release the returned
+		 * buffer after use.
 		 * \param bytes (out) The number of bytes available
 		 * in the buffer.
 		 * \returns 0 on success, otherwise an error code
 		 */
 		int get_file(const char* pathname, 
-					 int* handle, 
 					 unsigned char** to_buf, 
 					 ssize_t* bytes);
-
-		/*
-		 * \brief Close an open file
-		 * \param handle (in) The handle returned from \ref get_file or
-		 * \ref create_file
-		 * \param buf (in) The buffer returned from \ref get_file or
-		 * NULL
+	
+		/**
+		 * \brief Release a buffer
+		 * \param buf The buffer to be released, returned 
+		 * by \ref get_file
 		 */
-		void close_file(int handle, unsigned char** buf, ssize_t bytes);
-		
+		void release_buffer(unsigned char* buf) {if (buf) free(buf);}
+	
 		/**
 		 * \brief Write a file to the filesystem. Encrypt if needed.
 		 * \param handle (in) The handle returned from \ref get_file or

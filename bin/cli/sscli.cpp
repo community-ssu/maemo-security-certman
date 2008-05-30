@@ -125,9 +125,9 @@ main(int argc, char* argv[])
 			{
 				unsigned char* buf;
 				ssize_t len;
-				int handle, rc;
+				int rc;
 				
-				rc = ss->get_file(optarg, &handle, &buf, &len);
+				rc = ss->get_file(optarg, &buf, &len);
 				if (0 == rc) {
 					for (ssize_t i = 0; i < len; i++) {
 						putchar(*(buf + i));
@@ -135,7 +135,7 @@ main(int argc, char* argv[])
 				} else {
 					ERROR("failed to open file (%d)", rc);
 				}
-				ss->close_file(handle, &buf, len);
+				ss->release_buffer(buf);
 			}
 			break;
 

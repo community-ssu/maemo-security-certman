@@ -1,4 +1,11 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
+/**
+
+   \file sec_storage.cpp
+   \ingroup sec_storage
+   \brief The protected storage implementation
+
+*/
 
 #include "sec_storage.h"
 using namespace ngsw_sec;
@@ -922,10 +929,13 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 
 
 int
-storage::get_file(const char* pathname, int* handle, unsigned char** to_buf, ssize_t* bytes)
+storage::get_file(const char* pathname, unsigned char** to_buf, ssize_t* bytes)
 {
 	string truename, digest;
-	ssize_t rlen;
+	ssize_t rlen, llen;
+	unsigned char* data = NULL;
+	int fd, res = 0;
+	
 
 	if (!to_buf || !bytes) {
 		return(EINVAL);
@@ -940,7 +950,6 @@ storage::get_file(const char* pathname, int* handle, unsigned char** to_buf, ssi
 	if (prot_encrypt == m_prot) {
 		if (decrypt_file(truename.c_str(), to_buf, bytes, digest)) {
 			if (digest == m_contents[truename]) {
-				*handle = -1;
 				return(0);
 			} else {
 				ERROR("Digest does not match");
@@ -950,21 +959,36 @@ storage::get_file(const char* pathname, int* handle, unsigned char** to_buf, ssi
 			ERROR("Failed to decrypt");
 			return(-1);
 		}
+
 	} else {
-		*to_buf = map_file(truename.c_str(), O_RDONLY, handle, bytes, &rlen);
-		if (MAP_FAILED != *to_buf) {
-			compute_digest(*to_buf, *bytes, digest);
+		data = map_file(truename.c_str(), O_RDONLY, &fd, &llen, &rlen);
+		if (MAP_FAILED != data) {
+			compute_digest(data, llen, digest);
 			if (digest == m_contents[truename]) {
-				return(0);
+				*to_buf = (unsigned char*) malloc(llen);
+				if (NULL != *to_buf) {
+					memcpy(*to_buf, data, llen);
+					*bytes = llen;
+				} else {
+					ERROR("cannot allocate '%d' bytes", *bytes);
+					res = -1;
+					goto end;
+				}
 			} else {
 				ERROR("Digest does not match");
-				return(-1);
+				res = -1;
+				goto end;
 			}
 		} else {
 			ERROR("map failed");
 			return(errno);
 		}
 	}
+  end:
+	if (data) {
+		unmap_file(data, fd, *bytes);
+	}
+	return(res);
 }
 
 
@@ -1005,17 +1029,4 @@ storage::put_file(const char* pathname, unsigned char* data, ssize_t bytes)
 
 	absolute_pathname(pathname, truename);
 	m_contents[truename] = digest;
-}
-
-
-
-void
-storage::close_file(int handle, unsigned char** buf, ssize_t bytes)
-{
-	if (prot_encrypt == m_prot) {
-		free(*buf);
-	} else {
-		unmap_file(*buf, handle, bytes);
-		*buf = NULL;
-	}
 }
