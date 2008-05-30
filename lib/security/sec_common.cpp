@@ -12,6 +12,7 @@ extern "C" {
 
 int debug_level = 0;
 
+
 void
 print_openssl_errors(void)
 {
@@ -21,15 +22,14 @@ print_openssl_errors(void)
 	int line, flags;
 	char buf[256];
 
-	while (
-		(l = ERR_get_error_line_data(&file,&line,&data,&flags))
-		!= 0
-		) {
+	while ((l = ERR_get_error_line_data(&file,&line,&data,&flags)) != 0) 
+	{
 		ERR_error_string_n(l, buf, sizeof(buf));
 		fprintf(stderr, "%s(%d):%s:%s\n", file, line, buf,
 				(flags & ERR_TXT_STRING) ? data : "");
 	}
 }
+
 
 bool
 absolute_pathname(const char* pathname, string& to_this)
@@ -40,6 +40,9 @@ absolute_pathname(const char* pathname, string& to_this)
 	char cdirname [PATH_MAX];
 	char* dirsep = NULL;
 	bool is_local = false;
+
+	if ('\0' == *pathname)
+		return(false);
 
 	rc = stat(pathname, &fs);
 	if (rc == -1) {

@@ -1,4 +1,4 @@
-SUBDIRS=libbb5 security certman DBus
+SUBDIRS=libbb5 security certman
 
 all:
 	@for d in $(SUBDIRS) ; do if [ -d $$d ] ; then cd $$d ; make ; cd .. ; fi ; done

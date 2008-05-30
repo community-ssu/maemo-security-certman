@@ -147,7 +147,7 @@ storage::init_storage(const char* name, protection_t protect)
 		m_symkey_len = CIPKEYLEN;
 	}
 
-	EVP_MD_CTX_init(&vfctx);
+	// EVP_MD_CTX_init(&vfctx);
 	rc = EVP_VerifyInit(&vfctx, DIGESTTYP());
 	if (rc != EVPOK) {
 		ERROR("EVP_VerifyInit returns %d (%s)", rc, strerror(errno));
@@ -222,8 +222,8 @@ storage::init_storage(const char* name, protection_t protect)
 
 		rc = EVP_VerifyFinal(&vfctx, mdref, mdlen, pubkey);
 		EVP_MD_CTX_cleanup(&vfctx);
-		EVP_PKEY_free(pubkey);
 		if (rc != EVPOK) {
+			EVP_PKEY_free(pubkey);
 			ERROR("Storage integrity test failed");
 			return;
 		} else {
@@ -232,6 +232,8 @@ storage::init_storage(const char* name, protection_t protect)
 
 	} else
 		ERROR("invalid signature");
+
+	EVP_PKEY_free(pubkey);
 
 	if (c < end && '\n' == *c)
 		c++;
@@ -320,7 +322,7 @@ storage::encrypted_length(ssize_t of_bytes)
 	if (0 == (of_bytes % AES_BLOCK_SIZE))
 		return(of_bytes + 1);
 	else
-		return (of_bytes + AES_BLOCK_SIZE - (of_bytes % AES_BLOCK_SIZE) + 1);
+		return(of_bytes + AES_BLOCK_SIZE - (of_bytes % AES_BLOCK_SIZE) + 1);
 }
 
 
@@ -406,7 +408,7 @@ storage::compute_digest(unsigned char* data, ssize_t bytes, string& digest)
 	char hlp [3];
 	int rc;
 
-	EVP_MD_CTX_init(&mdctx);
+	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (EVPOK != rc) {
 		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
@@ -557,7 +559,8 @@ storage::commit(void)
 		return;
 	}
 
-	EVP_SignInit(&signctx, EVP_sha1());
+	// EVP_MD_CTX_init(&signctx);
+	rc = EVP_SignInit(&signctx, EVP_sha1());
 
 	for (
 		map<string, string>::const_iterator ii = m_contents.begin();
@@ -582,6 +585,7 @@ storage::commit(void)
 	}
 
 	rc = bb5_rsakp_sign(&signctx, signmd, sizeof(signmd));
+
 	if (rc > 0) {
 		string signature;
 		
@@ -598,6 +602,8 @@ storage::commit(void)
 		}
 		checked_write(fd, signature.c_str(), NULL);
 	}
+
+	EVP_MD_CTX_cleanup(&signctx);
 
 	if (prot_encrypt == m_prot) {
 		string key;
@@ -738,7 +744,7 @@ storage::encrypt_file_in_place(const char* pathname, string& digest)
 	// Fill the tail with zeroes
 	memset(data + rlen, '\0', len - rlen);
 
-	EVP_MD_CTX_init(&mdctx);
+	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (rc != EVPOK) {
 		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
@@ -809,7 +815,7 @@ storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len
 	// Fill the tail with zeroes
 	memset(locdata + len, '\0', rlen - len);
 
-	EVP_MD_CTX_init(&mdctx);
+	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (rc != EVPOK) {
 		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
@@ -893,7 +899,7 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 	} else
 		locbuf = NULL;
 
-	EVP_MD_CTX_init(&mdctx);
+	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (EVPOK != rc) {
 		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
@@ -940,6 +946,8 @@ storage::get_file(const char* pathname, unsigned char** to_buf, ssize_t* bytes)
 	if (!to_buf || !bytes) {
 		return(EINVAL);
 	}
+	*to_buf = NULL;
+	*bytes = 0;
 
 	absolute_pathname(pathname, truename);
 	if (!contains_file(truename.c_str())) {

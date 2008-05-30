@@ -220,11 +220,7 @@ extern "C" {
 	int 
 	ngsw_certman_open(X509_STORE** my_cert_store)
 	{
-		// OpenSSL initialization.
-		CRYPTO_malloc_init();
-		// OPENSSL_config(NULL);
-		ERR_load_crypto_strings();
-		OpenSSL_add_all_algorithms();
+		bb5_init();
 		*my_cert_store = X509_STORE_new();
 		X509_STORE_add_cert(*my_cert_store, bb5_get_cert());
 		return(0);
@@ -258,12 +254,7 @@ extern "C" {
 	ngsw_certman_close(X509_STORE* my_cert_store)
 	{
 		X509_STORE_free(my_cert_store);
-		RAND_cleanup();
-		EVP_cleanup();
-		X509_TRUST_cleanup();
-		CRYPTO_cleanup_all_ex_data();
-		ERR_remove_state(0);
-		ERR_free_strings();
+		bb5_finish();
 		return(0);
 	}
 

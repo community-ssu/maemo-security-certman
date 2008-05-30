@@ -92,6 +92,12 @@ extern "C" {
 		X509_STORE* cstore;
 		struct timeval now;
 
+		CRYPTO_malloc_init();
+		OPENSSL_config(NULL);
+		ERR_load_crypto_strings();
+		OpenSSL_add_all_algorithms();
+		// RSA_set_default_method(RSA_PKCS1_SSLeay());
+
 		cstore = X509_STORE_new();
 		if (cstore == NULL) {
 			ERROR("cannot create X509 store");
