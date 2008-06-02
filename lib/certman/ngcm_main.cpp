@@ -38,8 +38,16 @@ using namespace std;
 #include <libbb5stub.h>
 #include <sec_common.h>
 #include <sec_storage.h>
+using namespace ngsw_sec;
 
 #include "ngcm_x509_cert.h"
+
+// Some initialization with hard-coded constants.
+// Some of these should maybe be moved to a config
+// file...
+
+static const char cert_dir_name [] = "/etc/certs";
+static const char priv_dir_name [] = ".certs";
 
 const string path_sep("/");
 vector<string> cert_fn_exts;
@@ -207,11 +215,200 @@ load_certs(vector<string> &certnames,
 	return(true);
 }
 
-// Some initialization with hard-coded constants.
-// Some of these should maybe be moved to a config
-// file...
 
-static const char cert_dir_name [] = "/etc/certs";
+#define SVAL(s) (s?s:"")
+
+
+// The local certificate repository is application specific, and created
+// in a dirman ectory that contains the command-line
+static void
+local_cert_dir(string& to_this, string& storename)
+{
+	string curbinname;
+
+	to_this.assign(SVAL(getenv("HOME")));
+	to_this.append(path_sep);
+	to_this.append(priv_dir_name);
+	to_this.append(path_sep);
+	absolute_pathname(SVAL(getenv("_")), curbinname);
+	for (int i = 0; i < curbinname.length(); i++) {
+		if (curbinname[i] == path_sep[0])
+			curbinname[i] = '.';
+	}
+	to_this.append(curbinname);
+	storename.assign(SVAL(getenv("USER")));
+	storename.append(curbinname);
+	DEBUG(1, "\nlocal cert dir = '%s'\nprivate store name = '%s'", 
+		  to_this.c_str(), storename.c_str());
+}
+
+
+static int
+create_if_needed(const char* dir)
+{
+	struct stat fs;
+	int rc;
+	
+	DEBUG(2, "Test '%s'", dir);
+	rc = stat(dir, &fs);
+	if (-1 == rc) {
+		if (errno == ENOENT) {
+			DEBUG(2, "Create '%s'", dir);
+			rc = mkdir(dir, 0700);
+			if (-1 != rc) {
+				return(0);
+			} else {
+				DEBUG(2, "Creation failed (%s)", strerror(rc));
+				return(errno);
+			}
+		} else {
+			DEBUG(2, "Error other than ENOENT with '%s' (%s)", 
+				  dir, strerror(rc));
+			return(errno);
+		}
+	} else {
+		if (!S_ISDIR(fs.st_mode)) {
+			DEBUG(2, "overlapping non-directory");
+			return(EEXIST);
+		} else
+			return(0);
+	}
+}
+
+
+static int
+create_private_directory(const char* dir)
+{
+	string locbuf;
+	char* sep;
+	struct stat fs;
+	int rc;
+
+	if (!dir)
+		return(EINVAL);
+
+	locbuf.assign(dir);
+	sep = (char*)locbuf.c_str();
+	sep++;
+	
+	while (sep && *sep) {
+		sep = strchr(sep, path_sep[0]);
+		if (sep) {
+			*sep = '\0';
+			rc = create_if_needed(locbuf.c_str());
+			if (0 != rc) {
+				return(rc);
+			}
+			*sep = path_sep[0];
+			sep++;
+		}
+	}
+	rc = create_if_needed(dir);
+	return(rc);
+}
+
+
+static void
+remove_spec_chars(char* in_string)
+{
+	char* to, *from = in_string;
+
+	to = in_string;
+	while (*from) {
+		if (isalnum(*from) || strchr("_-", *from))
+			*to++ = tolower(*from);
+		from++;
+	}
+	*to = '\0';
+}
+
+
+static void
+make_unique_filename(
+					 const char* of_string, 
+					 const char* with_ext, 
+					 const char* out_dir, 
+					 char* to_buf, 
+					 int maxlen
+) {
+	const char* c;
+	char* to;
+	char* temp = (char*)malloc(maxlen + 1);
+	int i, rc;
+	struct stat fs;
+
+	*to_buf = '\0';
+	if (!of_string) {
+		ERROR("certificate has no name");
+		return;
+	}
+
+	DEBUG(0,"Mangling name '%s'\n", of_string);
+
+	if (!temp) {
+		fprintf(stderr, "cannot allocate (%d)\n", errno);
+		return;
+	}
+	to = temp;
+	if (out_dir && strlen(out_dir)) {
+		strncpy(to, out_dir, maxlen);
+		to[maxlen-1] = '\0';
+		to += strlen(to);
+	} else {
+		strcpy(to, "./");
+		to += 2;
+	}
+	if (*(to - 1) != '/') {
+		*to++ = '/';
+	}
+
+	maxlen -= (to - temp);
+	/* room for ".99.ext" */
+	maxlen -= strlen(with_ext) + 4;
+
+	c = strstr(of_string, "O=");
+	if (c) 
+		c += 2;
+	else
+		c = of_string;
+
+	while (*c && (strchr("/,=",*c) == NULL))
+	{
+		if (maxlen) {
+			if (!isalnum(*c))
+				*to = '_';
+			else
+				*to = *c;
+			to++;
+			maxlen--;
+		} else
+			break;
+		c++;
+	}
+
+	*to = '\0';
+	for (i = 1; i < 100; i++) {
+		sprintf(to, ".%d.%s", i, with_ext);
+		rc = stat(temp, &fs);
+		if (rc == -1)
+			break;
+	}
+
+	if (rc == -1) {
+		strcpy(to_buf, temp);
+	} else {
+		fprintf(stderr, "Too many files '%s' (%d)\n", temp, errno);
+		strcpy(to_buf, "");
+	}
+	free(temp);
+}
+
+
+typedef struct local_domain
+{
+	storage* index;
+	string   dirname;
+};
 
 
 // Visible part
@@ -268,14 +465,47 @@ extern "C" {
 	int 
 	ngsw_certman_create_domain(const char* name_domain, int flags)
 	{
-		return(-1);
+		string dirname, storename;
+		storage* certstore;
+		int rc;
+
+		local_cert_dir(dirname, storename);
+		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
+		rc = create_private_directory(dirname.c_str());
+		if (0 != rc)
+			return(rc);
+
+		certstore = new storage(storename.c_str(), storage::prot_sign);
+		if (certstore) {
+			certstore->commit();
+			delete(certstore);
+			return(0);
+		} else
+			return(-1);
 	}
 
 
 	int 
 	ngsw_certman_open_domain(const char* name_domain, int* handle)
 	{
-		return(-1);
+		string dirname, storename;
+		storage* certstore;
+		struct local_domain mydomain;
+		int rc;
+
+		*handle = 0;
+		local_cert_dir(mydomain.dirname, storename);
+
+		DEBUG(1, "\ndirname  = %s\nstorename = %s", 
+			  mydomain.dirname.c_str(), 
+			  storename.c_str());
+
+		mydomain.index = new storage(storename.c_str());
+		if (mydomain.index) {
+			*handle = (int) new struct local_domain(mydomain);
+			return(0);
+		} else
+			return(-1);
 	}
 
 	int 
@@ -288,7 +518,39 @@ extern "C" {
 	int 
 	ngsw_certman_add_cert(int to_domain, X509* cert)
 	{
-		return(-1);
+		// TODO: Check that the certificate does not exist in 
+		// the store already
+		struct local_domain* mydomain = (struct local_domain*)to_domain;
+		char buf[255], *name;
+		FILE* to_file;
+		int rc = 0;
+
+		if (!to_domain || !cert)
+			return(EINVAL);
+		
+		name = X509_NAME_oneline(X509_get_subject_name(cert),
+								 buf, 
+								 sizeof(buf));
+
+		make_unique_filename(name, "pem", mydomain->dirname.c_str(), buf, sizeof(buf));
+		
+		to_file = fopen(buf, "w+");
+		if (to_file) {
+			if (PEM_write_X509(to_file, cert)) {
+				DEBUG(0, "written %s", buf);
+			} else {
+				DEBUG(1, "cannot write to %s (%s)", buf, strerror(errno));
+				rc = errno;
+			}
+			fclose(to_file);
+		} else
+			rc = errno;
+
+		if (0 == rc) {
+			mydomain->index->add_file(buf);
+			mydomain->index->commit();
+		}
+		return(rc);
 	}
 
 	int
