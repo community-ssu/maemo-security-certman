@@ -20,8 +20,9 @@ extern "C" {
 static const char root_crt_name [] = "/etc/certs/trusted/root.ca";
 static const char root_key_name [] = "/etc/certs/trusted/root.key";
 
-static X509*     root_crt = NULL;
-static EVP_PKEY* root_key = NULL;
+static X509_STORE* root_store = NULL;
+static X509*       root_crt = NULL;
+static EVP_PKEY*   root_key = NULL;
 
 
 static void
@@ -86,30 +87,28 @@ load_root_key(void)
 
 extern "C" {
 
-	X509_STORE*
+	void
 	bb5_init(void)
 	{
-		X509_STORE* cstore;
 		struct timeval now;
 
 		CRYPTO_malloc_init();
-		OPENSSL_config(NULL);
+		// OPENSSL_config(NULL);
 		ERR_load_crypto_strings();
 		OpenSSL_add_all_algorithms();
 		// RSA_set_default_method(RSA_PKCS1_SSLeay());
 
-		cstore = X509_STORE_new();
-		if (cstore == NULL) {
+		root_store = X509_STORE_new();
+		if (root_store == NULL) {
 			ERROR("cannot create X509 store");
 			print_openssl_errors();
-			return(NULL);
+			return;
 		}
-		load_root_certificate(cstore);
+		load_root_certificate(root_store);
 		load_root_key();
 
 		gettimeofday(&now, NULL);
 		srand(now.tv_usec);
-		return(cstore);
 	}
 
 
@@ -118,7 +117,8 @@ extern "C" {
 	{
 		if (root_key)
 			EVP_PKEY_free(root_key);
-
+		if (root_store)
+			X509_STORE_free(root_store);
 		RAND_cleanup();
 		EVP_cleanup();
 		X509_TRUST_cleanup();
@@ -129,8 +129,9 @@ extern "C" {
 
 
 	X509*
-	bb5_get_cert(void)
+	bb5_get_cert(int pos)
 	{
+		// Always return the root cert
 		return(root_crt);
 	}
 
@@ -212,5 +213,3 @@ extern "C" {
 
 
 } // extern "C"
-
-

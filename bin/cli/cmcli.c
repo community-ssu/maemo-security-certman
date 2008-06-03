@@ -60,15 +60,17 @@ static void
 usage(void)
 {
 	printf(
-		"Usage: cmcli -[d|c|o] <domain> -[v|a|e] <cert-file> [-il]\n"
-		" -d to load a common certificates domain (can be given multiple times)\n"
-		" -l to list all certificates in the common domains\n"
-		" -c to create a private certificate domain\n"
-		" -o to open a private certificate domain for modifications\n"
-		" -v to verify the given certificate loaded from a PEM-file\n"
-		" -a to add the given certificate into the private domain\n"
-		" -e to remove the given certificate from the private domain\n"
-		" -i to list the certificates in the private domain\n"
+		"Usage:\n"
+		"cmcli [-v <domain>[:<domain>...]] [-<c|p> <domain>] -a <cert-file>\n"
+		"       -i <cert-file> -r <num> [-D*]\n"
+		" -v to load certificates from given common domains for verification\n"
+		" -c to open/create a common domain for modifications\n"
+		" -p to open/create a private domain for modifications\n"
+		" -l to list certificates in the given domain (both -v and -d)\n"
+		" -a to add a certificate to the given domain\n"
+		" -i to show certificate information of the given certificate\n"
+		" -r to remove the nth certificate from the given domain\n"
+		" -D, -DD... to increase level of debug info shown\n"
 		);
 }
 
@@ -77,7 +79,10 @@ static int
 show_cert(int pos, X509* cert)
 {
 	char buf[255], *name;
-	
+
+	if (!cert)
+		return(ENOENT);
+
 	name = X509_NAME_oneline(X509_get_subject_name(cert),
 							 buf, 
 							 sizeof(buf));
@@ -110,7 +115,7 @@ get_cert(const char* from_file)
 int
 main(int argc, char* argv[])
 {
-	int rc, i, a, my_domain = -1;
+	int rc, i, a, flags, my_domain = -1;
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
 	struct certman_cmd* commands = NULL;
@@ -122,7 +127,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "v:d:c:o:a:e:i:Dl");
+		a = getopt(argc, argv, "v:c:p:a:Dl");
 		if (a < 0) {
 			break;
 		}
@@ -132,7 +137,7 @@ main(int argc, char* argv[])
 			debug_level++;
 			break;
 
-		case 'd':
+		case 'v':
 			rc = ngsw_certman_collect(optarg, certs);
 			if (rc != 0) {
 				fprintf(stderr, "ERROR: cannot open domain '%s' (%d)\n", 
@@ -142,18 +147,14 @@ main(int argc, char* argv[])
 			break;
 
 		case 'c':
-			rc = ngsw_certman_create_domain(optarg, NGSW_CD_PRIVATE);
-			if (rc != 0) {
-				fprintf(stderr, "ERROR: cannot create domain '%s' (%d)\n", 
-						optarg, rc);
-				return(-1);
-			}
-			break;
-
-		case 'o':
-			rc = ngsw_certman_open_domain(optarg, &my_domain);
-			if (rc != 0) {
-				fprintf(stderr, "ERROR: cannot open domain '%s' (%d)\n", 
+		case 'p':
+			if ('c' == a)
+				flags = NGSW_CD_COMMON;
+			else
+				flags = NGSW_CD_PRIVATE;
+			rc = ngsw_certman_open_domain(optarg, flags, &my_domain);
+			if (0 != rc) {
+				fprintf(stderr, "ERROR: cannot open/create domain '%s' (%d)\n", 
 						optarg, rc);
 				return(-1);
 			}
@@ -161,7 +162,7 @@ main(int argc, char* argv[])
 
 		case 'a':
 		case 'e':
-			if (my_domain == -1) {
+			if (-1 == my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
@@ -192,8 +193,8 @@ main(int argc, char* argv[])
 			}
 			break;
 
-		case 'i':
-			if (my_domain == -1) {
+		case 'I':
+			if (-1 == my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
@@ -203,7 +204,7 @@ main(int argc, char* argv[])
 			}
 			break;
 
-		case 'v':
+		case 'i':
 			my_cert = get_cert(optarg);
 			if (my_cert) {
 				char buf[255], *name;
@@ -247,7 +248,7 @@ main(int argc, char* argv[])
 		}
 	}
 
-	if (my_domain != -1)
+	if (-1 != my_domain)
 		ngsw_certman_close_domain(my_domain);
 
 	ngsw_certman_close(certs);

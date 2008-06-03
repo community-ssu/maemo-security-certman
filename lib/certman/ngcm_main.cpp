@@ -42,6 +42,8 @@ using namespace ngsw_sec;
 
 #include "ngcm_x509_cert.h"
 
+static const char cert_storage_prefix [] = "ngswcertman.";
+
 // Some initialization with hard-coded constants.
 // Some of these should maybe be moved to a config
 // file...
@@ -308,6 +310,37 @@ create_private_directory(const char* dir)
 }
 
 
+static int
+decide_storage_name(const char* domain_name, int flags, string& dirname, string& storename)
+{
+	int rc;
+
+	if (NGSW_CD_PRIVATE == flags) {
+		// Make private name
+		local_cert_dir(dirname, storename);
+		storename.insert(0, cert_storage_prefix);
+		if (domain_name) {
+			dirname.append(path_sep);
+			dirname.append(domain_name);
+			storename.append(".");
+			storename.append(domain_name);
+		}
+		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
+		rc = create_private_directory(dirname.c_str());
+		if (0 != rc)
+			return(rc);
+	} else {
+		storename.assign(domain_name);
+		storename.insert(0, cert_storage_prefix);
+		dirname.assign(cert_dir_name);
+		dirname.append(path_sep);
+		dirname.append(domain_name);
+		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
+	}
+	return(0);
+}
+
+
 static void
 remove_spec_chars(char* in_string)
 {
@@ -323,84 +356,37 @@ remove_spec_chars(char* in_string)
 }
 
 
+/*
+ * Form a filename out of certificate's subject name and serial number
+ * TODO: This might not be the right thing to do, 
+ */
 static void
-make_unique_filename(
-					 const char* of_string, 
-					 const char* with_ext, 
-					 const char* out_dir, 
-					 char* to_buf, 
-					 int maxlen
-) {
+make_filename(X509* of_cert, string& to_string)
+{
 	const char* c;
-	char* to;
-	char* temp = (char*)malloc(maxlen + 1);
-	int i, rc;
-	struct stat fs;
+	char nbuf[1024], *name;
+	long serial;
 
-	*to_buf = '\0';
-	if (!of_string) {
-		ERROR("certificate has no name");
-		return;
-	}
+	name = X509_NAME_oneline(X509_get_subject_name(of_cert), nbuf, sizeof(nbuf));
+	serial = ASN1_INTEGER_get(X509_get_serialNumber(of_cert));
 
-	DEBUG(0,"Mangling name '%s'\n", of_string);
-
-	if (!temp) {
-		fprintf(stderr, "cannot allocate (%d)\n", errno);
-		return;
-	}
-	to = temp;
-	if (out_dir && strlen(out_dir)) {
-		strncpy(to, out_dir, maxlen);
-		to[maxlen-1] = '\0';
-		to += strlen(to);
-	} else {
-		strcpy(to, "./");
-		to += 2;
-	}
-	if (*(to - 1) != '/') {
-		*to++ = '/';
-	}
-
-	maxlen -= (to - temp);
-	/* room for ".99.ext" */
-	maxlen -= strlen(with_ext) + 4;
-
-	c = strstr(of_string, "O=");
+	DEBUG(1,"Mangling name '%s'", name);
+	to_string.assign("");
+	c = strstr(name, "O=");
 	if (c) 
 		c += 2;
 	else
-		c = of_string;
+		c = name;
 
 	while (*c && (strchr("/,=",*c) == NULL))
 	{
-		if (maxlen) {
-			if (!isalnum(*c))
-				*to = '_';
-			else
-				*to = *c;
-			to++;
-			maxlen--;
-		} else
-			break;
-		c++;
+		if (!isalnum(*c))
+			to_string.append('_',1);
+		else
+			to_string.append(*c,1);
 	}
-
-	*to = '\0';
-	for (i = 1; i < 100; i++) {
-		sprintf(to, ".%d.%s", i, with_ext);
-		rc = stat(temp, &fs);
-		if (rc == -1)
-			break;
-	}
-
-	if (rc == -1) {
-		strcpy(to_buf, temp);
-	} else {
-		fprintf(stderr, "Too many files '%s' (%d)\n", temp, errno);
-		strcpy(to_buf, "");
-	}
-	free(temp);
+	sprintf(nbuf, ".%ld.pem", serial);
+	to_string.append(nbuf);
 }
 
 
@@ -411,37 +397,73 @@ typedef struct local_domain
 };
 
 
+static X509*
+load_cert_from_file(const char* from_file)
+{
+	FILE* fp;
+	X509* cert;
+
+	fp = fopen(from_file, "r");
+	if (!fp) {
+		fprintf(stderr, "Cannot read '%s' (%d)\n", from_file, errno);
+		return(0);
+	}
+	cert = PEM_read_X509(fp, NULL, 0, NULL);
+	if (!cert) {
+		fprintf(stderr, "Cannot read certificate from '%s'\n", from_file);
+	}
+	fclose(fp);
+	return(cert);
+}
+
+
 // Visible part
 extern "C" {
 
 	int 
 	ngsw_certman_open(X509_STORE** my_cert_store)
 	{
+		X509* bb5cert;
+
 		bb5_init();
 		*my_cert_store = X509_STORE_new();
-		X509_STORE_add_cert(*my_cert_store, bb5_get_cert());
+		bb5cert = bb5_get_cert(0);
+		if (bb5cert)
+			X509_STORE_add_cert(*my_cert_store, bb5cert);
 		return(0);
 	}
 
 	int ngsw_certman_collect(const char* domain, X509_STORE* my_cert_store)
 	{
-		string dirname;
 		vector<string> x;
+		const char* sep, *start = domain;
 
-		dirname = cert_dir_name;
-		dirname.append("/");
-		dirname.append(domain);
+		do {
+			string storagename;
+			sep = strchr(start, ':');
+			if (sep) {
+				storagename.assign(start, sep - start);
+				start = sep + 1;
+			} else
+				storagename.assign(start);
 
-		// Recognized cert file extensions
-		cert_fn_exts.push_back(string("crt"));
-		cert_fn_exts.push_back(string("pem"));
+			storagename.insert(0, cert_storage_prefix);
 
-		scan_dir_for_certs(dirname.c_str(), x);
+			storage* store = new storage(storagename.c_str());
+			storage::stringlist certs;
+			int pos = store->get_files(certs);
+
+			for (int i = 0; i < pos; i++) {
+				if (store->verify_file(certs[i])) {
+					DEBUG(0, "Load '%s'", certs[i]);
+					x.push_back(certs[i]);
+				} else
+					ERROR("'%s' fails verification");
+			}
+			delete(store);
+		} while (sep);
 
 		if (x.size()) {
-			for (size_t i = 0; i < x.size(); i++)
-				DEBUG(1, "Seen: %s", x[i].c_str());
-
 			load_certs(x, my_cert_store);
 		}
 		return(0);
@@ -461,46 +483,20 @@ extern "C" {
 		return(0);
 	}
 
-
 	int 
-	ngsw_certman_create_domain(const char* name_domain, int flags)
-	{
-		string dirname, storename;
-		storage* certstore;
-		int rc;
-
-		local_cert_dir(dirname, storename);
-		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
-		rc = create_private_directory(dirname.c_str());
-		if (0 != rc)
-			return(rc);
-
-		certstore = new storage(storename.c_str(), storage::prot_sign);
-		if (certstore) {
-			certstore->commit();
-			delete(certstore);
-			return(0);
-		} else
-			return(-1);
-	}
-
-
-	int 
-	ngsw_certman_open_domain(const char* name_domain, int* handle)
+	ngsw_certman_open_domain(const char* domain_name, int flags, int* handle)
 	{
 		string dirname, storename;
 		storage* certstore;
 		struct local_domain mydomain;
 		int rc;
 
-		*handle = 0;
-		local_cert_dir(mydomain.dirname, storename);
-
-		DEBUG(1, "\ndirname  = %s\nstorename = %s", 
-			  mydomain.dirname.c_str(), 
-			  storename.c_str());
-
-		mydomain.index = new storage(storename.c_str());
+		*handle = -1;
+		rc = decide_storage_name(domain_name, flags, dirname, storename);
+		if (0 != rc) {
+			return(rc);
+		}
+		mydomain.index = new storage(storename.c_str(), storage::prot_sign);
 		if (mydomain.index) {
 			*handle = (int) new struct local_domain(mydomain);
 			return(0);
@@ -508,38 +504,58 @@ extern "C" {
 			return(-1);
 	}
 
+
 	int 
 	ngsw_certman_iterate_domain(int the_domain, int cb_func(int,X509*))
 	{
-		cb_func(0,NULL);
-		return(-1);
+		storage::stringlist files;
+		struct local_domain* mydomain;
+		int pos, res = 0;
+
+		if (!the_domain || !cb_func)
+			return(EINVAL);
+
+		mydomain = (struct local_domain*)the_domain;
+		pos = mydomain->index->get_files(files);
+		DEBUG(1, "domain contains %d certificates", pos);
+		for (int i = 0; i < pos; i++) {
+			X509* cert = load_cert_from_file(files[i]);
+			DEBUG(1, "%d: %p", i, cert);
+			if (cert) {
+				res = cb_func(i, cert);
+				X509_free(cert);
+				if (res)
+					break;
+			} else
+				return(ENOENT);
+		}
+		return(0);
 	}
+
 
 	int 
 	ngsw_certman_add_cert(int to_domain, X509* cert)
 	{
-		// TODO: Check that the certificate does not exist in 
-		// the store already
 		struct local_domain* mydomain = (struct local_domain*)to_domain;
-		char buf[255], *name;
 		FILE* to_file;
+		string filename;
 		int rc = 0;
 
 		if (!to_domain || !cert)
 			return(EINVAL);
-		
-		name = X509_NAME_oneline(X509_get_subject_name(cert),
-								 buf, 
-								 sizeof(buf));
 
-		make_unique_filename(name, "pem", mydomain->dirname.c_str(), buf, sizeof(buf));
+		// TODO: Check that the certificate does not exist in 
+		// the store already
+
+		make_filename(cert, filename);
 		
-		to_file = fopen(buf, "w+");
+		to_file = fopen(filename.c_str(), "w+");
 		if (to_file) {
 			if (PEM_write_X509(to_file, cert)) {
-				DEBUG(0, "written %s", buf);
+				DEBUG(1, "written %s", filename.c_str());
 			} else {
-				DEBUG(1, "cannot write to %s (%s)", buf, strerror(errno));
+				DEBUG(1, "cannot write to %s (%s)", filename.c_str(), 
+					  strerror(errno));
 				rc = errno;
 			}
 			fclose(to_file);
@@ -547,7 +563,7 @@ extern "C" {
 			rc = errno;
 
 		if (0 == rc) {
-			mydomain->index->add_file(buf);
+			mydomain->index->add_file(filename.c_str());
 			mydomain->index->commit();
 		}
 		return(rc);
@@ -562,7 +578,13 @@ extern "C" {
 	int 
 	ngsw_certman_close_domain(int handle)
 	{
-		return(-1);
+		struct local_domain* mydomain;
+
+		if (!handle)
+			return(EINVAL);
+		mydomain = (struct local_domain*)handle;
+		delete(mydomain->index);
+		delete(mydomain);
 	}
 } // extern "C"
 

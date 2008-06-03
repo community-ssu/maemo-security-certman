@@ -31,9 +31,8 @@ main(int argc, char* argv[])
 	char* storagename = NULL;
 	storage* ss = NULL;
 	int len;
-	X509_STORE* certs;
 
-	certs = bb5_init();
+	bb5_init();
 
     while (1) {
 		a = getopt(argc, argv, "s:c:a:d:p:u:r:v::D");
@@ -214,9 +213,7 @@ main(int argc, char* argv[])
 		usage();
 
   end:
-	X509_STORE_free(certs);
 	bb5_finish();
-
 	return(0);
 }
 

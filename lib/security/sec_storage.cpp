@@ -60,23 +60,23 @@ void
 storage::init_storage(const char* name, protection_t protect) 
 {
 	char* end, *c = NULL;
-	unsigned char* data = NULL;
+	unsigned char* data = (unsigned char*)MAP_FAILED;
 	string filename;
 	int fd = -1, rc;
 	ssize_t len, rlen;
 	EVP_MD_CTX vfctx;
-	EVP_PKEY* pubkey;
+	EVP_PKEY* pubkey = NULL;
 
 	m_name = name;
 	m_symkey = NULL;
 	m_symkey_len = 0;
 	m_prot = protect;
 
-	if (bb5_get_cert() == NULL) {
+	if (bb5_get_cert(0) == NULL) {
 		ERROR("Initialization error");
 		return;
 	}
-	pubkey = X509_get_pubkey(bb5_get_cert());
+	pubkey = X509_get_pubkey(bb5_get_cert(0));
 	if (NULL == pubkey) {
 		ERROR("Cannot get public key");
 		return;
@@ -138,9 +138,8 @@ storage::init_storage(const char* name, protection_t protect)
 				memcpy(m_symkey, cipkey, ciplen);
 				m_symkey_len = ciplen;
 			}
+			DEBUG(1, "'%s' does not exist, created", filename.c_str());
 		}
-
-		DEBUG(1, "'%s' does not exist, created", filename.c_str());
 		goto end;
 
 	} else {
@@ -233,8 +232,6 @@ storage::init_storage(const char* name, protection_t protect)
 	} else
 		ERROR("invalid signature");
 
-	EVP_PKEY_free(pubkey);
-
 	if (c < end && '\n' == *c)
 		c++;
 
@@ -277,7 +274,10 @@ storage::init_storage(const char* name, protection_t protect)
 	}
 
   end:
-	unmap_file(data, fd, len);
+	if ((unsigned char*)MAP_FAILED != data)
+		unmap_file(data, fd, len);
+	if (pubkey)
+		EVP_PKEY_free(pubkey);
 }
 
 
@@ -311,6 +311,7 @@ storage::get_files(stringlist& names)
 		ii++
 	) {
 		names.push_back(ii->first.c_str());
+		pos++;
 	}
 	return(pos);
 }

@@ -49,18 +49,6 @@ extern int ngsw_certman_close(X509_STORE* my_cert_store);
 extern int ngsw_cert_is_valid(X509_STORE* my_cert_store, X509* cert);
 
 /**
- * \brief Create a new private certificate domain
- * \param name (in) logical name of the domain
- * \param flags (in) attributes of the new domain (see \ref NGSW_CD_PRIVATE
- *                   and other possible flag values)
- * \return 0 on success, otherwise an error code
- * 
- * The new domain can be read by everyone, but it can be modified
- * only by the instances defined by the creation flags.
- */
-extern int ngsw_certman_create_domain(const char* name_domain, int flags);
-
-/**
  * \def NGSW_CD_PRIVATE
  * \brief Create a new private domain, only modifiable by the 
  *        creating application (see NGSW security documentation
@@ -69,27 +57,20 @@ extern int ngsw_certman_create_domain(const char* name_domain, int flags);
 #define NGSW_CD_PRIVATE 0
 
 /**
- * \def NGSW_CD_PRIVATE
- * \brief Create a new restricted domain, only modifiable by the 
- *        applications belonging to the same or higher trust level
- *        than the creating application (see NGSW security documentation
- *        about trust levels)
+ * \def NGSW_CD_COMMON
+ * \brief Create a new common domain, accessible for all applications
  */
-#define NGSW_CD_RESTRICTED 1
+#define NGSW_CD_COMMON 1
+
 
 /**
- * \def NGSW_CD_PRIVATE
- * \brief Create a new public domain, that can be modified by anyone.
- */
-#define NGSW_CD_PUBLIC     2
-
-/**
- * \brief Open an existing domain
+ * \brief Open an existing domain or create a new one
  * \param name (in) logical name of the domain
+ * \param flags (in) type of domain to open/create (see NGSW_CD_* flags)
  * \param handle (out) a handle to the domain
  * \return 0 on success, otherwise an error code
  */
-extern int ngsw_certman_open_domain(const char* name_domain, int* handle);
+extern int ngsw_certman_open_domain(const char* name_domain, int flags, int* handle);
 
 /**
  * \brief Iterate through a domain
