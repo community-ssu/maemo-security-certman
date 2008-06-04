@@ -40,22 +40,36 @@ using namespace std;
 extern "C" {
 #endif
 
-/**
- * \var debug_level
- * \brief Set this value non-zero to produce debug output
- */
-extern int debug_level;
+    /**
+    * \var debug_level
+	* \brief Set this value non-zero to produce debug output
+	*/
+	extern int debug_level;
 
-void print_openssl_errors(void);
+	void print_openssl_errors(void);
 
-/**
- * \brief Find out the absolute pathname of a file or directory
- * \param name (in) The name of the file or directory
- * \param to_this (out= The absolute pathname of the file or directory
- * \returns true if the file or directory was found and was accessible,
- * otherwise false
- */
-bool absolute_pathname(const char* name, string& to_this);
+    /**
+	 * \brief Find out the absolute pathname of a file or directory
+	 * \param name (in) The name of the file or directory
+	 * \param to_this (out= The absolute pathname of the file or directory
+	 * \returns true if the file or directory was found and was accessible,
+	 * otherwise false
+	 */
+	bool absolute_pathname(const char* name, string& to_this);
+
+    /**
+	 * \brief Test if a file exists
+	 * \param name (in) filename
+	 * \returns true, if the file exists and is a regular file
+	 */
+	bool file_exists(const char* name);
+
+    /**
+	 * \brief Test if a directory exists
+	 * \param name (in) directory name
+	 * \returns true, if the file exists and is a directory
+	 */
+	bool directory_exists(const char* name);
 
 #ifdef	__cplusplus
 } // extern "C"

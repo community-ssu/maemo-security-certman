@@ -145,6 +145,8 @@ namespace ngsw_sec {
 		 */
 		void commit();
 
+		int nbrof_files();
+
 	private:
 		protection_t m_prot;
 		map<string, string> m_contents;

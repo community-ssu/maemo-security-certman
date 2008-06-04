@@ -23,7 +23,6 @@ extern "C" {
 // #include <dequeue>
 #include <stack>
 #include <map>
-
 using namespace std;
 
 // OpenSSL headers
@@ -42,14 +41,13 @@ using namespace ngsw_sec;
 
 #include "ngcm_x509_cert.h"
 
-static const char cert_storage_prefix [] = "ngswcertman.";
-
 // Some initialization with hard-coded constants.
 // Some of these should maybe be moved to a config
 // file...
 
-static const char cert_dir_name [] = "/etc/certs";
-static const char priv_dir_name [] = ".certs";
+static const char cert_storage_prefix [] = "ngswcertman.";
+static const char cert_dir_name       [] = "/etc/certs";
+static const char priv_dir_name       [] = ".certs";
 
 const string path_sep("/");
 vector<string> cert_fn_exts;
@@ -136,6 +134,11 @@ load_certs(vector<string> &certnames,
 	map<string, ngcm_x509_cert*> cert_map;
 	stack<ngcm_x509_cert*> temp;
 
+	// TODO: Is this logic necessary at all now that the 
+	// certificates have been divided to domains? After all,
+	// the tool should not force verification if that's not
+	// what the user wants.
+
 	// Load self signed certificates directly to X509 store
 	// and put the rest into a map for quick access
 
@@ -148,7 +151,7 @@ load_certs(vector<string> &certnames,
 			DEBUG(1, "self signed: %s", cert->subject_name());
 			cert->m_verified = true;
 			X509_STORE_add_cert(certs, cert->cert());
-
+			delete(cert);
 		} else {
 			cert_map[cert->key_id()] = cert;
 			DEBUG(1, "%s\n\tkey    %s\n\tissuer %s", 
@@ -246,7 +249,7 @@ local_cert_dir(string& to_this, string& storename)
 
 
 static int
-create_if_needed(const char* dir)
+create_if_needed(const char* dir, int mode)
 {
 	struct stat fs;
 	int rc;
@@ -256,7 +259,7 @@ create_if_needed(const char* dir)
 	if (-1 == rc) {
 		if (errno == ENOENT) {
 			DEBUG(2, "Create '%s'", dir);
-			rc = mkdir(dir, 0700);
+			rc = mkdir(dir, mode);
 			if (-1 != rc) {
 				return(0);
 			} else {
@@ -279,7 +282,7 @@ create_if_needed(const char* dir)
 
 
 static int
-create_private_directory(const char* dir)
+create_private_directory(const char* dir, int mode)
 {
 	string locbuf;
 	char* sep;
@@ -297,7 +300,7 @@ create_private_directory(const char* dir)
 		sep = strchr(sep, path_sep[0]);
 		if (sep) {
 			*sep = '\0';
-			rc = create_if_needed(locbuf.c_str());
+			rc = create_if_needed(locbuf.c_str(), mode);
 			if (0 != rc) {
 				return(rc);
 			}
@@ -305,16 +308,14 @@ create_private_directory(const char* dir)
 			sep++;
 		}
 	}
-	rc = create_if_needed(dir);
+	rc = create_if_needed(dir, mode);
 	return(rc);
 }
 
 
-static int
+static void
 decide_storage_name(const char* domain_name, int flags, string& dirname, string& storename)
 {
-	int rc;
-
 	if (NGSW_CD_PRIVATE == flags) {
 		// Make private name
 		local_cert_dir(dirname, storename);
@@ -326,9 +327,6 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 			storename.append(domain_name);
 		}
 		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
-		rc = create_private_directory(dirname.c_str());
-		if (0 != rc)
-			return(rc);
 	} else {
 		storename.assign(domain_name);
 		storename.insert(0, cert_storage_prefix);
@@ -337,7 +335,6 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 		dirname.append(domain_name);
 		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
 	}
-	return(0);
 }
 
 
@@ -361,17 +358,30 @@ remove_spec_chars(char* in_string)
  * TODO: This might not be the right thing to do, 
  */
 static void
-make_filename(X509* of_cert, string& to_string)
+make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 {
 	const char* c;
 	char nbuf[1024], *name;
 	long serial;
+	int rc;
+	struct stat fs;
+
+	to_string.assign("");
 
 	name = X509_NAME_oneline(X509_get_subject_name(of_cert), nbuf, sizeof(nbuf));
 	serial = ASN1_INTEGER_get(X509_get_serialNumber(of_cert));
 
-	DEBUG(1,"Mangling name '%s'", name);
-	to_string.assign("");
+	if (!name) {
+		ERROR("Cert has no name!!!");
+		return;
+	}
+
+	DEBUG(1,"Making filename out of '%s'\n+ in dir '%s'", name, in_dir);
+
+	to_string.assign(in_dir);
+	to_string.append(path_sep);
+
+	// Use the organization name from subject name as basis
 	c = strstr(name, "O=");
 	if (c) 
 		c += 2;
@@ -381,12 +391,35 @@ make_filename(X509* of_cert, string& to_string)
 	while (*c && (strchr("/,=",*c) == NULL))
 	{
 		if (!isalnum(*c))
-			to_string.append('_',1);
+			to_string.append(1,'_');
 		else
-			to_string.append(*c,1);
+			to_string.append(1,*c);
+		c++;
 	}
-	sprintf(nbuf, ".%ld.pem", serial);
-	to_string.append(nbuf);
+	
+	// Do not use the real serial number
+	serial = 1;
+	do {
+		sprintf(nbuf, "%s.%ld.pem", to_string.c_str(), serial);
+		rc = stat(nbuf, &fs);
+		if (-1 == rc) {
+			if (ENOENT == errno)
+				break;
+			else {
+				ERROR("cannot do stat on '%s' (%s)", nbuf, strerror(errno));
+				return;
+			}
+		} else
+			serial++;
+	} while (serial < LONG_MAX);
+
+  ok:
+	to_string.assign(nbuf);
+	DEBUG(1, "=> %s", to_string.c_str());
+	return;
+
+  failed:
+	;
 }
 
 
@@ -417,6 +450,33 @@ load_cert_from_file(const char* from_file)
 }
 
 
+static int
+x509_equals(int pos, X509* cert, void* with_cert)
+{
+#if 1
+	// The quick and easy method, but maybe not the right one
+	return (X509_cmp(cert, (X509*)with_cert) == 0);
+#else
+	// The manual method, which involves dynamic allocation
+	ASN1_BIT_STRING *lk, *rk;
+	int res = 0;
+
+	if (!cert || !with_cert)
+		return(EINVAL);
+	lk = X509_get_pubkey(cert);
+	rk = X509_get_pubkey((X509*)with_cert);
+	if (lk && rk) {
+		res = (EVP_PKEY_cmp(lk,rk) == 0);
+	}
+	if (lk)
+		EVP_PKEY_free(lk);
+	if (lk)
+		EVP_PKEY_free(rk);
+	return(res);
+#endif
+}
+
+
 // Visible part
 extern "C" {
 
@@ -439,28 +499,39 @@ extern "C" {
 		const char* sep, *start = domain;
 
 		do {
-			string storagename;
+			string domainname, dirname, storagename;
+				
 			sep = strchr(start, ':');
 			if (sep) {
-				storagename.assign(start, sep - start);
+				domainname.assign(start, sep - start);
 				start = sep + 1;
 			} else
-				storagename.assign(start);
+				domainname.assign(start);
 
-			storagename.insert(0, cert_storage_prefix);
+			// TODO: This is an ugly hack: always try common name first,
+			// then private if the common storage does not exist
+			decide_storage_name(domainname.c_str(), NGSW_CD_COMMON, 
+								dirname, storagename);
+			if (!directory_exists(dirname.c_str()))
+				decide_storage_name(domainname.c_str(), NGSW_CD_PRIVATE, 
+									dirname, storagename);
 
-			storage* store = new storage(storagename.c_str());
-			storage::stringlist certs;
-			int pos = store->get_files(certs);
+			if (directory_exists(dirname.c_str())) {
+				storage* store = new storage(storagename.c_str());
+				storage::stringlist certs;
+				int pos = store->get_files(certs);
 
-			for (int i = 0; i < pos; i++) {
-				if (store->verify_file(certs[i])) {
-					DEBUG(0, "Load '%s'", certs[i]);
-					x.push_back(certs[i]);
-				} else
-					ERROR("'%s' fails verification");
+				for (int i = 0; i < pos; i++) {
+					if (store->verify_file(certs[i])) {
+						DEBUG(1, "Load '%s'", certs[i]);
+						x.push_back(certs[i]);
+					} else
+						ERROR("'%s' fails verification");
+				}
+				delete(store);
+			} else {
+				ERROR("'%s' does not exists", storagename.c_str());
 			}
-			delete(store);
 		} while (sep);
 
 		if (x.size()) {
@@ -477,22 +548,50 @@ extern "C" {
 		return(0);
 	}
 
+	// TODO: return issuer index/cert
 	int 
 	ngsw_cert_is_valid(X509_STORE* my_cert_store, X509* cert)
 	{
-		return(0);
+		X509_STORE_CTX *csc;
+		int retval;
+		int rc;
+
+		csc = X509_STORE_CTX_new();
+		if (csc == NULL) {
+			ERROR("cannot create new context");
+			return(0);
+		}
+
+		rc = X509_STORE_CTX_init(csc, my_cert_store, cert, NULL);
+		if (rc == 0) {
+			ERROR("cannot initialize new context");
+			return(0);
+		}
+
+		retval = (X509_verify_cert(csc) > 0);
+		X509_STORE_CTX_free(csc);
+
+		return(retval);
 	}
+
 
 	int 
 	ngsw_certman_open_domain(const char* domain_name, int flags, int* handle)
 	{
-		string dirname, storename;
+		string storename;
 		storage* certstore;
 		struct local_domain mydomain;
 		int rc;
 
 		*handle = -1;
-		rc = decide_storage_name(domain_name, flags, dirname, storename);
+		decide_storage_name(domain_name, flags, mydomain.dirname, storename);
+		// TODO: directory access bits are plain numbers here
+		// ugly, ugly...
+		if (NGSW_CD_PRIVATE == flags) {
+			rc = create_private_directory(mydomain.dirname.c_str(), 0700);
+		} else {
+			rc = create_private_directory(mydomain.dirname.c_str(), 0755);
+		}
 		if (0 != rc) {
 			return(rc);
 		}
@@ -504,34 +603,41 @@ extern "C" {
 			return(-1);
 	}
 
-
 	int 
-	ngsw_certman_iterate_domain(int the_domain, int cb_func(int,X509*))
+	ngsw_certman_iterate_domain(int the_domain, int cb_func(int,X509*,void*), void* ctx)
 	{
 		storage::stringlist files;
 		struct local_domain* mydomain;
-		int pos, res = 0;
+		int i, pos, res = 0;
 
 		if (!the_domain || !cb_func)
-			return(EINVAL);
+			return(-EINVAL);
 
 		mydomain = (struct local_domain*)the_domain;
 		pos = mydomain->index->get_files(files);
 		DEBUG(1, "domain contains %d certificates", pos);
-		for (int i = 0; i < pos; i++) {
+		for (i = 0; i < pos; i++) {
 			X509* cert = load_cert_from_file(files[i]);
 			DEBUG(1, "%d: %p", i, cert);
 			if (cert) {
-				res = cb_func(i, cert);
+				res = cb_func(i, cert, ctx);
 				X509_free(cert);
 				if (res)
 					break;
 			} else
-				return(ENOENT);
+				return(-ENOENT);
 		}
-		return(0);
+		return(i);
 	}
 
+	int
+	ngsw_certman_nbrof_certs(int in_domain)
+	{
+		if (in_domain)
+			return(((struct local_domain*)in_domain)->index->nbrof_files());
+		else
+			return(-1);
+	}
 
 	int 
 	ngsw_certman_add_cert(int to_domain, X509* cert)
@@ -539,15 +645,18 @@ extern "C" {
 		struct local_domain* mydomain = (struct local_domain*)to_domain;
 		FILE* to_file;
 		string filename;
-		int rc = 0;
+		int pos, rc = 0;
 
 		if (!to_domain || !cert)
 			return(EINVAL);
 
-		// TODO: Check that the certificate does not exist in 
-		// the store already
+		pos = ngsw_certman_iterate_domain(to_domain, x509_equals, cert);
+		if (pos < ngsw_certman_nbrof_certs(to_domain)) {
+			DEBUG(0,"The certificate is already in the domain");
+			return(EEXIST);
+		}
 
-		make_filename(cert, filename);
+		make_unique_filename(cert, mydomain->dirname.c_str(), filename);
 		
 		to_file = fopen(filename.c_str(), "w+");
 		if (to_file) {
@@ -569,10 +678,22 @@ extern "C" {
 		return(rc);
 	}
 
+
 	int
-	ngsw_certman_rm_cert(int to_domain, X509* cert)
+	ngsw_certman_rm_cert(int to_domain, int pos)
 	{
-		return(-1);
+		int count, rc;
+		storage::stringlist certs;
+		struct local_domain* mydomain = (struct local_domain*)to_domain;
+
+		if (!to_domain)
+			return(EINVAL);
+		count = mydomain->index->get_files(certs);
+		if (pos < 0 || pos >= count)
+			return(EINVAL);
+		mydomain->index->remove_file(certs[pos]);
+		mydomain->index->commit();
+		return(0);
 	}
 
 	int 
@@ -587,205 +708,3 @@ extern "C" {
 		delete(mydomain);
 	}
 } // extern "C"
-
-#if 0
-// Some dead code saved as a reference for a while
-enum cmd_type {cmd_sign, cmd_verify, cmd_none} cmd = cmd_none;
-
-static const char* x509_obj_names[] = {
-	"fail", "x509", "crl", "pkey"
-};
-
-int 
-main(int argc, char* argv[])
-{
-	vector<string> certnames;
-	X509* root_crt = NULL;
-	EVP_PKEY *root_pkey = NULL;
-	X509_LOOKUP *lookup = NULL;
-	ngcm_x509_cert* cert = NULL;
-	int rc;
-	char a;
-
-	// OpenSSL initialization.
-	CRYPTO_malloc_init();
-	ERR_load_crypto_strings();
-	OpenSSL_add_all_algorithms();
-
-	// Initializations
-	ngcm_certificates = X509_STORE_new();
-	if (ngcm_certificates == NULL) {
-		ERROR("cannot create X509 store");
-		print_openssl_errors();
-		goto end;
-	}
-
-	// Is this really necessary?
-	// apps_startup();
-
-	lookup = X509_STORE_add_lookup(ngcm_certificates,X509_LOOKUP_file());
-	if (lookup == NULL) {
-		ERROR("cannot add lookup");
-		print_openssl_errors();
-		goto end;
-	}
-
-	// Recognized cert file extensions
-	cert_fn_exts.push_back(string("crt"));
-	cert_fn_exts.push_back(string("pem"));
-
-    while (1) {
-		a = getopt(argc, argv, "v:k:t:d:s:h");
-		if (a < 0) {
-			break;
-		}
-		switch(a) 
-		{
-		case 'd':
-			scan_dir_for_ngcm_certificates(optarg, certnames);
-			break;
-
-		case 'k':
-			// openssl/apps/apps.c::load_key is not public?
-			// this code borrowed from there
-		{
-			BIO* keyfile = NULL;
-
-			keyfile = BIO_new(BIO_s_file());
-
-			if (!keyfile) {
-				ERROR("cannot create BIO");
-				goto end;
-			}
-
-			// TODO: there are many different formats for keys
-			if (BIO_read_filename(keyfile, optarg) <= 0) {
-				ERROR("cannot load root CA key from '%s'", optarg);
-				print_openssl_errors();
-				goto end;
-			}
-
-			// TODO: this may be password protected. It's a demo feature
-			// anyway, in reality the BB5 functions should be used for 
-            // private key purposes.
-			root_pkey = PEM_read_bio_PrivateKey(keyfile, NULL, NULL, NULL);
-			if (!root_pkey) {
-				DEBUG(1, "Not an PEM file\n");
-			}
-
-			BIO_free(keyfile);
-			break;
-		}
-
-		case 't':
-			// TODO: the trusted root certificate(s) should be loaded
-			// from BB5
-			rc = X509_LOOKUP_load_file(lookup, optarg, X509_FILETYPE_PEM);
-			if (rc == 0) {
-				ERROR("cannot load root CA from '%s'", optarg);
-				print_openssl_errors();
-				goto end;
-			}
-			break;
-
-		case 's':
-			// A certificate to be signed
-			cert = new ngcm_x509_cert(optarg);
-			if (!cert->cert()) {
-				delete(cert);
-				cert = NULL;
-				goto end;
-			}
-			cmd = cmd_sign;
-			break;
-
-		case 'v':
-			// A certificate to be verified
-			cert = new ngcm_x509_cert(optarg);
-			if (!cert->cert()) {
-				delete(cert);
-				cert = NULL;
-				goto end;
-			}
-			cmd = cmd_verify;
-			break;
-
-		case 'D':
-			debug_level++;
-			break;
-
-		default:
-			show_usage();
-			return(1);
-		}
-	}
-
-	if (certnames.size() > 0) {
-		if (!load_ngcm_certificates(certnames, ngcm_certificates)) {
-			ERROR("cannot load certificates. Exit!");
-			goto end;
-		}
-		// show_ngcm_certificates(ngcm_certificates);
-	}
-
-	if (!cert || !cert->cert()) {
-		goto end;
-	}
-
-	switch (cmd) 
-	{
-	case cmd_sign: {
-		if (!root_pkey || !root_crt) {
-			ERROR("cannot sign without the private key");
-			goto end;
-		}
-
-		const EVP_MD* digest;
-		X509* sign_cert = cert->cert();
-
-		digest=EVP_sha1();
-#if 0
-		if (root_pkey->type == EVP_PKEY_DSA)
-			digest=EVP_dss1();
-		else if (root_pkey->type == EVP_PKEY_EC)
-			digest=EVP_ecdsa();
-#endif
-
-		X509_set_issuer_name(sign_cert,X509_get_subject_name(root_crt));
-		if (X509_sign(sign_cert, root_pkey, digest)) {
-			DEBUG(1, "Signed OK");
-			cert->print();
-		} else {
-			ERROR("Cannot sign");
-			print_openssl_errors();
-		}
-		break;
-	}
-
-	case cmd_verify:
-		if (verify_cert(ngcm_certificates, cert->cert())) {
-			printf("Verify OK\n");
-		} else {
-			printf("Verification failed\n");
-			print_openssl_errors();
-		}
-		break;
-
-	default:
-		break;
-	}
-
-end:
-	if (cert)
-		delete(cert);
-	X509_STORE_free(ngcm_certificates);
-	RAND_cleanup();
-	EVP_cleanup();
-	X509_TRUST_cleanup();
-	CRYPTO_cleanup_all_ex_data();
-	ERR_remove_state(0);
-	ERR_free_strings();
-
-    return(0);
-}
-#endif

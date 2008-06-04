@@ -80,12 +80,17 @@ extern int ngsw_certman_open_domain(const char* name_domain, int flags, int* han
  *                     certificate in the domain. The first parameter
  *                     is the domain handle, the second a X509* certificate
  *                     struct. If the callback returns a non-zero value,
- *                     the iteration is terminated. NOTE: the other functions
+ *                     the iteration is terminated. (NOTE: the other functions
  *                     in this library must not be called in the callback
- *                     function.
- * \return 0 on success, otherwise an error code
+ *                     function. Don't know if this is really true, probably not)
+ * \param ctx          a void pointer passed to the callback function
+ * \return             if >= 0, the index where iteration terminated,
+ *                     if < 0, an error code
  */
-extern int ngsw_certman_iterate_domain(int the_domain, int cb_func(int,X509*));
+extern int ngsw_certman_iterate_domain(
+	int the_domain, 
+	int cb_func(int,X509*,void*), 
+	void* ctx);
 
 /**
  * \brief Add a certificate into the domain
@@ -100,12 +105,19 @@ extern int ngsw_certman_add_cert(int to_domain, X509* cert);
 /**
  * \brief Remove a certificate from the domain
  * \param handle (in) a handle to the domain
- * \param cert (in) the certificate to be removed
+ * \param pos (in) the order number of the certificate to be removed
  * \return 0 on success, otherwise an error code. EACCESS
  * if the application does not have the power to modify
  * the domain.
  */
-extern int ngsw_certman_rm_cert(int to_domain, X509* cert);
+extern int ngsw_certman_rm_cert(int to_domain, int pos);
+
+/**
+ * \brief Return the number of certificates in the open domain
+ * \param handle (in) a handle to the domain
+ * \return >= 0 on success, otherwise -1
+ */
+extern int ngsw_certman_nbrof_certs(int in_domain);
 
 /**
  * \brief Close a domain

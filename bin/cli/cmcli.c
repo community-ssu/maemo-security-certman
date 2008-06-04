@@ -22,15 +22,54 @@
 
 extern int debug_level;
 
-/**
- * \brief How to verify a certificata against a store
- * \param store A certificate store, for instance one created
- * by ngcm_open+ngcm_collect
- * \param cert The ceritificate to be verified
- * \returns 1 on success, 0 on failure
- */
+static void
+usage(void)
+{
+	printf(
+		"Usage:\n"
+		"cmcli [-t <domain>[:<domain>...]] [-<c|p> <domain>] -a <cert-file>\n"
+		"       -v <cert-file> -r <num> [-D*] [-L]\n"
+		" -t to specify domains of trusted signing certificates\n"
+		" -v to verify a certificate against the trusted domains\n"
+		" -c to open/create a common domain for modifications\n"
+		" -p to open/create a private domain for modifications\n"
+		" -a to add a certificate to the given domain\n"
+		" -r to remove the nth certificate from the given domain\n"
+		" -L to list all certificates\n"
+		" -D, -DD... to increase level of debug info shown\n"
+		);
+}
 
-int
+
+static int
+show_cert(int pos, X509* cert, void* x)
+{
+	char buf[255], *name;
+	int i;
+
+	if (!cert)
+		return(ENOENT);
+
+	name = X509_NAME_oneline(X509_get_subject_name(cert),
+							 buf, 
+							 sizeof(buf));
+
+	if (pos >= 0) 
+		printf("%d: %s\n", pos, name);
+	else {
+		if (pos < -1) {
+			if (pos < -2)
+				for (i = -2; i > pos; i--)
+					printf("   ");
+			printf("+->");
+		}
+		printf("%s\n", name);
+	}
+	return(0);
+}
+
+
+static int
 verify_cert(X509_STORE* store, X509* cert)
 {
 	X509_STORE_CTX *csc;
@@ -50,45 +89,21 @@ verify_cert(X509_STORE* store, X509* cert)
 	}
 
 	retval = (X509_verify_cert(csc) > 0);
+
+	if (retval) {
+		int i;
+		printf("Trust chain:\n");
+		for (i = sk_X509_num(csc->chain); i > 0; i--) {
+			X509* issuer = sk_X509_value(csc->chain, i - 1);
+			if (issuer) {
+				show_cert(i - sk_X509_num(csc->chain) - 1, issuer, NULL);
+			}
+		}
+	}
+
 	X509_STORE_CTX_free(csc);
 
 	return(retval);
-}
-
-
-static void
-usage(void)
-{
-	printf(
-		"Usage:\n"
-		"cmcli [-v <domain>[:<domain>...]] [-<c|p> <domain>] -a <cert-file>\n"
-		"       -i <cert-file> -r <num> [-D*]\n"
-		" -v to load certificates from given common domains for verification\n"
-		" -c to open/create a common domain for modifications\n"
-		" -p to open/create a private domain for modifications\n"
-		" -l to list certificates in the given domain (both -v and -d)\n"
-		" -a to add a certificate to the given domain\n"
-		" -i to show certificate information of the given certificate\n"
-		" -r to remove the nth certificate from the given domain\n"
-		" -D, -DD... to increase level of debug info shown\n"
-		);
-}
-
-
-static int
-show_cert(int pos, X509* cert)
-{
-	char buf[255], *name;
-
-	if (!cert)
-		return(ENOENT);
-
-	name = X509_NAME_oneline(X509_get_subject_name(cert),
-							 buf, 
-							 sizeof(buf));
-				
-	printf("%2d: %s\n", pos, name);
-	return(0);
 }
 
 
@@ -115,10 +130,10 @@ get_cert(const char* from_file)
 int
 main(int argc, char* argv[])
 {
-	int rc, i, a, flags, my_domain = -1;
+	int rc, i, a, pos, flags;
+	int my_domain = -1;
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
-	struct certman_cmd* commands = NULL;
 
 	rc = ngsw_certman_open(&certs);
 	if (rc != 0) {
@@ -127,7 +142,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "v:c:p:a:Dl");
+		a = getopt(argc, argv, "l:c:p:a:v:r:DL");
 		if (a < 0) {
 			break;
 		}
@@ -137,12 +152,43 @@ main(int argc, char* argv[])
 			debug_level++;
 			break;
 
-		case 'v':
+		case 't':
 			rc = ngsw_certman_collect(optarg, certs);
 			if (rc != 0) {
 				fprintf(stderr, "ERROR: cannot open domain '%s' (%d)\n", 
 						optarg, rc);
 				return(-1);
+			}
+			break;
+
+		case 'v':
+			my_cert = get_cert(optarg);
+			if (my_cert) {
+				if (verify_cert(certs, my_cert))
+					printf("Verified OK\n");
+				else 
+					printf("Verification fails\n");
+				X509_free(my_cert);
+			}
+			break;
+
+		case 'L':
+			// sk_STORE_OBJECT_num is not defined in the scratchbox
+			// version of OpenSSL, so define it here
+#ifndef sk_STORE_OBJECT_num
+#define sk_STORE_OBJECT_num(st) SKM_sk_num(STORE_OBJECT, (st))
+#endif
+			printf("Trusted:\n");
+			for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
+				X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
+				if (obj->type == X509_LU_X509) {
+					show_cert(i, obj->data.x509, NULL);
+				}
+			}
+			// Also list domain contents, if one is opened
+			if (-1 != my_domain) {
+				printf("Private:\n");
+				ngsw_certman_iterate_domain(my_domain, show_cert, NULL);
 			}
 			break;
 
@@ -161,7 +207,6 @@ main(int argc, char* argv[])
 			break;
 
 		case 'a':
-		case 'e':
 			if (-1 == my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
@@ -174,71 +219,34 @@ main(int argc, char* argv[])
 										 buf, 
 										 sizeof(buf));
 				
-				if (a == 'a') {
-					rc = ngsw_certman_add_cert(my_domain, my_cert);
-					if (0 == rc)
-						printf("%s\nAdded\n", name);
-					else
-						fprintf(stderr, "ERROR: cannot add 's' (%d)\n",
-								name, rc);
-				} else if (a == 'e') {
-					rc = ngsw_certman_rm_cert(my_domain, my_cert);
-					if (0 == rc)
-						printf("%s\nAdded\n", name);
-					else
-						fprintf(stderr, "ERROR: cannot add 's' (%d)\n",
-								name, rc);
-				}
+				rc = ngsw_certman_add_cert(my_domain, my_cert);
+				if (0 == rc)
+					printf("%s\nAdded\n", name);
+				else
+					fprintf(stderr, "ERROR: cannot add '%s' (%d)\n",
+							name, rc);
+
 				X509_free(my_cert);
 			}
 			break;
 
-		case 'I':
+		case 'r':
 			if (-1 == my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
-			rc = ngsw_certman_iterate_domain(my_domain, show_cert);
+			pos = atoi(optarg);
+			if (pos < 0 || pos >= ngsw_certman_nbrof_certs(my_domain)) {
+				fprintf(stderr, 
+						"ERROR: domain does not contain certificate #%d\n",
+						pos);
+				goto end;
+				
+			}
+			rc = ngsw_certman_rm_cert(my_domain, pos);
 			if (0 != rc) {
-				fprintf(stderr, "ERROR: cannot iterate domain (%d)\n", rc);
-			}
-			break;
-
-		case 'i':
-			my_cert = get_cert(optarg);
-			if (my_cert) {
-				char buf[255], *name;
-
-				name = X509_NAME_oneline(X509_get_subject_name(my_cert),
-										 buf, 
-										 sizeof(buf));
-
-				if (ngsw_cert_is_valid(certs, my_cert))
-					printf("%s\nVerified\n", name);
-				else 
-					printf("%s\nVerification fails\n", name);
-				
-				X509_free(my_cert);
-
-			}
-			break;
-
-		case 'l':
-			// sk_STORE_OBJECT_num is not defined in the scratchbox
-			// version of OpenSSL, so define it here
-#ifndef sk_STORE_OBJECT_num
-#define sk_STORE_OBJECT_num(st) SKM_sk_num(STORE_OBJECT, (st))
-#endif
-			for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
-				X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
-				if (obj->type == X509_LU_X509) {
-					char buf[255];
-					char* name;
-					name = X509_NAME_oneline(X509_get_subject_name(obj->data.x509),
-											 buf, 
-											 sizeof(buf));
-					printf("\t%d:%s\n", i, buf);
-				}
+				fprintf(stderr, "ERROR: cannot remove certificate #%d (%d)\n",
+							pos, rc);
 			}
 			break;
 
@@ -248,6 +256,7 @@ main(int argc, char* argv[])
 		}
 	}
 
+end:
 	if (-1 != my_domain)
 		ngsw_certman_close_domain(my_domain);
 
