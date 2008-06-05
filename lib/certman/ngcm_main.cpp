@@ -49,13 +49,13 @@ static const char cert_storage_prefix [] = "ngswcertman.";
 static const char cert_dir_name       [] = "/etc/certs";
 static const char priv_dir_name       [] = ".certs";
 
-const string path_sep("/");
 vector<string> cert_fn_exts;
 
 // TODO: should this really be a public
 EVP_PKEY *root_pkey = NULL;
 
 
+#if 0
 static void
 scan_dir_for_certs(const char* dirname, vector<string> &add_to)
 {
@@ -84,9 +84,8 @@ scan_dir_for_certs(const char* dirname, vector<string> &add_to)
 			for (size_t i = 0; i < cert_fn_exts.size(); i++) {
 				if (cert_fn_exts[i] == ext) {
 					DEBUG(3, "'%s' is a certificate filename", entry->d_name);
-
 					string cname(abs_dirname);
-					cname.append(path_sep);
+					cname.append(PATH_SEP);
 					cname.append(entry->d_name);
 					add_to.push_back(cname);
 					break;
@@ -95,9 +94,8 @@ scan_dir_for_certs(const char* dirname, vector<string> &add_to)
 		}
 	}
 	closedir(hdir);
-
 }
-
+#endif
 
 static bool
 verify_cert(X509_STORE* ctx, X509* cert)
@@ -221,9 +219,6 @@ load_certs(vector<string> &certnames,
 }
 
 
-#define SVAL(s) (s?s:"")
-
-
 // The local certificate repository is application specific, and created
 // in a dirman ectory that contains the command-line
 static void
@@ -231,85 +226,20 @@ local_cert_dir(string& to_this, string& storename)
 {
 	string curbinname;
 
-	to_this.assign(SVAL(getenv("HOME")));
-	to_this.append(path_sep);
+	to_this.assign(GETENV("HOME",""));
+	to_this.append(PATH_SEP);
 	to_this.append(priv_dir_name);
-	to_this.append(path_sep);
-	absolute_pathname(SVAL(getenv("_")), curbinname);
+	to_this.append(PATH_SEP);
+	absolute_pathname(GETENV("_",""), curbinname);
 	for (int i = 0; i < curbinname.length(); i++) {
-		if (curbinname[i] == path_sep[0])
+		if (curbinname[i] == *PATH_SEP)
 			curbinname[i] = '.';
 	}
 	to_this.append(curbinname);
-	storename.assign(SVAL(getenv("USER")));
+	storename.assign(GETENV("USER",""));
 	storename.append(curbinname);
 	DEBUG(1, "\nlocal cert dir = '%s'\nprivate store name = '%s'", 
 		  to_this.c_str(), storename.c_str());
-}
-
-
-static int
-create_if_needed(const char* dir, int mode)
-{
-	struct stat fs;
-	int rc;
-	
-	DEBUG(2, "Test '%s'", dir);
-	rc = stat(dir, &fs);
-	if (-1 == rc) {
-		if (errno == ENOENT) {
-			DEBUG(2, "Create '%s'", dir);
-			rc = mkdir(dir, mode);
-			if (-1 != rc) {
-				return(0);
-			} else {
-				DEBUG(2, "Creation failed (%s)", strerror(rc));
-				return(errno);
-			}
-		} else {
-			DEBUG(2, "Error other than ENOENT with '%s' (%s)", 
-				  dir, strerror(rc));
-			return(errno);
-		}
-	} else {
-		if (!S_ISDIR(fs.st_mode)) {
-			DEBUG(2, "overlapping non-directory");
-			return(EEXIST);
-		} else
-			return(0);
-	}
-}
-
-
-static int
-create_private_directory(const char* dir, int mode)
-{
-	string locbuf;
-	char* sep;
-	struct stat fs;
-	int rc;
-
-	if (!dir)
-		return(EINVAL);
-
-	locbuf.assign(dir);
-	sep = (char*)locbuf.c_str();
-	sep++;
-	
-	while (sep && *sep) {
-		sep = strchr(sep, path_sep[0]);
-		if (sep) {
-			*sep = '\0';
-			rc = create_if_needed(locbuf.c_str(), mode);
-			if (0 != rc) {
-				return(rc);
-			}
-			*sep = path_sep[0];
-			sep++;
-		}
-	}
-	rc = create_if_needed(dir, mode);
-	return(rc);
 }
 
 
@@ -321,7 +251,7 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 		local_cert_dir(dirname, storename);
 		storename.insert(0, cert_storage_prefix);
 		if (domain_name) {
-			dirname.append(path_sep);
+			dirname.append(PATH_SEP);
 			dirname.append(domain_name);
 			storename.append(".");
 			storename.append(domain_name);
@@ -331,7 +261,7 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 		storename.assign(domain_name);
 		storename.insert(0, cert_storage_prefix);
 		dirname.assign(cert_dir_name);
-		dirname.append(path_sep);
+		dirname.append(PATH_SEP);
 		dirname.append(domain_name);
 		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
 	}
@@ -379,7 +309,7 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 	DEBUG(1,"Making filename out of '%s'\n+ in dir '%s'", name, in_dir);
 
 	to_string.assign(in_dir);
-	to_string.append(path_sep);
+	to_string.append(PATH_SEP);
 
 	// Use the organization name from subject name as basis
 	c = strstr(name, "O=");
@@ -493,10 +423,11 @@ extern "C" {
 		return(0);
 	}
 
-	int ngsw_certman_collect(const char* domain, X509_STORE* my_cert_store)
+	int ngsw_certman_collect(const char* domain, int shared, X509_STORE* my_cert_store)
 	{
 		vector<string> x;
 		const char* sep, *start = domain;
+		storage::visibility_t storvis;
 
 		do {
 			string domainname, dirname, storagename;
@@ -508,16 +439,20 @@ extern "C" {
 			} else
 				domainname.assign(start);
 
-			// TODO: This is an ugly hack: always try common name first,
-			// then private if the common storage does not exist
-			decide_storage_name(domainname.c_str(), NGSW_CD_COMMON, 
-								dirname, storagename);
-			if (!directory_exists(dirname.c_str()))
+			if (shared) {
+				storvis = storage::vis_shared;
+				decide_storage_name(domainname.c_str(), NGSW_CD_COMMON, 
+									dirname, storagename);
+			} else {
 				decide_storage_name(domainname.c_str(), NGSW_CD_PRIVATE, 
 									dirname, storagename);
+				storvis = storage::vis_private;
+			}
 
 			if (directory_exists(dirname.c_str())) {
-				storage* store = new storage(storagename.c_str());
+				storage* store = new storage(storagename.c_str(), 
+											 storvis, 
+											 storage::prot_signed);
 				storage::stringlist certs;
 				int pos = store->get_files(certs);
 
@@ -581,21 +516,25 @@ extern "C" {
 		string storename;
 		storage* certstore;
 		struct local_domain mydomain;
+		storage::visibility_t storvis;
 		int rc;
 
 		*handle = -1;
 		decide_storage_name(domain_name, flags, mydomain.dirname, storename);
+
 		// TODO: directory access bits are plain numbers here
 		// ugly, ugly...
 		if (NGSW_CD_PRIVATE == flags) {
-			rc = create_private_directory(mydomain.dirname.c_str(), 0700);
+			rc = create_directory(mydomain.dirname.c_str(), 0700);
+			storvis = storage::vis_private;
 		} else {
-			rc = create_private_directory(mydomain.dirname.c_str(), 0755);
+			rc = create_directory(mydomain.dirname.c_str(), 0755);
+			storvis = storage::vis_shared;
 		}
 		if (0 != rc) {
 			return(rc);
 		}
-		mydomain.index = new storage(storename.c_str(), storage::prot_sign);
+		mydomain.index = new storage(storename.c_str(), storvis, storage::prot_signed);
 		if (mydomain.index) {
 			*handle = (int) new struct local_domain(mydomain);
 			return(0);

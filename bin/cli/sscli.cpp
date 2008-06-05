@@ -12,15 +12,19 @@ static void
 usage(void)
 {
 	printf(
-		"Usage: sscli -s <storage> -c<s|e> -a|d|v <filename>\n"
+		"Usage: sscli -s <storage:[P|S][s|e]> -<a|u|d|v|p> <filename>\n"
 		" -s to give the storage name (must be first argument)\n"
-		" -c to create a new storage, \"s\" for signed and \"e\" for encrypted\n" 
+		"       and optional attributes, separated by a colon\n"
+		"    Attribute flags are P=private, S=shared, s=signed, e=encrypted\n"
+		"    The default is a private, signed storage if no attributes are given\n"
 		" -a to add a file to the storage\n"
 		" -u to update a file in the storage.\n"
 		"       With an encrypted storage the new contents is read from stdin\n"
+		"       otherwise the current contents of the file in place is used\n"
 		" -d to remove a file from the storage\n"
-		" -v to verify the file contents\n"
+		" -v to verify the storage (if no filename is given, all files will be verified)\n"
 		" -p to print the file contents to stdout\n"
+		" -D to increase the debug output level\n"
 		);
 }
 
@@ -28,14 +32,18 @@ int
 main(int argc, char* argv[])
 {
 	char a;
-	char* storagename = NULL;
-	storage* ss = NULL;
 	int len;
+	string storagename;
+	char* flags;
+	storage* ss = NULL;
+	bool was_changed = false;
+	storage::visibility_t storvis  = storage::vis_private;
+	storage::protection_t storprot = storage::prot_signed;
 
 	bb5_init();
 
     while (1) {
-		a = getopt(argc, argv, "s:c:a:d:p:u:r:v::D");
+		a = getopt(argc, argv, "s:a:u:d:p:v::D");
 		if (a < 0) {
 			break;
 		}
@@ -46,47 +54,74 @@ main(int argc, char* argv[])
 			break;
 
 		case 's':
-			storagename = optarg;
-			break;
+			flags = strchr(optarg, ':');
+			if (flags) {
+				storagename.assign(optarg, flags - optarg);
+				while (*flags) {
+					switch (*flags) 
+						{
+						case 'S':
+							storvis = storage::vis_shared;
+							break;
 
-		case 'c':
-			if (!storagename) {
-				ERROR("must give storage name first");
+						case 'P':
+							storvis = storage::vis_private;
+							break;
+
+						case 'e':
+							storprot = storage::prot_encrypted;
+							break;
+							
+						case 's':
+							storprot = storage::prot_signed;
+							break;
+
+						default:
+							ERROR("Invalid attribute '%c'\n", *flags);
+						}
+					flags++;
+				}
+			} else
+				storagename.assign(optarg);
+			
+			ss = new storage(storagename.c_str(), storvis, storprot);
+			if (!ss) {
+				ERROR("cannot create storage");
 				return(-1);
 			}
-			if (*optarg == 'e') {
-				ss = new storage(storagename, storage::prot_encrypt);
-			} else if (*optarg == 's') {
-				ss = new storage(storagename, storage::prot_sign);
-			} else
-				ERROR("Invalid protection mode");
 			break;
 
 		case 'a':
 			if (!ss) {
-				if (!storagename) {
-					ERROR("create storage first");
-					return(-1);
-				} else
-					ss = new storage(storagename);
+				ERROR("create storage first");
+				return(-1);
 			}
 			ss->add_file(optarg);
+			was_changed = true;
+			break;
+
+		case 'd':
+			if (!ss) {
+				ERROR("create storage first");
+				return(-1);
+			}
+			ss->remove_file(optarg);
+			was_changed = true;
 			break;
 
 		case 'v':
 			if (!ss) {
-				if (!storagename) {
-					ERROR("create storage first");
-					return(-1);
-				} else
-					ss = new storage(storagename);
+				ERROR("create storage first");
+				return(-1);
 			}
+
 			if (optarg) {
 				if (ss->verify_file(optarg)) {
 					printf("Verify OK\n");
 				} else {
 					printf("Verification fails\n");
 				}
+
 			} else {
 				storage::stringlist files;
 				ss->get_files(files);
@@ -98,28 +133,12 @@ main(int argc, char* argv[])
 						printf("FAILED\n");
 				}
 			}
-			delete(ss);
-			ss = NULL;
-			goto end;
-
-		case 'd':
-			if (!ss) {
-				if (!storagename) {
-					ERROR("create storage first");
-					return(-1);
-				} else
-					ss = new storage(storagename);
-			}
-			ss->remove_file(optarg);
 			break;
 
 		case 'p':
 			if (!ss) {
-				if (!storagename) {
-					ERROR("create storage first");
-					return(-1);
-				} else
-					ss = new storage(storagename);
+				ERROR("create storage first");
+				return(-1);
 			}
 			{
 				unsigned char* buf;
@@ -140,11 +159,8 @@ main(int argc, char* argv[])
 
 		case 'u':
 			if (!ss) {
-				if (!storagename) {
-					ERROR("create storage first");
-					return(-1);
-				} else
-					ss = new storage(storagename);
+				ERROR("create storage first");
+				return(-1);
 			}
 			{
 				int rc, c;
@@ -180,11 +196,14 @@ main(int argc, char* argv[])
 				rc = ss->put_file(optarg, buf, len);
 				if (rc != 0) {
 					ERROR("cannot update '%s' (%d)", optarg, rc);
+				} else {
+					was_changed = true;
 				}
 				free(buf);
 			}
 			break;
 
+			// An undocumented switch: generate random hexbytes
 		case 'r':
 			len = atoi(optarg);
 			if (len > 0) {
@@ -206,11 +225,11 @@ main(int argc, char* argv[])
 		}
 	}
 
-	if (ss) {
+	if (ss && was_changed) {
+		printf("Updating changes.\n");
 		ss->commit();
 		delete(ss);
-	} else
-		usage();
+	} 
 
   end:
 	bb5_finish();

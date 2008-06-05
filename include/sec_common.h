@@ -46,6 +46,12 @@ extern "C" {
 	*/
 	extern int debug_level;
 
+	/**
+	 * \def path_sep
+	 * \brief Let's not rely on even this
+	 */
+	#define PATH_SEP "/"
+
 	void print_openssl_errors(void);
 
     /**
@@ -70,6 +76,17 @@ extern "C" {
 	 * \returns true, if the file exists and is a directory
 	 */
 	bool directory_exists(const char* name);
+
+	/**
+	 * \brief Create a new directory. Create also all missing
+	 * intermediate directories in the path, if they do not 
+	 * exist already
+	 * \param path (in) pathname of the directory
+	 * \param mode (in) access control bits of the directory
+	 * \returns 0, if the directory could be created or an error
+	 *          code otherwise
+	 */
+	int create_directory(const char* path, int mode);
 
 #ifdef	__cplusplus
 } // extern "C"
@@ -103,5 +120,13 @@ extern "C" {
 			   ##args);\
 	    } \
     } while (0)
+
+/**
+ * \def GETENV
+ * \brief Get environment value or the default if not found
+ * \param name of the environment variable 
+ * \param deflt of the environment variable 
+ */
+#define GETENV(name,deflt) ({char* c = getenv(name); c?c:deflt;})
 
 #endif

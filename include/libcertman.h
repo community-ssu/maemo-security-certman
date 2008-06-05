@@ -25,12 +25,16 @@ extern int ngsw_certman_open(X509_STORE** my_cert_store);
 
 /**
  * \brief Load and verify the certificates of the given domain. 
- * This function can be called multiple times.
+ *        This function can be called multiple times.
  * \param domain (in) logical name of the domain
+ * \param shared (in) if true, a shared domain is expected, otherwise
+ *                    a private one
  * \param my_cert_store (in,out) the store where to add the certificates
  * \return 0 on success, otherwise an error code
  */
-extern int ngsw_certman_collect(const char* domain, X509_STORE* my_cert_store);
+extern int ngsw_certman_collect(const char* domain, 
+								int shared, 
+								X509_STORE* my_cert_store);
 
 /**
  * \brief Close the certificate store and release reserved resources

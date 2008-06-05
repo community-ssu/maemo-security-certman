@@ -140,4 +140,74 @@ extern "C" {
 		else
 			return(false);
 	}
+
+	static int
+	create_if_needed(const char* dir, int mode)
+	{
+		struct stat fs;
+		int rc;
+	
+		DEBUG(2, "Test '%s'", dir);
+		rc = stat(dir, &fs);
+		if (-1 == rc) {
+			if (errno == ENOENT) {
+				DEBUG(2, "Create '%s'", dir);
+				rc = mkdir(dir, mode);
+				if (-1 != rc) {
+					return(0);
+				} else {
+					DEBUG(2, "Creation failed (%s)", strerror(rc));
+					return(errno);
+				}
+			} else {
+				DEBUG(2, "Error other than ENOENT with '%s' (%s)", 
+					  dir, strerror(rc));
+				return(errno);
+			}
+		} else {
+			if (!S_ISDIR(fs.st_mode)) {
+				DEBUG(2, "overlapping non-directory");
+				return(EEXIST);
+			} else
+				return(0);
+		}
+	}
+
+	int
+	create_directory(const char* path, int mode)
+	{
+		string locbuf;
+		char* sep;
+		struct stat fs;
+		int rc;
+
+		if (!path)
+			return(ENOENT);
+
+		locbuf.assign(path);
+		sep = (char*)locbuf.c_str();
+		sep++;
+	
+		while (sep && *sep) {
+			sep = strchr(sep, *PATH_SEP);
+			if (sep) {
+				*sep = '\0';
+				rc = create_if_needed(locbuf.c_str(), mode);
+				if (0 != rc) {
+					ERROR("creation of '%s' failed (%s)",
+						  locbuf.c_str(), strerror(errno));
+					return(errno);
+				}
+				*sep = *PATH_SEP;
+				sep++;
+			}
+		}
+		rc = create_if_needed(path, mode);
+		if (0 != rc) {
+			ERROR("creation of '%s' failed (%s)",
+				  locbuf.c_str(), strerror(errno));
+			return(rc);
+		} else
+			return(0);
+	}
 }

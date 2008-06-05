@@ -40,28 +40,37 @@ namespace ngsw_sec {
 	public:
 
 		/**
-		 * \brief The protection level of a storage. It's given
+		 * \brief The protection level of a storage. Defined
 		 * when a storage is created and cannot be changed
 		 * afterwards.
 		 */
-		typedef enum {prot_sign, prot_encrypt} protection_t;
+		typedef enum {prot_signed, prot_encrypted} protection_t;
+
+		/**
+		 * \brief The visibility of a storage. Defined
+		 * when a storage is created and cannot be changed
+		 * afterwards.
+		 */
+		typedef enum {vis_shared, vis_private} visibility_t;
 		
 		/**
 		 * \brief Create a new storage or open an existing one
 		 * \param name (in) The logical name of the storage
+		 * \param visibility (in) The visibility of the storage.
 		 * \param protect (in) The protection level of the storage.
 		 * If the storage exists already, the parameter is 
 		 * ignored (or should an error be raised if the parameter
 		 * does not match?)
 		 */
-		storage(const char* name, protection_t protect);
+		storage(const char* name, visibility_t visibility, protection_t protection);
 
+#if 0
 		/**
 		 * \brief Open an existing storage
 		 * \param name (in) The logical name of the storage
 		 */
 		storage(const char* name);
-
+#endif
 
 		/**
 		 * \brief Destructor. Release memory allocations.
@@ -151,11 +160,12 @@ namespace ngsw_sec {
 		protection_t m_prot;
 		map<string, string> m_contents;
 		string m_name;
+		string m_filename;
 		int m_fd;
 		unsigned char* m_symkey;
 		int m_symkey_len;
 
-		void init_storage(const char* name, protection_t protect);
+		void init_storage(const char* name, visibility_t visibility, protection_t protect);
 		bool contains_file(const char* pathname);
 		bool compute_digest(unsigned char* data, ssize_t bytes, string& digest);
 		void compute_digest_of_file(const char* pathname, string& digest);

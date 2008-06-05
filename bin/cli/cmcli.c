@@ -29,9 +29,10 @@ usage(void)
 		"Usage:\n"
 		"cmcli [-t <domain>[:<domain>...]] [-<c|p> <domain>] -a <cert-file>\n"
 		"       -v <cert-file> -r <num> [-D*] [-L]\n"
-		" -t to specify domains of trusted signing certificates\n"
+		" -T to specify shared domains of trusted signing certificates\n"
+		" -t to specify private domains of trusted signing certificates\n"
 		" -v to verify a certificate against the trusted domains\n"
-		" -c to open/create a common domain for modifications\n"
+		" -c to open/create a shared domain for modifications\n"
 		" -p to open/create a private domain for modifications\n"
 		" -a to add a certificate to the given domain\n"
 		" -r to remove the nth certificate from the given domain\n"
@@ -142,7 +143,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "l:c:p:a:v:r:DL");
+		a = getopt(argc, argv, "t:T:c:p:a:v:r:DL");
 		if (a < 0) {
 			break;
 		}
@@ -152,8 +153,9 @@ main(int argc, char* argv[])
 			debug_level++;
 			break;
 
+		case 'T':
 		case 't':
-			rc = ngsw_certman_collect(optarg, certs);
+			rc = ngsw_certman_collect(optarg, ('T' == a), certs);
 			if (rc != 0) {
 				fprintf(stderr, "ERROR: cannot open domain '%s' (%d)\n", 
 						optarg, rc);

@@ -33,11 +33,8 @@ using namespace ngsw_sec;
 #define SYMKEYLEN 32
 #define CIPKEYLEN 128
 
-// This is just pretty printing; wrap long hexadecimal 
-// lines after this many pairs
-#define WRAPPOINT 32
-
-static const char sec_root[] = "/secure";
+static const char sec_shared_root[]  = "/etc/secure";
+static const char sec_private_root[] = ".secure";
 
 #define signature_mark "SIGNATURE:"
 #define key_mark       "CRYPTOKEY:"
@@ -55,13 +52,12 @@ hex2bin(char* hex2str)
 }
 
 
-// TODO: This function contains a number of memory leaks with errors
+
 void
-storage::init_storage(const char* name, protection_t protect) 
+storage::init_storage(const char* name, visibility_t visibility, protection_t protection) 
 {
 	char* end, *c = NULL;
 	unsigned char* data = (unsigned char*)MAP_FAILED;
-	string filename;
 	int fd = -1, rc;
 	ssize_t len, rlen;
 	EVP_MD_CTX vfctx;
@@ -70,7 +66,7 @@ storage::init_storage(const char* name, protection_t protect)
 	m_name = name;
 	m_symkey = NULL;
 	m_symkey_len = 0;
-	m_prot = protect;
+	m_prot = protection;
 
 	if (bb5_get_cert(0) == NULL) {
 		ERROR("Initialization error");
@@ -82,13 +78,45 @@ storage::init_storage(const char* name, protection_t protect)
 		return;
 	}
 
-	filename = sec_root;
-	filename.append("/");
-	filename.append(name);
+	// Decide the filename
+	switch (visibility)
+	{
+	case vis_shared:
+		m_filename.assign(sec_shared_root);
+		if (!directory_exists(m_filename.c_str())) {
+			if (0 != create_directory(m_filename.c_str(), 0755)) {
+				ERROR("cannot create '%s'", m_filename.c_str());
+				return;
+			}
+		}
+		m_filename.append(PATH_SEP);
+		m_filename.append(name);
+		break;
 
-	data = map_file(filename.c_str(), O_RDONLY, &fd, &len, &rlen);
+	case vis_private:
+		m_filename.assign(GETENV("HOME",""));
+		m_filename.append(PATH_SEP);
+		m_filename.append(sec_private_root);
+		if (!directory_exists(m_filename.c_str())) {
+			if (0 != create_directory(m_filename.c_str(), 0700)) {
+				ERROR("cannot create '%s'", m_filename.c_str());
+				return;
+			}
+		}
+		m_filename.append(PATH_SEP);
+		m_filename.append(name);
+		break;
+
+	default:
+		// Not possible!
+		ERROR("what hell?");
+	}
+
+	DEBUG(1,"Storage name is '%s'", m_filename.c_str());
+	data = map_file(m_filename.c_str(), O_RDONLY, &fd, &len, &rlen);
+
 	if (MAP_FAILED == data) {
-		if (prot_encrypt == m_prot) {
+		if (prot_encrypted == m_prot) {
 			// Generate a new symmetric key and encrypt it by using
 			// the BB5 public key
 			RSA *rsakey = NULL;
@@ -138,7 +166,7 @@ storage::init_storage(const char* name, protection_t protect)
 				memcpy(m_symkey, cipkey, ciplen);
 				m_symkey_len = ciplen;
 			}
-			DEBUG(1, "'%s' does not exist, created", filename.c_str());
+			DEBUG(1, "'%s' does not exist, created", m_filename.c_str());
 		}
 		goto end;
 
@@ -167,17 +195,17 @@ storage::init_storage(const char* name, protection_t protect)
 
 		sep = strchr(c, ' ');
 		if (!sep) {
-			ERROR("broken file '%s'", filename.c_str());
+			ERROR("broken file '%s'", m_filename.c_str());
 			goto end;
 		}
 		str = strchr(sep + 1, '*');
 		if (!str) {
-			ERROR("broken file '%s'", filename.c_str());
+			ERROR("broken file '%s'", m_filename.c_str());
 			goto end;
 		}
 		eol = strchr(str + 1, '\n');
 		if (!eol) {
-			ERROR("broken file '%s'", filename.c_str());
+			ERROR("broken file '%s'", m_filename.c_str());
 			goto end;
 		}
 		aname.append(sep + 2, eol - str - 1);
@@ -239,7 +267,7 @@ storage::init_storage(const char* name, protection_t protect)
 	if (c + strlen(key_mark) >= end
 		|| memcmp(c, key_mark, strlen(key_mark)) != 0)
 	{
-		if (prot_encrypt == m_prot) {
+		if (prot_encrypted == m_prot) {
 			ERROR("missing encryption key");
 			goto end;
 		}
@@ -248,7 +276,7 @@ storage::init_storage(const char* name, protection_t protect)
 		unsigned char* to; 
 		int keylen = 0;
 
-		m_prot = prot_encrypt;
+		m_prot = prot_encrypted;
 		if (!m_symkey) {
 			m_symkey = (unsigned char*)malloc(m_symkey_len);
 			if (!m_symkey) {
@@ -281,15 +309,17 @@ storage::init_storage(const char* name, protection_t protect)
 }
 
 
+#if 0
 storage::storage(const char* name)
 {
-	init_storage(name, prot_sign);
+	init_storage(name, vis_private, prot_signed);
 }
+#endif
 
 
-storage::storage(const char* name, protection_t protect) 
+storage::storage(const char* name, visibility_t visibility, protection_t protection) 
 {
-	init_storage(name, protect);
+	init_storage(name, visibility, protection);
 }
 
 
@@ -367,7 +397,7 @@ storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len, ssize_t
 
 	if (O_RDONLY == mode) {
 		mflags = MAP_PRIVATE;
-		if (prot_sign == m_prot)
+		if (prot_signed == m_prot)
 			mprot = PROT_READ;
 		else
 			mprot = PROT_READ | PROT_WRITE;
@@ -475,7 +505,7 @@ storage::add_file(const char* pathname)
 			  truename.c_str(), m_name.c_str());
 		return;
 	}
-	if (prot_encrypt == m_prot) {
+	if (prot_encrypted == m_prot) {
 		if (!encrypt_file_in_place(truename.c_str(), digest)) {
 			return;
 		}
@@ -516,7 +546,7 @@ storage::verify_file(const char* pathname)
 	}
 
 	if (ii->first == truename) {
-		if (m_prot == prot_encrypt)
+		if (prot_encrypted == m_prot)
 			decrypt_file(truename.c_str(), NULL, NULL, digest);
 		else
 			compute_digest_of_file(truename.c_str(), digest);
@@ -539,24 +569,22 @@ checked_write(int to_fd, const char* str, EVP_MD_CTX* signature)
 		EVP_SignUpdate(signature, str, len);
 }
 
+// This is just pretty printing; wrap long hexadecimal 
+// lines after this many pairs
+#define WRAPPOINT 32
 
 void
 storage::commit(void)
 {
-	string filename;
 	int rc, fd = -1;
 	EVP_MD_CTX signctx;
 	unsigned char signmd[255];
 	char tmp[3];
 	int cols;
 
-	filename = sec_root;
-	filename.append("/");
-	filename.append(m_name);
-
-	fd = creat(filename.c_str(), S_IRUSR | S_IWUSR);
+	fd = creat(m_filename.c_str(), S_IRUSR | S_IWUSR);
 	if (fd < 0) {
-		ERROR("cannot create '%s'", filename.c_str());
+		ERROR("cannot create '%s'", m_filename.c_str());
 		return;
 	}
 
@@ -606,7 +634,7 @@ storage::commit(void)
 
 	EVP_MD_CTX_cleanup(&signctx);
 
-	if (prot_encrypt == m_prot) {
+	if (prot_encrypted == m_prot) {
 		string key;
 		checked_write(fd, key_mark "\n", NULL);
 
@@ -956,7 +984,7 @@ storage::get_file(const char* pathname, unsigned char** to_buf, ssize_t* bytes)
 		return(EINVAL);
 	}
 
-	if (prot_encrypt == m_prot) {
+	if (prot_encrypted == m_prot) {
 		if (decrypt_file(truename.c_str(), to_buf, bytes, digest)) {
 			if (digest == m_contents[truename]) {
 				return(0);
@@ -1012,7 +1040,7 @@ storage::put_file(const char* pathname, unsigned char* data, ssize_t bytes)
 		return(EINVAL);
 	}
 
-	if (prot_encrypt == m_prot) {
+	if (prot_encrypted == m_prot) {
 		if (!encrypt_file(pathname, data, bytes, digest)) {
 			return(EFAULT);
 		}
