@@ -57,6 +57,7 @@ main(int argc, char* argv[])
 			flags = strchr(optarg, ':');
 			if (flags) {
 				storagename.assign(optarg, flags - optarg);
+				flags++;
 				while (*flags) {
 					switch (*flags) 
 						{
@@ -83,11 +84,18 @@ main(int argc, char* argv[])
 				}
 			} else
 				storagename.assign(optarg);
-			
+
 			ss = new storage(storagename.c_str(), storvis, storprot);
 			if (!ss) {
 				ERROR("cannot create storage");
 				return(-1);
+			}
+			if (ss->nbrof_files() == 0) {
+				fprintf(stderr, "Created new storage '%s' in %s\n", 
+						ss->name(), ss->filename());
+			} else {
+				fprintf(stderr, "Storage '%s' contains %d files\n", 
+						ss->name(), ss->nbrof_files());
 			}
 			break;
 

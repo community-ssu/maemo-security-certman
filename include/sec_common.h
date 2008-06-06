@@ -38,7 +38,6 @@
 using namespace std;
 
 extern "C" {
-#endif
 
     /**
     * \var debug_level
@@ -62,6 +61,11 @@ extern "C" {
 	 * otherwise false
 	 */
 	bool absolute_pathname(const char* name, string& to_this);
+
+#else
+// C-environment
+#define bool int
+#endif
 
     /**
 	 * \brief Test if a file exists

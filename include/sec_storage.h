@@ -144,7 +144,7 @@ namespace ngsw_sec {
 		 */
 		int put_file(const char* pathname, unsigned char* data, ssize_t bytes);
 
-		/*
+		/**
 		 * \brief Sign the storage
 		 * Write the checksums into the storage file. A file that has
 		 * been saved by \ref put_file gets the checksum from what was
@@ -154,14 +154,29 @@ namespace ngsw_sec {
 		 */
 		void commit();
 
+		/**
+		 * \brief How many files the storage contains
+		 * \returns The number of files in the storage
+		 */
 		int nbrof_files();
+
+		/**
+		 * \brief Logical name of the storage
+		 */
+		const char* name();
+
+		/**
+		 * \brief Location of the storage
+		 */
+		const char* filename();
+
+		  
 
 	private:
 		protection_t m_prot;
 		map<string, string> m_contents;
 		string m_name;
 		string m_filename;
-		int m_fd;
 		unsigned char* m_symkey;
 		int m_symkey_len;
 

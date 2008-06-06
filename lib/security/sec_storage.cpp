@@ -1074,3 +1074,17 @@ storage::nbrof_files(void)
 {
 	return(m_contents.size());
 }
+
+
+const char* 
+storage::name(void)
+{
+	return(m_name.c_str());
+}
+
+
+const char* 
+storage::filename(void)
+{
+	return(m_filename.c_str());
+}

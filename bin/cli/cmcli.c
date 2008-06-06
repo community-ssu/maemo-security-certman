@@ -19,6 +19,7 @@
 #include <openssl/pem.h>
 
 #include <libcertman.h>
+#include <sec_common.h>
 
 extern int debug_level;
 
@@ -38,6 +39,7 @@ usage(void)
 		" -r to remove the nth certificate from the given domain\n"
 		" -L to list all certificates\n"
 		" -D, -DD... to increase level of debug info shown\n"
+		" -f to force an operation despite warnings\n"
 		);
 }
 
@@ -67,6 +69,29 @@ show_cert(int pos, X509* cert, void* x)
 		printf("%s\n", name);
 	}
 	return(0);
+}
+
+
+static int 
+is_self_signed(X509* cert)
+{
+	char buf[255];
+
+	if (!cert)
+		return(0);
+	/*
+	 * How exactly this should be done...
+	 */
+	DEBUG(1, "name = %s", X509_NAME_oneline(X509_get_subject_name(cert), buf, sizeof(buf)));
+	DEBUG(1, "issuer = %s", X509_NAME_oneline(X509_get_issuer_name(cert), buf, sizeof(buf)));
+	DEBUG(1, "cert type = %x", X509_certificate_type(cert, NULL));
+	if (X509_NAME_cmp(X509_get_subject_name(cert), X509_get_issuer_name(cert)) == 0) {
+		DEBUG(1, "is self signed");
+		return(1);
+	} else {
+		DEBUG(1, "is not self signed");
+		return(0);
+	}
 }
 
 
@@ -132,7 +157,7 @@ int
 main(int argc, char* argv[])
 {
 	int rc, i, a, pos, flags;
-	int my_domain = -1;
+	int force_opt = 0, my_domain = -1;
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
 
@@ -143,7 +168,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "t:T:c:p:a:v:r:DL");
+		a = getopt(argc, argv, "t:T:c:p:a:v:r:DLfi:");
 		if (a < 0) {
 			break;
 		}
@@ -220,14 +245,32 @@ main(int argc, char* argv[])
 				name = X509_NAME_oneline(X509_get_subject_name(my_cert),
 										 buf, 
 										 sizeof(buf));
-				
+
+				/* 
+				 * If the certificate is not self signed, try to
+				 * verify it. By default, do not allow adding it 
+				 * if the verification fails.
+				 */
+				if (   !is_self_signed(my_cert) 
+					&& !verify_cert(certs, my_cert)) 
+				{
+					fprintf(stderr, 
+							"%s\nWARNING: certificate fails verification\n",
+							name);
+					if (!force_opt) {
+						X509_free(my_cert);
+						return(-1);
+					} else
+						fprintf(stderr, 
+								"WARNING: adding unverifiable certificate\n%s\n",
+								name);
+				}
 				rc = ngsw_certman_add_cert(my_domain, my_cert);
 				if (0 == rc)
-					printf("%s\nAdded\n", name);
+					printf("Added %s\n", name);
 				else
 					fprintf(stderr, "ERROR: cannot add '%s' (%d)\n",
 							name, rc);
-
 				X509_free(my_cert);
 			}
 			break;
@@ -250,6 +293,17 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: cannot remove certificate #%d (%d)\n",
 							pos, rc);
 			}
+			break;
+
+		case 'f':
+			force_opt++;
+			break;
+
+			/*
+			 * Certificate info
+			 */
+		case 'i':
+			is_self_signed(get_cert(optarg));
 			break;
 
 		default:
