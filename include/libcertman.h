@@ -6,6 +6,7 @@
 
   The functions for accessing certificate stores as openSSL's X509
   data structures.
+
 */
 
 #ifndef NGCM_H
@@ -13,6 +14,32 @@
 
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+
+/**
+ * \def NGSW_CD_PRIVATE
+ * \brief Private certificate domains can only be accessed by 
+ *        one application, the one that has created them and
+ *        owns them.
+ */
+#define NGSW_CD_PRIVATE 0
+
+/**
+ * \def NGSW_CD_COMMON
+ * \brief Common certificate domain, accessible by all applications
+ */
+#define NGSW_CD_COMMON 1
+
+/**
+ * \typedef domain_handle
+ * \brief A magic cookie reference to a domain opened by \ref
+ * ngsw_certman_open_domain and to be used in the domain management 
+ * functions.
+ */
+typedef void* domain_handle;
+
+
+/// \name General certificate management functions
+//@{
 
 /**
  * \brief Open a secure certificate store
@@ -43,37 +70,10 @@ extern int ngsw_certman_collect(const char* domain,
  */
 extern int ngsw_certman_close(X509_STORE* my_cert_store);
 
-/**
- * \brief Verify a certificate against a given certificate store
- * \param my_cert_store An X509 store
- * \param cert An X509 certificate
- * \returns 1 if the given certificate is valid and signed by one
- * of the certificates in the store, 0 otherwise.
- */
-extern int ngsw_cert_is_valid(X509_STORE* my_cert_store, X509* cert);
+//@}
 
-/**
- * \def NGSW_CD_PRIVATE
- * \brief Create a new private domain, only modifiable by the 
- *        creating application (see NGSW security documentation
- *        about application identity)
- */
-#define NGSW_CD_PRIVATE 0
-
-/**
- * \def NGSW_CD_COMMON
- * \brief Create a new common domain, accessible for all applications
- */
-#define NGSW_CD_COMMON 1
-
-
-/**
- * \typedef domain_handle
- * \brief A magic cookie type to a domain opened by \ref ngsw_certman_open_domain
- * and to be used in the domain management functions.
- */
-typedef void* domain_handle;
-
+/// \name Certificate domain management functions
+//@{
 
 /**
  * \brief Open an existing domain or create a new one
@@ -89,13 +89,15 @@ extern int ngsw_certman_open_domain(
 
 /**
  * \brief Iterate through a domain
- * \param the_domain handle (in) a handle to the domain returned by 
+ * \param the_domain (in) a handle to the domain returned by 
  *        \ref ngsw_certman_open_domain
  * \param cb_func (in) a callback function called once for each
  *        certificate in the domain. The first parameter
- *        is the domain handle, the second a X509* certificate
- *        struct. If the callback returns a non-zero value,
- *        the iteration is terminated.
+ *        is the order number of the certificate in the domain
+ *        (starting from 0), the secind a pointer to a X509 certificate
+ *        struct and the third is the given ctx pointer.
+ *        If the callback returns a non-zero value, the iteration is 
+ *        terminated.
  * \param ctx (in) a void pointer passed to the callback function
  * \return if >= 0, the index where iteration terminated,
  *         if < 0, an error code
@@ -129,7 +131,7 @@ extern int ngsw_certman_add_cert(domain_handle to_domain, X509* cert);
 extern int ngsw_certman_rm_cert(domain_handle from_domain, int pos);
 
 /**
- * \brief Return the number of certificates in the open domain
+ * \brief Return the number of certificates in a domain
  * \param in_domain (in) a handle to the domain
  * \return >= 0 on success, otherwise -1
  */
@@ -145,5 +147,6 @@ extern int ngsw_certman_nbrof_certs(domain_handle in_domain);
  */
 extern int ngsw_certman_close_domain(domain_handle handle);
 
+//@}
 
 #endif

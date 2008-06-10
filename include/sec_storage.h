@@ -42,9 +42,10 @@ namespace ngsw_sec {
 
 	/**
 	 * \class storage
-	 * A secure file container, which can be used to ensure
-	 * file integrity by local signing and unauthorized readind
-	 * by encryption.
+	 * \brief A secure file container.
+	 * 
+	 * This class is used to ensure file integrity by local 
+	 * signing and prevent unauthorized reading by encryption.
 	 */
 
 	class storage

@@ -49,53 +49,22 @@ static const char cert_storage_prefix [] = "ngswcertman.";
 static const char cert_dir_name       [] = "/etc/certs";
 static const char priv_dir_name       [] = ".certs";
 
-vector<string> cert_fn_exts;
-
 // TODO: should this really be a public
 EVP_PKEY *root_pkey = NULL;
 
 
-#if 0
-static void
-scan_dir_for_certs(const char* dirname, vector<string> &add_to)
+namespace ngsw_sec 
 {
-	string abs_dirname;
-
-	if (!strlen(dirname))
-		return;
-
-	if (!absolute_pathname(dirname, abs_dirname)) {
-		ERROR("'%s' not a valid directory name", dirname);
-		return;
-	}
-	
-	DIR* hdir = opendir(abs_dirname.c_str());
-	if (!hdir) {
-		ERROR("cannot open dir '%s' (%d)", dirname, errno);
-		return;
-	}
-
-	dirent* entry;
-
-	while ((entry = readdir(hdir))) {
-		char* extpos = strrchr(entry->d_name, '.');
-		if (extpos) {
-			string ext(extpos + 1);
-			for (size_t i = 0; i < cert_fn_exts.size(); i++) {
-				if (cert_fn_exts[i] == ext) {
-					DEBUG(3, "'%s' is a certificate filename", entry->d_name);
-					string cname(abs_dirname);
-					cname.append(PATH_SEP);
-					cname.append(entry->d_name);
-					add_to.push_back(cname);
-					break;
-				}
-			}
-		}
-	}
-	closedir(hdir);
+    /**
+	 * \brief A secure certificate container
+	 */
+	typedef struct local_domain
+	{
+		storage* index;    ///< The secure storage containing the files
+		string   dirname;  ///< The directory in which the actual files are
+	};
 }
-#endif
+
 
 static bool
 verify_cert(X509_STORE* ctx, X509* cert)
@@ -352,16 +321,6 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 	;
 }
 
-/**
- * \brief A secure certificate container
- */
-
-typedef struct local_domain
-{
-	storage* index;    ///< The secure storage containing the files
-	string   dirname;  ///< The directory in which the actual files are
-};
-
 
 static X509*
 load_cert_from_file(const char* from_file)
@@ -484,32 +443,6 @@ extern "C" {
 		X509_STORE_free(my_cert_store);
 		bb5_finish();
 		return(0);
-	}
-
-	// TODO: return issuer index/cert
-	int 
-	ngsw_cert_is_valid(X509_STORE* my_cert_store, X509* cert)
-	{
-		X509_STORE_CTX *csc;
-		int retval;
-		int rc;
-
-		csc = X509_STORE_CTX_new();
-		if (csc == NULL) {
-			ERROR("cannot create new context");
-			return(0);
-		}
-
-		rc = X509_STORE_CTX_init(csc, my_cert_store, cert, NULL);
-		if (rc == 0) {
-			ERROR("cannot initialize new context");
-			return(0);
-		}
-
-		retval = (X509_verify_cert(csc) > 0);
-		X509_STORE_CTX_free(csc);
-
-		return(retval);
 	}
 
 	#define PUBLIC_DIR_MODE 0755
