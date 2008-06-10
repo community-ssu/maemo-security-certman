@@ -68,60 +68,72 @@ extern int ngsw_cert_is_valid(X509_STORE* my_cert_store, X509* cert);
 
 
 /**
+ * \typedef domain_handle
+ * \brief A magic cookie type to a domain opened by \ref ngsw_certman_open_domain
+ * and to be used in the domain management functions.
+ */
+typedef void* domain_handle;
+
+
+/**
  * \brief Open an existing domain or create a new one
- * \param name (in) logical name of the domain
+ * \param domain_name (in) logical name of the domain
  * \param flags (in) type of domain to open/create (see NGSW_CD_* flags)
- * \param handle (out) a handle to the domain
+ * \param handle (out) a handle to the domain to be used in subsequent calls
  * \return 0 on success, otherwise an error code
  */
-extern int ngsw_certman_open_domain(const char* name_domain, int flags, int* handle);
+extern int ngsw_certman_open_domain(
+	const char* domain_name, 
+	int flags, 
+	domain_handle* handle);
 
 /**
  * \brief Iterate through a domain
- * \param handle (in) a handle to the domain returned by 
- *                    \ref ngsw_certman_open_domain
+ * \param the_domain handle (in) a handle to the domain returned by 
+ *        \ref ngsw_certman_open_domain
  * \param cb_func (in) a callback function called once for each
- *                     certificate in the domain. The first parameter
- *                     is the domain handle, the second a X509* certificate
- *                     struct. If the callback returns a non-zero value,
- *                     the iteration is terminated. (NOTE: the other functions
- *                     in this library must not be called in the callback
- *                     function. Don't know if this is really true, probably not)
- * \param ctx          a void pointer passed to the callback function
- * \return             if >= 0, the index where iteration terminated,
- *                     if < 0, an error code
+ *        certificate in the domain. The first parameter
+ *        is the domain handle, the second a X509* certificate
+ *        struct. If the callback returns a non-zero value,
+ *        the iteration is terminated.
+ * \param ctx (in) a void pointer passed to the callback function
+ * \return if >= 0, the index where iteration terminated,
+ *         if < 0, an error code
+ * \warning If you modify the domain inside the callback function
+ *        with "add cert" or "rm cert", the results may be quite unpredictable.
+ *        So don't.
  */
 extern int ngsw_certman_iterate_domain(
-	int the_domain, 
+	domain_handle the_domain, 
 	int cb_func(int,X509*,void*), 
 	void* ctx);
 
 /**
  * \brief Add a certificate into the domain
- * \param handle (in) a handle to the domain
+ * \param to_domain (in) a handle to the domain
  * \param cert (in) the certificate to be added
  * \return 0 on success, otherwise an error code. EACCESS
  * if the application does not have the power to modify
  * the domain.
  */
-extern int ngsw_certman_add_cert(int to_domain, X509* cert);
+extern int ngsw_certman_add_cert(domain_handle to_domain, X509* cert);
 
 /**
  * \brief Remove a certificate from the domain
- * \param handle (in) a handle to the domain
+ * \param from_domain (in) 
  * \param pos (in) the order number of the certificate to be removed
  * \return 0 on success, otherwise an error code. EACCESS
  * if the application does not have the power to modify
  * the domain.
  */
-extern int ngsw_certman_rm_cert(int to_domain, int pos);
+extern int ngsw_certman_rm_cert(domain_handle from_domain, int pos);
 
 /**
  * \brief Return the number of certificates in the open domain
- * \param handle (in) a handle to the domain
+ * \param in_domain (in) a handle to the domain
  * \return >= 0 on success, otherwise -1
  */
-extern int ngsw_certman_nbrof_certs(int in_domain);
+extern int ngsw_certman_nbrof_certs(domain_handle in_domain);
 
 /**
  * \brief Close a domain
@@ -131,7 +143,7 @@ extern int ngsw_certman_nbrof_certs(int in_domain);
  * Upon closing the changes are updated on the disk, if the
  * application has permissions to do that.
  */
-extern int ngsw_certman_close_domain(int handle);
+extern int ngsw_certman_close_domain(domain_handle handle);
 
 
 #endif

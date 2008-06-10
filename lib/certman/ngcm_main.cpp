@@ -352,11 +352,14 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 	;
 }
 
+/**
+ * \brief A secure certificate container
+ */
 
 typedef struct local_domain
 {
-	storage* index;
-	string   dirname;
+	storage* index;    ///< The secure storage containing the files
+	string   dirname;  ///< The directory in which the actual files are
 };
 
 
@@ -509,9 +512,13 @@ extern "C" {
 		return(retval);
 	}
 
+	#define PUBLIC_DIR_MODE 0755
+	#define PRIVATE_DIR_MODE 0700
 
 	int 
-	ngsw_certman_open_domain(const char* domain_name, int flags, int* handle)
+	ngsw_certman_open_domain(const char* domain_name, 
+							 int flags, 
+							 domain_handle* handle)
 	{
 		string storename;
 		storage* certstore;
@@ -519,31 +526,34 @@ extern "C" {
 		storage::visibility_t storvis;
 		int rc;
 
-		*handle = -1;
+		*handle = NULL;
 		decide_storage_name(domain_name, flags, mydomain.dirname, storename);
 
-		// TODO: directory access bits are plain numbers here
-		// ugly, ugly...
 		if (NGSW_CD_PRIVATE == flags) {
-			rc = create_directory(mydomain.dirname.c_str(), 0700);
+			rc = create_directory(mydomain.dirname.c_str(), PRIVATE_DIR_MODE);
 			storvis = storage::vis_private;
 		} else {
-			rc = create_directory(mydomain.dirname.c_str(), 0755);
+			rc = create_directory(mydomain.dirname.c_str(), PUBLIC_DIR_MODE);
 			storvis = storage::vis_shared;
 		}
+
 		if (0 != rc) {
 			return(rc);
 		}
-		mydomain.index = new storage(storename.c_str(), storvis, storage::prot_signed);
+		mydomain.index = new storage(storename.c_str(), storvis, 
+									 storage::prot_signed);
 		if (mydomain.index) {
-			*handle = (int) new struct local_domain(mydomain);
+			*handle = new struct local_domain(mydomain);
 			return(0);
 		} else
 			return(-1);
 	}
 
 	int 
-	ngsw_certman_iterate_domain(int the_domain, int cb_func(int,X509*,void*), void* ctx)
+	ngsw_certman_iterate_domain(
+		domain_handle the_domain, 
+		int cb_func(int,X509*,void*), 
+		void* ctx)
 	{
 		storage::stringlist files;
 		struct local_domain* mydomain;
@@ -570,7 +580,7 @@ extern "C" {
 	}
 
 	int
-	ngsw_certman_nbrof_certs(int in_domain)
+	ngsw_certman_nbrof_certs(domain_handle in_domain)
 	{
 		if (in_domain)
 			return(((struct local_domain*)in_domain)->index->nbrof_files());
@@ -579,7 +589,7 @@ extern "C" {
 	}
 
 	int 
-	ngsw_certman_add_cert(int to_domain, X509* cert)
+	ngsw_certman_add_cert(domain_handle to_domain, X509* cert)
 	{
 		struct local_domain* mydomain = (struct local_domain*)to_domain;
 		FILE* to_file;
@@ -619,7 +629,7 @@ extern "C" {
 
 
 	int
-	ngsw_certman_rm_cert(int to_domain, int pos)
+	ngsw_certman_rm_cert(domain_handle to_domain, int pos)
 	{
 		int count, rc;
 		storage::stringlist certs;
@@ -636,7 +646,7 @@ extern "C" {
 	}
 
 	int 
-	ngsw_certman_close_domain(int handle)
+	ngsw_certman_close_domain(domain_handle handle)
 	{
 		struct local_domain* mydomain;
 

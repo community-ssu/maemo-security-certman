@@ -27,16 +27,53 @@ using namespace ngsw_sec;
 #include "sec_common.h"
 #include "libbb5stub.h"
 
+/**
+ * \def DIGESTTYP
+ * \brief The checksum used in signing (SHA1)
+ */
 #define DIGESTTYP EVP_sha1
+
+/**
+ * \def DIGESTLEN
+ * \brief The length of the digest checksum
+ */
+
 #define DIGESTLEN EVP_MD_size(DIGESTTYP())
+/**
+ * \def EVPOK
+ * \brief The "no error" return code of the EVP-functions
+ * in openssl library
+ */
+
 #define EVPOK 1
+/**
+ * \def SYMKEYLEN
+ * \brief The length of the symmetric crypto key of the AES256
+ * crypto algorithm
+ */
+
 #define SYMKEYLEN 32
+
+/**
+ * \def CIPKEYLEN
+ * \brief The length of the crypto key when encrypted with 
+ * the RSA asymmetric crypto algorithm
+ */
 #define CIPKEYLEN 128
 
 static const char sec_shared_root[]  = "/etc/secure";
 static const char sec_private_root[] = ".secure";
 
+/**
+ * \def signature_mark
+ * \brief The signature marker in the storage file
+ */
 #define signature_mark "SIGNATURE:"
+
+/**
+ * \def key_mark
+ * \brief The encryption key marker in the storage file
+ */
 #define key_mark       "CRYPTOKEY:"
 
 static unsigned char
@@ -569,8 +606,11 @@ checked_write(int to_fd, const char* str, EVP_MD_CTX* signature)
 		EVP_SignUpdate(signature, str, len);
 }
 
-// This is just pretty printing; wrap long hexadecimal 
-// lines after this many pairs
+/**
+ * \def WRAPPOINT
+ * \brief This is just pretty printing; wrap long hexadecimal 
+ * lines after this many digitpairs
+ */
 #define WRAPPOINT 32
 
 void

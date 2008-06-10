@@ -43,7 +43,7 @@ main(int argc, char* argv[])
 	bb5_init();
 
     while (1) {
-		a = getopt(argc, argv, "s:a:u:d:p:v::D");
+		a = getopt(argc, argv, "s:a:u:d:p:v::Dh");
 		if (a < 0) {
 			break;
 		}

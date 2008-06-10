@@ -1,4 +1,5 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
+/// \cond Don't make doxygen documentation
 
 #include "ngcm_x509_cert.h"
 
@@ -95,3 +96,4 @@ ngcm_x509_cert::print(void)
 	PEM_write_X509(stdout, m_cert);
 }
 
+/// \endcond

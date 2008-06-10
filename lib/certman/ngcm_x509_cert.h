@@ -1,4 +1,8 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
+/**
+ * \file ngcm_x509_cert.h
+ * \brief A helper class to parse and analyze certificates
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,9 +32,14 @@ using namespace std;
 
 #include "sec_common.h"
 
-// A helper class to sort certificates
+/** 
+ * \class ngcm_x509_cert 
+ * \brief A helper class to sort and analyze X509 certificates
+ */
 class ngcm_x509_cert 
 {
+    /// \cond
+    //  Don't make doxygen documentation 
 private:
 	X509* m_cert;
 	ngcm_x509_cert* m_issuer;
@@ -51,4 +60,5 @@ public:
 	const char* issuer_key_id() {return(m_issuer_key_id.c_str());};
 	void set_issuer(ngcm_x509_cert* to_this);
 	void print();
+    /// \endcond
 };

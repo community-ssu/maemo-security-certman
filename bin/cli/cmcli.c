@@ -18,9 +18,23 @@
 
 #include <openssl/pem.h>
 
+/**
+ * \def sk_STORE_OBJECT_num(st)
+ * \brief This macro is normally defined in openssl/safestack.h, 
+ * but not in the scratchbox osso-98 version of OpenSSL, so define 
+ * it here if not yet defined.
+ */
+#ifndef sk_STORE_OBJECT_num
+#define sk_STORE_OBJECT_num(st) SKM_sk_num(STORE_OBJECT, (st))
+#endif
+
 #include <libcertman.h>
 #include <sec_common.h>
 
+/**
+ * \var debug_level
+ * \brief Increment this variable to produce more debug output to stdout
+ */
 extern int debug_level;
 
 static void
@@ -152,12 +166,17 @@ get_cert(const char* from_file)
 	return(cert);
 }
 
+/**
+ * \brief The main program
+ * Execute the command without any parameters to get the help
+ */
 
 int
 main(int argc, char* argv[])
 {
 	int rc, i, a, pos, flags;
-	int force_opt = 0, my_domain = -1;
+	int force_opt = 0;
+	domain_handle my_domain = NULL;
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
 
@@ -168,7 +187,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "t:T:c:p:a:v:r:DLfi:");
+		a = getopt(argc, argv, "t:T:c:p:a:v:r:DLfi:h");
 		if (a < 0) {
 			break;
 		}
@@ -200,11 +219,6 @@ main(int argc, char* argv[])
 			break;
 
 		case 'L':
-			// sk_STORE_OBJECT_num is not defined in the scratchbox
-			// version of OpenSSL, so define it here
-#ifndef sk_STORE_OBJECT_num
-#define sk_STORE_OBJECT_num(st) SKM_sk_num(STORE_OBJECT, (st))
-#endif
 			printf("Trusted:\n");
 			for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
 				X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
@@ -213,7 +227,7 @@ main(int argc, char* argv[])
 				}
 			}
 			// Also list domain contents, if one is opened
-			if (-1 != my_domain) {
+			if (my_domain) {
 				printf("Private:\n");
 				ngsw_certman_iterate_domain(my_domain, show_cert, NULL);
 			}
@@ -234,7 +248,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 'a':
-			if (-1 == my_domain) {
+			if (my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
@@ -276,7 +290,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 'r':
-			if (-1 == my_domain) {
+			if (my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
@@ -313,7 +327,7 @@ main(int argc, char* argv[])
 	}
 
 end:
-	if (-1 != my_domain)
+	if (my_domain)
 		ngsw_certman_close_domain(my_domain);
 
 	ngsw_certman_close(certs);

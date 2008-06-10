@@ -33,7 +33,19 @@
 #include <map>
 using namespace std;
 
+/**
+ * \namespace ngsw_sec
+ * \brief Namespace ngsw_sec means "NGSW Security"
+ */
+
 namespace ngsw_sec {
+
+	/**
+	 * \class storage
+	 * A secure file container, which can be used to ensure
+	 * file integrity by local signing and unauthorized readind
+	 * by encryption.
+	 */
 
 	class storage
 	{
@@ -57,20 +69,9 @@ namespace ngsw_sec {
 		 * \brief Create a new storage or open an existing one
 		 * \param name (in) The logical name of the storage
 		 * \param visibility (in) The visibility of the storage.
-		 * \param protect (in) The protection level of the storage.
-		 * If the storage exists already, the parameter is 
-		 * ignored (or should an error be raised if the parameter
-		 * does not match?)
+		 * \param protection (in) The protection level of the storage.
 		 */
 		storage(const char* name, visibility_t visibility, protection_t protection);
-
-#if 0
-		/**
-		 * \brief Open an existing storage
-		 * \param name (in) The logical name of the storage
-		 */
-		storage(const char* name);
-#endif
 
 		/**
 		 * \brief Destructor. Release memory allocations.
@@ -102,13 +103,13 @@ namespace ngsw_sec {
 
 		/**
 		 * \brief Check that a file matches the checksum stored
-		 * in \ref commit
+		 * in \see commit
 		 * \param pathname (in) The name of the file
 		 * \returns true, if the checksum matches
 		 */
 		bool verify_file(const char* pathname);
 
-		/*
+		/**
 		 * \brief Read an entire file into memory. Verification
 		 * and decryption are performed automatically.
 		 * \param pathname (in) The name of the file
@@ -116,7 +117,7 @@ namespace ngsw_sec {
 		 * file contents are copied. Decryption is done
 		 * automatically if needed. The parameter
 		 * needs not to have any value at entry. Use 
-		 * \ref release_buffer to release the returned
+		 * \see release_buffer to release the returned
 		 * buffer after use.
 		 * \param bytes (out) The number of bytes available
 		 * in the buffer.
@@ -129,17 +130,17 @@ namespace ngsw_sec {
 		/**
 		 * \brief Release a buffer
 		 * \param buf The buffer to be released, returned 
-		 * by \ref get_file
+		 * by \see get_file
 		 */
 		void release_buffer(unsigned char* buf) {if (buf) free(buf);}
 	
 		/**
 		 * \brief Write a file to the filesystem. Encrypt if needed.
-		 * \param handle (in) The handle returned from \ref get_file or
-		 * \ref create_file
+		 * \param pathname (in) The name of the file to write. If the file
+		 * does not yet exist in the storage, it's added.
 		 * \param data (in) The data to be written and optionally
 		 * encrypted
-		 * \param (in) The number of bytes to be written
+		 * \param bytes (in) The number of bytes to be written
 		 * \returns 0 on success, otherwise and error code
 		 */
 		int put_file(const char* pathname, unsigned char* data, ssize_t bytes);
@@ -147,7 +148,7 @@ namespace ngsw_sec {
 		/**
 		 * \brief Sign the storage
 		 * Write the checksums into the storage file. A file that has
-		 * been saved by \ref put_file gets the checksum from what was
+		 * been saved by \see put_file gets the checksum from what was
 		 * written, regardless of what is on the disk, othewise the
 		 * checksum is computed according to the current contents of 
 		 * the file.

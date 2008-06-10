@@ -1,10 +1,10 @@
 // -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
-/*!
+/**
   
-  @file sec_common.h
-  @brief NGSW Security common definitions
+  \file sec_common.h
+  \brief NGSW Security common definitions
   
-  @mainpage NGSW Security
+  \mainpage NGSW Security
   
   The NGSW Security software consists of a set of security related
   libraries and binaries for the Linux-based NGSW environment of 
@@ -24,9 +24,8 @@
  Copyright (c) Nokia Devices 2008
  (Licencing details to be added)
 
-  @defgroup applauncher Application launcher
-  @defgroup libcertman  Certificate management
-  @defgroup sec_storage Protected storage
+  \defgroup libcertman  Certificate management
+  \defgroup sec_storage Protected storage
 
 */
 
@@ -63,8 +62,11 @@ extern "C" {
 	bool absolute_pathname(const char* name, string& to_this);
 
 #else
-// C-environment
-#define bool int
+	/**
+	 * \def bool
+	 * \brief In C-environment, define 'bool' as 'int'
+	 */
+	 #define bool int
 #endif
 
     /**
@@ -111,10 +113,10 @@ extern "C" {
 /**
  * \def DEBUG
  * \brief Print a debug message
- * \param level The detail level. Only those messages are actually
+ * \param level (in) The detail level. Only those messages are actually
  * printed that have the detail level less than or equal than the
- * current value of the \ref debug_level
- * \param format,args Format string and a list of optional arguments
+ * current value of the debug_level variable.
+ * \param format,args (in) Format string and a list of optional arguments
  * as in "printf". The newline is appended automatically.
  */
 #define DEBUG(level,format,args...)	\
