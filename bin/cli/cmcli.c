@@ -43,7 +43,7 @@ usage(void)
 	printf(
 		"Usage:\n"
 		"cmcli [-t <domain>[:<domain>...]] [-<c|p> <domain>] -a <cert-file>\n"
-		"       -v <cert-file> -r <num> [-D*] [-L]\n"
+		"       -v <cert-file> -r <num> [-D*] [-L] [-f]\n"
 		" -T to specify shared domains of trusted signing certificates\n"
 		" -t to specify private domains of trusted signing certificates\n"
 		" -v to verify a certificate against the trusted domains\n"
@@ -244,11 +244,13 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: cannot open/create domain '%s' (%d)\n", 
 						optarg, rc);
 				return(-1);
+			} else if (0 < ngsw_certman_nbrof_certs(my_domain)) {
+				ngsw_certman_collect(optarg, flags, &certs);
 			}
 			break;
 
 		case 'a':
-			if (my_domain) {
+			if (!my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}

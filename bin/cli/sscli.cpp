@@ -78,7 +78,7 @@ main(int argc, char* argv[])
 							break;
 
 						default:
-							ERROR("Invalid attribute '%c'\n", *flags);
+							ERROR("Invalid attribute '%c'", *flags);
 						}
 					flags++;
 				}
@@ -91,10 +91,10 @@ main(int argc, char* argv[])
 				return(-1);
 			}
 			if (ss->nbrof_files() == 0) {
-				fprintf(stderr, "Created new storage '%s' in %s\n", 
+				DEBUG(1, "Created new storage '%s' in %s.", 
 						ss->name(), ss->filename());
 			} else {
-				fprintf(stderr, "Storage '%s' contains %d files\n", 
+				DEBUG(1, "Storage '%s' contains %d files.", 
 						ss->name(), ss->nbrof_files());
 			}
 			break;
@@ -234,7 +234,7 @@ main(int argc, char* argv[])
 	}
 
 	if (ss && was_changed) {
-		printf("Updating changes.\n");
+		DEBUG(1, "Updating changes.");
 		ss->commit();
 		delete(ss);
 	} 

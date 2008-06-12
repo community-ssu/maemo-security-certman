@@ -189,7 +189,8 @@ load_certs(vector<string> &certnames,
 
 
 // The local certificate repository is application specific, and created
-// in a dirman ectory that contains the command-line
+// in a directory that contains the command-line
+
 static void
 local_cert_dir(string& to_this, string& storename)
 {
@@ -205,8 +206,7 @@ local_cert_dir(string& to_this, string& storename)
 			curbinname[i] = '.';
 	}
 	to_this.append(curbinname);
-	storename.assign(GETENV("USER",""));
-	storename.append(curbinname);
+	storename.assign(curbinname);
 	DEBUG(1, "\nlocal cert dir = '%s'\nprivate store name = '%s'", 
 		  to_this.c_str(), storename.c_str());
 }
