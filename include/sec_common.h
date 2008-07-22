@@ -39,20 +39,6 @@ using namespace std;
 extern "C" {
 
     /**
-    * \var debug_level
-	* \brief Set this value non-zero to produce debug output
-	*/
-	extern int debug_level;
-
-	/**
-	 * \def path_sep
-	 * \brief Let's not rely on even this
-	 */
-	#define PATH_SEP "/"
-
-	void print_openssl_errors(void);
-
-    /**
 	 * \brief Find out the absolute pathname of a file or directory
 	 * \param name (in) The name of the file or directory
 	 * \param to_this (out= The absolute pathname of the file or directory
@@ -68,6 +54,21 @@ extern "C" {
 	 */
 	 #define bool int
 #endif
+
+    /**
+    * \var debug_level
+	* \brief Set this value non-zero to produce debug output
+	*/
+	extern int debug_level;
+
+	/**
+	 * \def path_sep
+	 * \brief Let's not rely on even this
+	 */
+	#define PATH_SEP "/"
+
+	void print_openssl_errors(void);
+
 
     /**
 	 * \brief Test if a file exists
