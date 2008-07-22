@@ -4,6 +4,10 @@
  * \brief The PKCS#11 implementation on the certificate manager
  */
 
+#include <stdio.h>
+#include <string.h>
+#include <sec_common.h>
+
 #include "ngcm_cryptoki.h"
 
 static const CK_INFO library_info = {
@@ -20,6 +24,61 @@ static const CK_INFO library_info = {
 		.major = 0,
 		.minor = 1
 	},
+};
+
+/* Slot information and status */
+static CK_SLOT_INFO slot_info = {
+	.slotDescription =
+		"maemo certman                   "
+		"                                ",
+	.manufacturerID =
+		"Nokia Corporation               ",
+	.flags = CKF_TOKEN_PRESENT,
+	.hardwareVersion = {
+		.major = 0,
+		.minor = 1
+	},
+	.firmwareVersion = {
+		.major = 0,
+		.minor = 1
+	},
+};
+
+/* Token information and status */
+static CK_TOKEN_INFO token_info = {
+	.label =
+		"maemo certman token #1          ",
+	.manufacturerID =
+		"Nokia Corporation               ",
+	.model =
+		"certman 1.0     ",
+	.serialNumber =
+		"0000000000000000",
+	.flags = CKF_RNG | CKF_WRITE_PROTECTED | CKF_TOKEN_INITIALIZED,
+	.ulMaxSessionCount = 1,
+	.ulSessionCount = 0,
+	.ulMaxRwSessionCount = 0,
+	.ulRwSessionCount = 0,
+	.ulMaxPinLen = 0,
+	.ulMinPinLen = 0,
+	.ulTotalPublicMemory =
+		CK_UNAVAILABLE_INFORMATION,
+	.ulFreePublicMemory =
+		CK_UNAVAILABLE_INFORMATION,
+	.ulTotalPrivateMemory =
+		CK_UNAVAILABLE_INFORMATION,
+	.ulFreePrivateMemory =
+		CK_UNAVAILABLE_INFORMATION,
+	.hardwareVersion = {
+		.major = 0,
+		.minor = 1
+	},
+	.firmwareVersion = {
+		.major = 0,
+		.minor = 1,
+	},
+	.utcTime =
+		"                ",
 };
 
 static const CK_FUNCTION_LIST function_list = {
@@ -295,65 +354,130 @@ CK_PKCS11_FUNCTION_INFO(C_FindObjectsFinal)
 
 CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
-	CK_RV rv = CKR_OK;
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 {
 	CK_RV rv = CKR_OK;
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo)
 {
 	CK_RV rv;
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetFunctionList)(
 	CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 {
+	DEBUG(0, "enter");
 	if (!ppFunctionList)
 		return CKR_ARGUMENTS_BAD;
 
 	*ppFunctionList = (CK_FUNCTION_LIST_PTR)&function_list;
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount)
 {
+	CK_RV rv;
+	CK_ULONG count = 1;
+
+	DEBUG(0, "enter");
+
+	/*
+	 * TODO: A lot
+	 */
+	if (!pulCount) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+
+	if (!pSlotList) {
+		*pulCount = count;
+		return CKR_OK;
+	}
+
+	if (*pulCount < count) {
+		*pulCount = count;
+		return CKR_BUFFER_TOO_SMALL;
+	}
+
+	*pulCount = count;
+
+	if (count > 0)
+		pSlotList[0] = 1703;
+
+	DEBUG(0, "exit");
 	return CKR_OK;
+
+  out:
+	return rv;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSlotInfo)(CK_SLOT_ID slotID,
 	CK_SLOT_INFO_PTR pInfo)
 {
-	return CKR_OK;
+	CK_RV rv = CKR_OK;
+
+	DEBUG(0, "enter");
+	if (!pInfo) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+	memcpy(pInfo, &slot_info, sizeof(*pInfo));
+	DEBUG(0, "exit");
+out:
+	return rv;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetTokenInfo)(CK_SLOT_ID slotID,
 	CK_TOKEN_INFO_PTR pInfo)
 {
-	return CKR_OK;
+	DEBUG(0, "enter");
+	CK_RV rv = CKR_OK;
+
+	if (!pInfo) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+	memcpy(pInfo, &token_info, sizeof(*pInfo));
+	DEBUG(0, "exit");
+out:
+	return rv;
 }
 	
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 	CK_MECHANISM_TYPE_PTR pMechanismList, CK_ULONG_PTR pulCount)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismInfo)(CK_SLOT_ID slotID,
 	CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_InitToken)(CK_SLOT_ID slotID,
 	CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen, CK_UTF8CHAR_PTR pLabel)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
@@ -361,22 +485,31 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 	CK_VOID_PTR pApplication, CK_NOTIFY Notify,
 	CK_SESSION_HANDLE_PTR phSession)
 {
+	DEBUG(0, "enter");
+	phSession = 0;
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 	CK_SESSION_INFO_PTR pInfo)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_OK;
 }
 
@@ -385,6 +518,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 	CK_OBJECT_HANDLE_PTR phObject)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -392,50 +527,88 @@ CK_DECLARE_FUNCTION(CK_RV, C_CopyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phNewObject)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_DestroyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetObjectSize)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject, CK_ULONG_PTR pulSize)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	DEBUG(0, "enter %d %d %p %d", hSession, hObject, pTemplate, ulCount);
+	DEBUG(0, "exit");
+	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_SetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount)
 {
+	DEBUG(0, "enter");
+	DEBUG(0, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
+
+/*
+ * TODO: better session handling
+ */
+
+static CK_ATTRIBUTE_PTR find_template = NULL;
+static CK_ULONG         find_count = 0;
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	DEBUG(0, "enter %d %p %d", hSession, pTemplate, ulCount);
+	find_template = pTemplate;
+	find_count = ulCount;
+	DEBUG(0, "exit");
+	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE_PTR phObject, CK_ULONG ulMaxObjectCount,
 	CK_ULONG_PTR pulObjectCount)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_RV rv = CKR_OK;
+	DEBUG(0, "enter");
+
+	if (!find_template) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+		
+	if (find_template->type == CKA_CERTIFICATE_TYPE) {
+	} else {
+	}
+	*pulObjectCount = 0;
+	DEBUG(0, "exit");
+  out:
+	return rv;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	DEBUG(0, "enter");
+	find_template = NULL;
+	DEBUG(0, "exit");
+	return CKR_OK;
 }
 
 #ifdef ALL_FUNCTIONS
