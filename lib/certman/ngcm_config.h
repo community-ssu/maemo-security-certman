@@ -7,7 +7,15 @@
 #ifndef NGCM_CONFIG_H
 #define NGCM_CONFIG_H
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 extern int get_config(void);
+
+#ifdef	__cplusplus
+} // extern "C"
+#endif
 
 #endif
 

@@ -8,6 +8,8 @@
 #include <sec_common.h>
 // #include <c_xmldoc.h>
 
+extern "C" {
+
 int
 get_config(void)
 {
@@ -22,3 +24,5 @@ get_config(void)
 	DEBUG(0, "exit");
 	return(0);
 }
+
+} // extern C
