@@ -9,5 +9,5 @@
 CLEAN_OBJS=@rm -f *.o
 
 LDFLAGS+=-g
-CFLAGS+=-g
-CPPFLAGS+=-g
+CFLAGS+=-g -O0
+CPPFLAGS+=-g -O0

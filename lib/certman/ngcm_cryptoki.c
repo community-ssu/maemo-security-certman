@@ -4,11 +4,12 @@
  * \brief The PKCS#11 implementation on the certificate manager
  */
 
+#include "ngcm_cryptoki.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <sec_common.h>
-
-#include "ngcm_cryptoki.h"
+#include "ngcm_config.h"
 
 static const CK_INFO library_info = {
 	.cryptokiVersion = {
@@ -355,6 +356,7 @@ CK_PKCS11_FUNCTION_INFO(C_FindObjectsFinal)
 CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
 	DEBUG(0, "enter");
+	get_config();
 	DEBUG(0, "exit");
 	return CKR_OK;
 }
