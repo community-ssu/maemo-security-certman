@@ -1,6 +1,7 @@
 include ../../make/Makefile.inc
 
 CPPFLAGS+=-I ../../include -I ../security
+LDFLAGS+= -lssl -L .. -lngswsecurity
 
 # Targets
 OBJS=ngcm_main.o ngcm_x509_cert.o ngcm_config.o ngcm_cryptoki.o
@@ -11,8 +12,8 @@ all: $(LIB) ../$(SOLIB)
 
 $(LIB): $(OBJS)
 
-../$(SOLIB): $(OBJS) ../security/sec_common.o ../security/sec_storage.o ../libbb5/libbb5stub.o
-	g++ -o $@ -Os -Wall -shared -Wl,-soname,$(SOLIB) -L.. $^
+../$(SOLIB): $(OBJS) ../libbb5/libbb5stub.o
+	g++ -o $@ $(LDFLAGS) -Os -Wall -shared -Wl,-soname,$(SOLIB) $^
 
 clean:
 	$(CLEAN_OBJS)

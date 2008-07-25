@@ -1,15 +1,15 @@
 include ../../make/Makefile.inc
 
-LDFLAGS+= -L ../../lib -lssl -lstdc++
+LDFLAGS+= -L ../../lib -lssl -lstdc++ -lngswsecurity -lngswcertman
 CFLAGS+= -I../../include
 CPPFLAGS+= -I../../include
-LIBS=../../lib/libngswsecurity.a ../../lib/libbb5.a
+LIBS=../../lib/libbb5.a
 
 all: sscli cmcli
 
 sscli : sscli.o $(LIBS)
 
-cmcli : cmcli.o ../../lib/libngswcertman.a $(LIBS) 
+cmcli : cmcli.o $(LIBS) 
 
 clean :
 	$(CLEAN_OBJS)
