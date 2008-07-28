@@ -20,6 +20,8 @@ get_config(void)
 
 	absolute_pathname("/etc/ngcm_cryptoki.conf", cfilename);
 	DEBUG(0, "Conf file: %s", cfilename.c_str());
+	cfile.parse_file(cfilename.c_str());
+	DEBUG(0, "Root: %p", (void*)cfile.root());
 #endif
 	DEBUG(0, "exit");
 	return(0);
