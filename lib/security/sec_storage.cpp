@@ -577,7 +577,7 @@ storage::verify_file(const char* pathname)
 	absolute_pathname(pathname, truename);
 	ii = m_contents.find(truename);
 
-	if ( m_contents.end() == ii) {
+	if (m_contents.end() == ii) {
 		DEBUG(0, "'%s' not found", truename.c_str());
 		return(false);
 	}

@@ -13,7 +13,7 @@ all: $(LIB) ../$(SOLIB)
 
 $(LIB): $(OBJS)
 
-../$(SOLIB): $(OBJS) ../libngswsecurity.a
+../$(SOLIB): $(OBJS) ../libngswsecurity.a ../libbb5.a
 	g++ -g -o $@ -Wall -shared -Wl,-soname,$(SOLIB) $^ -lexpat
 
 clean:

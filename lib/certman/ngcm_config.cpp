@@ -10,21 +10,21 @@
 
 extern "C" {
 
-int
-get_config(void)
-{
-	DEBUG(0, "enter");
-#if 1
-	c_xmldoc cfile;
-	string cfilename;
+	const char[] config_file_name = "/etc/ngcm_cryptoki.conf";
 
-	absolute_pathname("/etc/ngcm_cryptoki.conf", cfilename);
-	DEBUG(0, "Conf file: %s", cfilename.c_str());
-	cfile.parse_file(cfilename.c_str());
-	DEBUG(0, "Root: %p", (void*)cfile.root());
+	int
+	get_config(void)
+	{
+		DEBUG(0, "enter");
+#if 1
+		c_xmldoc cfile;
+		string cfilename;
+
+		cfile.parse_file(config_file_name);
+		DEBUG(0, "Root: %p", (void*)cfile.root());
 #endif
-	DEBUG(0, "exit");
-	return(0);
-}
+		DEBUG(0, "exit");
+		return(0);
+	}
 
 } // extern C

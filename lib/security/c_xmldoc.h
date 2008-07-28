@@ -1,3 +1,4 @@
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 // ------------------------------------------------------------------------
 /// \file c_xmldoc.h
 /// \brief The c_xmldoc class
@@ -13,6 +14,7 @@
 
 #include "c_xmlnode.h"
 #include <expat.h>
+#include <string>
 
 /// \class c_xmldoc
 /// \ingroup highleveltools
@@ -25,145 +27,144 @@
 
 class c_xmldoc
 {
- public:
-  /// \brief Constructor
-  c_xmldoc ();
+public:
+	/// \brief Constructor
+	c_xmldoc ();
 
-  /// \brief Destructor
-  ~c_xmldoc ();
+	/// \brief Destructor
+	~c_xmldoc ();
 
-  /// \brief Parse xml from a file
-  /// \param file_name The name of the file
+	/// \brief Parse xml from a file
+	/// \param file_name The name of the file
 
-  void parse_file (const char* file_name);
+	void parse_file (const char* file_name);
 
-  /// \brief Parse xml from a string
-  /// \param xml_as_string The text of the xml
-  /// \param length The length of the given string. If zero, 
-  /// strlen(xml_as_string) is assumed
+	/// \brief Parse xml from a string
+	/// \param xml_as_string The text of the xml
+	/// \param length The length of the given string. If zero, 
+	/// strlen(xml_as_string) is assumed
 
-  void parse_string (const char* xml_as_string, int length);
+	void parse_string (const char* xml_as_string, int length);
 
-  /// \brief Return the contents of the document as text
-  /// \param pretty_printing when false, the DOM tree is returned as 
-  /// a continuous string without line breaks or indentation, 
-  /// which is a suitable format for automatic parsing;
-  /// when true, the output is nicely indented, which makes 
-  /// it humanly readable
-  /// \returns a pointer to a buffer containing the xml as text.
+	/// \brief Return the contents of the document as text
+	/// \param pretty_printing when false, the DOM tree is returned as 
+	/// a continuous string without line breaks or indentation, 
+	/// which is a suitable format for automatic parsing;
+	/// when true, the output is nicely indented.
+	/// \returns a pointer to a buffer containing the xml as text.
 
-  const char* as_string (bool pretty_printing);
+	const char* as_string (bool pretty_printing);
 
-  /// \brief Release the parser. Use this method to release 
-  /// the resources reserved by the expat parser, 
-  /// if it probably is not needed any more.
-  ///
-  /// It is safe to make this call and continue parsing,
-  /// since the parser is re-initialized automatically
+	/// \brief Release the parser. Use this method to release 
+	/// the resources reserved by the expat parser, 
+	/// if it probably is not needed any more.
+	///
+	/// It is safe to make this call and continue parsing,
+	/// since the parser is re-initialized automatically
 
-  void release_parser();
+	void release_parser();
 
-  /// \brief Release the string buffer allocated for 
-  /// converting the DOM-tree into a string
-  /// Use this function to minimize runtime memory usage. 
-  /// It is not mandatory to call this function, since 
-  /// the destructor will release the buffer eventually anyway
+	/// \brief Release the string buffer allocated for 
+	/// converting the DOM-tree into a string
+	/// Use this function to minimize runtime memory usage. 
+	/// It is not mandatory to call this function, since 
+	/// the destructor will release the buffer eventually anyway
 
-  void release_string_buffer ();
+	void release_string_buffer ();
 
-  /// \brief Create a new xml document with the given node as root
-  /// \param root_node_name The name of the root tag
-  /// \returns a pointer to the root node
+	/// \brief Create a new xml document with the given node as root
+	/// \param root_node_name The name of the root tag
+	/// \returns a pointer to the root node
+	
+	c_xmlnode* create (const char* root_node_name);
+	
+	/// \brief Return the current root node
+	/// \returns A pointer to the root node, or NULL, 
+	/// if the document is empty
 
-  c_xmlnode* create (const char* root_node_name);
+	c_xmlnode* root();
 
-  /// \brief Return the current root node
-  /// \returns A pointer to the root node, or NULL, 
-  /// if the document is empty
+	/// \brief Return the absolute file name where the XML data was read, 
+	/// or an empty string, if the data was not read from a file
+	/// \returns The full name of the original XML-file
 
-  c_xmlnode* root();
+	const char* xml_file_path();
 
-  /// \brief Return the absolute file name where the XML data was read, 
-  /// or an empty string, if the data was not read from a file
-  /// \returns The full name of the original XML-file
+	/// \brief Navigate into the given node, if one exist
+	/// \param xpath A simplified xpath-expression of format 
+	/// "/node1/node2/../node3"
+	/// If the expression starts with "/", the navigation starts from 
+	/// the root node, otherwise it is relative to the current position 
+	/// (the node returned by the preceding navigate-call). 
+	/// String ".." refers to the parent, children are identified 
+	/// by unique names. If multiple children  at the same level 
+	/// have the same name, the first possible path is followed.
+	/// \param required If true, and no given node is found, an exception 
+	/// is thrown
+	/// \returns A pointer to the requested node or NULL, 
+	/// if no matching node is found and the required-parameter was false
 
-  const char* xml_file_path();
+	c_xmlnode* navigate(const char* xpath, bool required);
 
-  /// \brief Navigate into the given node, if one exist
-  /// \param xpath A simplified xpath-expression of format 
-  /// "/node1/node2/../node3"
-  /// If the expression starts with "/", the navigation starts from 
-  /// the root node, otherwise it is relative to the current position 
-  /// (the node returned by the preceding navigate-call). 
-  /// String ".." refers to the parent, children are identified 
-  /// by unique names. If multiple children  at the same level 
-  /// have the same name, the first possible path is followed.
-  /// \param required If true, and no given node is found, an exception 
-  /// is thrown
-  /// \returns A pointer to the requested node or NULL, 
-  /// if no matching node is found and the required-parameter was false
+	/// \brief Release the whole DOM-tree
 
-  c_xmlnode* navigate(const char* xpath, bool required);
+	void reset_content ();
 
-  /// \brief Release the whole DOM-tree
+	/// \brief Save the contents of the document into a file
+	/// \param to_file The name of the file where 
+	/// the contents are written to
+	
+	void save(const char* to_file);
 
-  void reset_content ();
+	/// \brief Save the contents of the document into 
+	/// the file where the data was initially read from or last
+	/// saved to
 
-  /// \brief Save the contents of the document into a file
-  /// \param to_file The name of the file where 
-  /// the contents are written to
+	void save();
 
-  void save(const char* to_file);
+	// Expat-parser's hook routines
+	// ----------------------------
+	
+	/// \brief Receive an element start from the expat-parser
+	/// \param element_name the name of the element
+	/// \param attributes possible attributes, as a NULL-terminated
+	/// string list of name=value pairs
+	
+	void xml_element_start(char* element_name, char** attributes);
 
-  /// \brief Save the contents of the document into 
-  /// the file where the data was initially read from or last
-  /// saved to
+	/// \brief Receive an element end from the expat-parser
+	/// \param element_name the name of the element
 
-  void save();
+	void xml_element_end(char* element_name);
 
-  // Expat-parser's hook routines
-  // ----------------------------
+	/// \brief Receive a piece of node content data
+	/// \param data The data
+	/// \param len The length of data
 
-  /// \brief Receive an element start from the expat-parser
-  /// \param element_name the name of the element
-  /// \param attributes possible attributes, as a NULL-terminated
-  /// string list of name=value pairs
+	void xml_character_data(char* data, int len);
+	
+	/// \brief Indicate that what follows is CDATA
 
-  void xml_element_start(char* element_name, char** attributes);
+	void xml_cdata_start();
 
-  /// \brief Receive an element end from the expat-parser
-  /// \param element_name the name of the element
+	/// \brief CDATA ends
 
-  void xml_element_end(char* element_name);
+	void xml_cdata_end();
 
-  /// \brief Receive a piece of node content data
-  /// \param data The data
-  /// \param len The length of data
+	/// \var trim_whitespace
+	/// \brief Set this trigger to make the parser to discard leading
+	/// and trailing whitespace from XML content data
 
-  void xml_character_data(char* data, int len);
+	bool trim_whitespace;
 
-  /// \brief Indicate that what follows is CDATA
+private:
+	void init_parser();
+	void xml_parsing_error();
 
-  void xml_cdata_start();
-
-  /// \brief CDATA ends
-
-  void xml_cdata_end();
-
-  /// \var trim_whitespace
-  /// \brief Set this trigger to make the parser to discard leading
-  /// and trailing whitespace from XML content data
-
-  bool trim_whitespace;
-
- private:
-  void init_parser();
-  void xml_parsing_error();
-
-  XML_Parser expat_parser;
-  c_xmlnode* root_node;
-  c_xmlnode* cur_node;
-  char* xml_str_buf;
-  c_fstring file_path;
+	XML_Parser expat_parser;
+	c_xmlnode* root_node;
+	c_xmlnode* cur_node;
+	char* xml_str_buf;
+	string file_path;
 };
 #endif
