@@ -5,7 +5,7 @@ LDFLAGS+= -lssl
 CPPFLAGS+= -I ../../include -fPIC
 
 # Targets
-OBJS=sec_common.o sec_storage.o c_fstring.o c_map.o c_wordlist.o c_xmlnode.o c_xmldoc.o
+OBJS=sec_common.o sec_storage.o c_xmlnode.o c_xmldoc.o
 LIB=../libngswsecurity.a
 SOLIB=libngswsecurity.so.1.0
 

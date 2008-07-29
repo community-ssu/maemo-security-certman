@@ -79,10 +79,6 @@ public:
 
 	void append_file (const char* file_name);
 
-	/// \brief Release the content
-
-	void reset_content ();
-
 	/// \brief Return the content
 	/// \return A pointer to the (raw) content
 	///
@@ -216,16 +212,11 @@ public:
 	void reset();
 
 private:
-	c_xmlnode* parent_ptr;
-
-	string elem_name;
-
-	string content_str;
-	map<string,string> attributes;
-	vector<c_xmlnode*> children;
-
-	string xpath_buf;
-
+	string m_tagname;
+	string m_content;
+	c_xmlnode* m_parent;
+	map<string,string> m_attributes;
+	vector<c_xmlnode*> m_children;
 	bool is_cdata;
 	bool cdata_ended;
 };

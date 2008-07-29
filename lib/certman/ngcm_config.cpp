@@ -10,7 +10,7 @@
 
 extern "C" {
 
-	const char[] config_file_name = "/etc/ngcm_cryptoki.conf";
+	const char config_file_name[] = "/etc/ngcm_cryptoki.conf";
 
 	int
 	get_config(void)

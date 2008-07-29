@@ -41,7 +41,7 @@ extern "C" {
     /**
 	 * \brief Find out the absolute pathname of a file or directory
 	 * \param name (in) The name of the file or directory
-	 * \param to_this (out= The absolute pathname of the file or directory
+	 * \param to_this (out) The absolute pathname of the file or directory
 	 * \returns true if the file or directory was found and was accessible,
 	 * otherwise false
 	 */

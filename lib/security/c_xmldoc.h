@@ -1,13 +1,6 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
-// ------------------------------------------------------------------------
 /// \file c_xmldoc.h
 /// \brief The c_xmldoc class
-//
-// Revision $Id: c_xmldoc.h,v 1.5 2005/01/03 07:14:16 jum Exp $
-//
-// ------------------------------------------------------------------------
-// (C) Copyright Nokia 2004
-// ------------------------------------------------------------------------
 
 #ifndef C_XMLDOC_DEF
 #define C_XMLDOC_DEF
@@ -16,14 +9,15 @@
 #include <expat.h>
 #include <string>
 
+
+
 /// \class c_xmldoc
-/// \ingroup highleveltools
 /// \brief XML DOM implementation
 ///
 /// The c_xmldoc class provides an easy to use interface for handling
-/// relatively small xml documents, that fit easily into central memory.
-/// It is used for parameter and data file handling and constructing
-/// and parsing the messages exchanged with the Service Manager
+/// relatively small xml documents, that fit easily into memory.
+/// It is handy for parameter and data file handling and constructing
+/// or parsing XML-format messages.
 
 class c_xmldoc
 {
@@ -45,15 +39,6 @@ public:
 	/// strlen(xml_as_string) is assumed
 
 	void parse_string (const char* xml_as_string, int length);
-
-	/// \brief Return the contents of the document as text
-	/// \param pretty_printing when false, the DOM tree is returned as 
-	/// a continuous string without line breaks or indentation, 
-	/// which is a suitable format for automatic parsing;
-	/// when true, the output is nicely indented.
-	/// \returns a pointer to a buffer containing the xml as text.
-
-	const char* as_string (bool pretty_printing);
 
 	/// \brief Release the parser. Use this method to release 
 	/// the resources reserved by the expat parser, 
@@ -84,31 +69,15 @@ public:
 
 	c_xmlnode* root();
 
-	/// \brief Return the absolute file name where the XML data was read, 
-	/// or an empty string, if the data was not read from a file
-	/// \returns The full name of the original XML-file
-
-	const char* xml_file_path();
-
-	/// \brief Navigate into the given node, if one exist
-	/// \param xpath A simplified xpath-expression of format 
-	/// "/node1/node2/../node3"
-	/// If the expression starts with "/", the navigation starts from 
-	/// the root node, otherwise it is relative to the current position 
-	/// (the node returned by the preceding navigate-call). 
-	/// String ".." refers to the parent, children are identified 
-	/// by unique names. If multiple children  at the same level 
-	/// have the same name, the first possible path is followed.
-	/// \param required If true, and no given node is found, an exception 
-	/// is thrown
-	/// \returns A pointer to the requested node or NULL, 
-	/// if no matching node is found and the required-parameter was false
-
-	c_xmlnode* navigate(const char* xpath, bool required);
+	/// \brief Return the contents of the document
+	/// \param pretty_printing if true, add newlines and
+	/// indentation
+	/// returns A string that contains the whole document
+	string as_string (bool pretty_printing);
 
 	/// \brief Release the whole DOM-tree
 
-	void reset_content ();
+	void release_content(void);
 
 	/// \brief Save the contents of the document into a file
 	/// \param to_file The name of the file where 
@@ -116,32 +85,29 @@ public:
 	
 	void save(const char* to_file);
 
-	/// \brief Save the contents of the document into 
-	/// the file where the data was initially read from or last
-	/// saved to
-
-	void save();
 
 	// Expat-parser's hook routines
 	// ----------------------------
+	// These need to be visible in order to be called from the
+	// actual, static hook routines
 	
 	/// \brief Receive an element start from the expat-parser
 	/// \param element_name the name of the element
 	/// \param attributes possible attributes, as a NULL-terminated
 	/// string list of name=value pairs
 	
-	void xml_element_start(char* element_name, char** attributes);
+	void xml_element_start(const char* element_name, const char** attributes);
 
 	/// \brief Receive an element end from the expat-parser
 	/// \param element_name the name of the element
 
-	void xml_element_end(char* element_name);
+	void xml_element_end(const char* element_name);
 
 	/// \brief Receive a piece of node content data
 	/// \param data The data
 	/// \param len The length of data
 
-	void xml_character_data(char* data, int len);
+	void xml_character_data(const char* data, const int len);
 	
 	/// \brief Indicate that what follows is CDATA
 
@@ -165,6 +131,5 @@ private:
 	c_xmlnode* root_node;
 	c_xmlnode* cur_node;
 	char* xml_str_buf;
-	string file_path;
 };
 #endif
