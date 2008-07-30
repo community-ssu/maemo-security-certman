@@ -20,66 +20,11 @@ static const CK_INFO library_info = {
 		"Nokia Corporation               ",
 	.flags = 0,
 	.libraryDescription =
-		"maemo certificate manager       ",
+		"Maemo certificate manager       ",
 	.libraryVersion = {
 		.major = 0,
 		.minor = 1
 	},
-};
-
-/* Slot information and status */
-static CK_SLOT_INFO slot_info = {
-	.slotDescription =
-		"maemo certman                   "
-		"                                ",
-	.manufacturerID =
-		"Nokia Corporation               ",
-	.flags = CKF_TOKEN_PRESENT,
-	.hardwareVersion = {
-		.major = 0,
-		.minor = 1
-	},
-	.firmwareVersion = {
-		.major = 0,
-		.minor = 1
-	},
-};
-
-/* Token information and status */
-static CK_TOKEN_INFO token_info = {
-	.label =
-		"maemo certman token #1          ",
-	.manufacturerID =
-		"Nokia Corporation               ",
-	.model =
-		"certman 1.0     ",
-	.serialNumber =
-		"0000000000000000",
-	.flags = CKF_WRITE_PROTECTED | CKF_TOKEN_INITIALIZED,
-	.ulMaxSessionCount = 1,
-	.ulSessionCount = 0,
-	.ulMaxRwSessionCount = 0,
-	.ulRwSessionCount = 0,
-	.ulMaxPinLen = 0,
-	.ulMinPinLen = 0,
-	.ulTotalPublicMemory =
-		CK_UNAVAILABLE_INFORMATION,
-	.ulFreePublicMemory =
-		CK_UNAVAILABLE_INFORMATION,
-	.ulTotalPrivateMemory =
-		CK_UNAVAILABLE_INFORMATION,
-	.ulFreePrivateMemory =
-		CK_UNAVAILABLE_INFORMATION,
-	.hardwareVersion = {
-		.major = 0,
-		.minor = 1
-	},
-	.firmwareVersion = {
-		.major = 0,
-		.minor = 1,
-	},
-	.utcTime =
-		"                ",
 };
 
 
@@ -354,12 +299,16 @@ CK_PKCS11_FUNCTION_INFO(C_FindObjectsFinal)
 	#undef CK_PKCS11_FUNCTION_INFO
 };
 
+static CK_ULONG nrof_slots = 0;
+static CK_SLOT_ID slot_lst[10];
+
 CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
+	CK_RV rv;
 	DEBUG(0, "enter");
-	get_config();
+	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	DEBUG(0, "exit");
-	return CKR_OK;
+	return rv;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
@@ -395,7 +344,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount)
 {
 	CK_RV rv;
-	CK_ULONG count = 1;
+	CK_ULONG i;
 
 	DEBUG(0, "enter");
 
@@ -408,19 +357,19 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	}
 
 	if (!pSlotList) {
-		*pulCount = count;
+		*pulCount = nrof_slots;
 		return CKR_OK;
 	}
 
-	if (*pulCount < count) {
-		*pulCount = count;
+	if (*pulCount < nrof_slots) {
+		*pulCount = nrof_slots;
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
-	*pulCount = count;
+	*pulCount = nrof_slots;
 
-	if (count > 0)
-		pSlotList[0] = 1703;
+	for (i = 0; i < nrof_slots; i++)
+		pSlotList[0] = slot_lst[i];
 
 	DEBUG(0, "exit");
 	return CKR_OK;
@@ -439,7 +388,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotInfo)(CK_SLOT_ID slotID,
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
-	memcpy(pInfo, &slot_info, sizeof(*pInfo));
+	rv = get_slot_info(slotID, pInfo);
 	DEBUG(0, "exit");
 out:
 	return rv;
@@ -455,7 +404,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetTokenInfo)(CK_SLOT_ID slotID,
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
-	memcpy(pInfo, &token_info, sizeof(*pInfo));
+	rv = get_token_info(slotID, pInfo);
 	DEBUG(0, "exit");
 out:
 	return rv;

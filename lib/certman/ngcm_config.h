@@ -11,7 +11,18 @@
 extern "C" {
 #endif
 
-extern int get_config(void);
+#include "ngcm_cryptoki.h"
+
+	extern CK_RV read_config(CK_ULONG* nrof_slots, 
+							 CK_SLOT_ID_PTR slot_list,
+							 CK_ULONG max_slots);
+
+	extern CK_RV get_slot_info(CK_SLOT_ID slotID,
+							   CK_SLOT_INFO_PTR pInfo);
+
+	extern CK_RV get_token_info(CK_SLOT_ID slotID,
+								CK_TOKEN_INFO_PTR pInfo);
+	
 
 #ifdef	__cplusplus
 } // extern "C"
