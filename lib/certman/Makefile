@@ -14,7 +14,7 @@ all: $(LIB) ../$(SOLIB)
 $(LIB): $(OBJS)
 
 ../$(SOLIB): $(OBJS) ../libngswsecurity.a ../libbb5.a
-	g++ -g -o $@ -Wall -shared -Wl,-soname,$(SOLIB) $^ -lexpat
+	g++ -g -o $@ -Wall -shared -Wl,-soname,$(SOLIB) $^ -lexpat -lssl
 
 clean:
 	$(CLEAN_OBJS)

@@ -55,7 +55,7 @@ static CK_TOKEN_INFO token_info = {
 		"certman 1.0     ",
 	.serialNumber =
 		"0000000000000000",
-	.flags = CKF_RNG | CKF_WRITE_PROTECTED | CKF_TOKEN_INITIALIZED,
+	.flags = CKF_WRITE_PROTECTED | CKF_TOKEN_INITIALIZED,
 	.ulMaxSessionCount = 1,
 	.ulSessionCount = 0,
 	.ulMaxRwSessionCount = 0,
@@ -81,6 +81,7 @@ static CK_TOKEN_INFO token_info = {
 	.utcTime =
 		"                ",
 };
+
 
 static const CK_FUNCTION_LIST function_list = {
 	.version = {
@@ -373,6 +374,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo)
 {
 	CK_RV rv;
 	DEBUG(0, "enter");
+	memcpy(pInfo, &library_info, sizeof(*pInfo));
 	DEBUG(0, "exit");
 	return CKR_OK;
 }
@@ -446,9 +448,9 @@ out:
 CK_DECLARE_FUNCTION(CK_RV, C_GetTokenInfo)(CK_SLOT_ID slotID,
 	CK_TOKEN_INFO_PTR pInfo)
 {
-	DEBUG(0, "enter");
 	CK_RV rv = CKR_OK;
 
+	DEBUG(0, "enter");
 	if (!pInfo) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
@@ -462,9 +464,19 @@ out:
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 	CK_MECHANISM_TYPE_PTR pMechanismList, CK_ULONG_PTR pulCount)
 {
+	CK_RV rv = CKR_OK;
+
 	DEBUG(0, "enter");
-	DEBUG(0, "exit");
-	return CKR_OK;
+	if (!pulCount) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+	/*
+	 * Don't support any mechanisms
+	 */
+	*pulCount = 0;
+ out:
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismInfo)(CK_SLOT_ID slotID,
@@ -487,10 +499,18 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 	CK_VOID_PTR pApplication, CK_NOTIFY Notify,
 	CK_SESSION_HANDLE_PTR phSession)
 {
-	DEBUG(0, "enter");
-	phSession = 0;
+	CK_RV rv = CKR_OK;
+
+	DEBUG(0, "enter app=%p, notify=%p", pApplication, Notify);
+	if (!phSession) {
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+	*phSession = 0;
 	DEBUG(0, "exit");
 	return CKR_OK;
+ out:
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
