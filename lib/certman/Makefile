@@ -1,6 +1,6 @@
 include ../../make/Makefile.inc
 
-CFLAGS+=-fPIC
+CFLAGS+=-fPIC -Wall
 CPPFLAGS+=-I ../../include -I ../security -fPIC
 LDFLAGS+= -lssl
 

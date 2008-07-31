@@ -11,18 +11,35 @@
 extern "C" {
 #endif
 
+#include <libcertman.h>
 #include "ngcm_cryptoki.h"
 
-	extern CK_RV read_config(CK_ULONG* nrof_slots, 
-							 CK_SLOT_ID_PTR slot_list,
-							 CK_ULONG max_slots);
+	CK_RV read_config(CK_ULONG* nrof_slots, 
+					  CK_SLOT_ID_PTR slot_list,
+					  CK_ULONG max_slots);
 
-	extern CK_RV get_slot_info(CK_SLOT_ID slotID,
-							   CK_SLOT_INFO_PTR pInfo);
-
-	extern CK_RV get_token_info(CK_SLOT_ID slotID,
-								CK_TOKEN_INFO_PTR pInfo);
+	CK_RV get_slot_info(CK_SLOT_ID slotID,
+						CK_SLOT_INFO_PTR pInfo);
 	
+	CK_RV get_token_info(CK_SLOT_ID slotID,
+						 CK_TOKEN_INFO_PTR pInfo);
+
+	typedef struct session {
+		CK_SESSION_HANDLE session_id;
+		CK_SLOT_ID slot;
+		CK_ATTRIBUTE_PTR find_template;
+		CK_ULONG find_count;
+		domain_handle cmdomain;
+		void* certs;
+	} *SESSION;
+
+	CK_SESSION_HANDLE open_session(CK_SLOT_ID slot_id);
+	SESSION find_session(CK_SESSION_HANDLE sess_id);
+	CK_RV close_session(CK_SESSION_HANDLE sess_id);
+	CK_RV close_all_sessions(CK_SLOT_ID slot_id);
+
+	CK_ULONG nbrof_certs(CK_SLOT_ID slotID);
+	X509* get_cert(SESSION sess, int ord_nbr);
 
 #ifdef	__cplusplus
 } // extern "C"

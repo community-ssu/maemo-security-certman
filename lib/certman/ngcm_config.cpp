@@ -12,7 +12,7 @@
 #include <vector>
 
 typedef struct int_slot_info {
-	int nr;
+	CK_SLOT_ID nr;
 	string label;
 	string domain;
 	bool is_shared;
@@ -50,7 +50,7 @@ extern "C" {
 		string appname;
 
 		absolute_pathname(GETENV("_",""), appname);
-		DEBUG(0, "Init PKCS11 for '%s'", appname.c_str());
+		DEBUG(1, "Init PKCS11 for '%s'", appname.c_str());
 		cfile.parse_file(config_file_name);
 		cnode = cfile.root();
 		if (!cnode) {
@@ -61,7 +61,7 @@ extern "C" {
 			if ("application" == string(cnode->child(i)->name())
 				&& appname == string(cnode->child(i)->attribute("path", true, ""))) 
 			{
-				DEBUG(0, "Found config for this application");
+				DEBUG(1, "Found config for this application");
 				cnode = cnode->child(i);
 				for (int j = 0; j < cnode->nbrof_children(); j++) {
 					if ("slot" == string(cnode->child(j)->name())) {
@@ -71,18 +71,18 @@ extern "C" {
 						islot->label = lnode->attribute("label", false, "");
 						islot->domain = lnode->attribute("domain", false, "");
 						islot->is_shared = 
-							("shared" == lnode->attribute("type",true,""));
+							("shared" == string(lnode->attribute("type",true,"")));
 						islot->is_writable = 
-							("y" == lnode->attribute("writable",true,""));
+							("y" == string(lnode->attribute("writable",true,"")));
 						slots.push_back(islot);
 
 						if (slots.size() == max_slots) {
-							DEBUG(0, "All slots filled");
+							DEBUG(1, "All slots filled");
 							goto done;
 						}
 					}
 				}
-				DEBUG(0, "found %d slots for this application", slots.size());
+				DEBUG(1, "found %d slots for this application", slots.size());
 				break;
 			}
 		}
@@ -90,7 +90,7 @@ extern "C" {
 		*nrof_slots = slots.size();
 		for (int i = 0; i < slots.size(); i++) {
 			slot_list[i] = slots[i]->nr;
-			DEBUG(0, "Slot %d=%d", i, slot_list[i]);
+			DEBUG(1, "Slot %d=%d", i, slot_list[i]);
 		}
 	end:
 		return(CKR_OK);
@@ -101,7 +101,7 @@ extern "C" {
 	{
 		I_SLOT_INFO sinfo = NULL;
 
-		DEBUG(0, "%d", slotID);
+		DEBUG(1, "%d", slotID);
 		for (int i = 0; i < slots.size(); i++) {
 			if (slots[i]->nr == slotID) {
 				sinfo = slots[i];
@@ -130,7 +130,7 @@ extern "C" {
 	{
 		I_SLOT_INFO sinfo = NULL;
 
-		DEBUG(0, "%d", slotID);
+		DEBUG(1, "%d", slotID);
 		for (int i = 0; i < slots.size(); i++) {
 			if (slots[i]->nr == slotID) {
 				sinfo = slots[i];
@@ -176,4 +176,123 @@ extern "C" {
 		} else
 			return(CKR_ARGUMENTS_BAD);
 	}
-} // extern C
+
+	static CK_SESSION_HANDLE last_session = 0;
+	static vector<SESSION> sessions;
+	typedef vector<SESSION>::iterator siter;
+
+	CK_SESSION_HANDLE 
+	open_session(CK_SLOT_ID slot_id)
+	{
+		SESSION new_session;
+		I_SLOT_INFO slot_info = NULL;
+		domain_handle domain;
+		int rc;
+
+		for (size_t i = 0; i < slots.size(); i++) {
+			if (slots[i]->nr == slot_id) {
+				slot_info = slots[i];
+			}
+		}
+		if (!slot_info)
+			return(CKR_SLOT_ID_INVALID);
+
+		DEBUG(1, "open %s domain %s", 
+			  slot_info->is_shared
+			  ?"shared":"private",
+			  slot_info->domain.c_str());
+		rc = ngsw_certman_open_domain(slot_info->domain.c_str(),
+									  slot_info->is_shared
+									  ?NGSW_CD_COMMON:NGSW_CD_PRIVATE,
+									  &domain);
+		if (rc != 0) {
+			return(CKR_SLOT_ID_INVALID);
+		}
+
+		new_session = new(struct session);
+		memset(new_session, '\0', sizeof(struct session));
+		new_session->session_id = last_session++;
+		new_session->slot = slot_id;
+		new_session->cmdomain = domain;
+		sessions.push_back(new_session);
+		return(new_session->session_id);
+	}
+
+	SESSION
+	find_session(CK_SESSION_HANDLE sess_id)
+	{
+		for (size_t i = 0; i < sessions.size(); i++) {
+			if (sessions[i]->session_id == sess_id)
+				return(sessions[i]);
+		}
+		return(NULL);
+	}
+
+	typedef vector<X509*> cstore;
+
+	static int
+	cb_copy_cert(int ordnr, X509* cert, void* sh)
+	{
+		cstore* certs = (cstore*)sh;
+		certs->push_back(cert);
+		DEBUG(1, "Read certificate");
+		return(0);
+	}
+
+	X509*
+	get_cert(SESSION sess, int ord_nbr)
+	{
+		cstore* certs;
+
+		if (sess->certs == NULL) {
+			certs = new(cstore);
+			sess->certs = certs;
+			ngsw_certman_iterate_domain(sess->cmdomain, 
+										cb_copy_cert,
+										sess->certs);
+		} else {
+			certs = (cstore*)sess->certs;
+		}
+		if (ord_nbr < certs->size()) {
+			return((*certs)[(size_t)ord_nbr]);
+		} else {
+			ERROR("invalid object nbr %d", ord_nbr);
+			return(NULL);
+		}
+	}
+
+	CK_RV
+	close_session(CK_SESSION_HANDLE sess_id)
+	{
+		for (size_t i = 0; i < sessions.size(); i++) {
+			if (sessions[i]->session_id == sess_id) {
+				SESSION sess = sessions[i];
+				sessions.erase(sessions.begin() + i);
+				if (sess->certs) {
+					/*
+					 * TODO: Release certificates
+					 */
+				}
+				delete(sess);
+				DEBUG(1, "exit, closed session %d", sess_id);
+				return(CKR_OK);
+			}
+		}
+		DEBUG(1, "exit, session_not_found");
+		return(CKR_SESSION_HANDLE_INVALID);
+	}
+
+	CK_RV 
+	close_all_sessions(CK_SLOT_ID slot_id)
+	{
+		for (size_t i = 0; i < sessions.size(); i++) {
+			if (sessions[i]->slot == slot_id) {
+				SESSION sess = sessions[i];
+				sessions.erase(sessions.begin() + i);
+				delete(sess);
+			}
+		}
+		DEBUG(1, "closed all sessions for slot %d", slot_id);
+		return(CKR_OK);
+	}
+} /* extern C */

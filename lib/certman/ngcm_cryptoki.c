@@ -9,7 +9,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <sec_common.h>
+#include <libcertman.h>
 #include "ngcm_config.h"
+
+static X509_STORE* root_certs;
+
+static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
+
 
 static const CK_INFO library_info = {
 	.cryptokiVersion = {
@@ -299,54 +305,77 @@ CK_PKCS11_FUNCTION_INFO(C_FindObjectsFinal)
 	#undef CK_PKCS11_FUNCTION_INFO
 };
 
+/*
+ * Own stuff
+ */
+
+/*
+ * TODO: A global session id counter; not re-entrant!
+ */
 static CK_ULONG nrof_slots = 0;
 static CK_SLOT_ID slot_lst[10];
 
+#define GET_SESSION(id,to_this)					\
+	do {										\
+		to_this = find_session(id);				\
+		if (!to_this) {							\
+			ERROR("session %d not found", (int)id);	\
+			return(CKR_SESSION_HANDLE_INVALID);	\
+		}										\
+	} while (0);
+
 CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
-	CK_RV rv;
-	DEBUG(0, "enter");
+	CK_RV rv = CKR_OK;
+
+	debug_level = 2;
+	DEBUG(1, "enter");
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
-	DEBUG(0, "exit");
+	if (rv == CKR_OK) {
+		if (0 != ngsw_certman_open(&root_certs))
+			rv = CKR_DEVICE_ERROR;
+	}
+	DEBUG(1, "exit");
 	return rv;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 {
 	CK_RV rv = CKR_OK;
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
-	return CKR_OK;
+	DEBUG(1, "enter");
+	ngsw_certman_close(root_certs);
+	DEBUG(1, "exit");
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo)
 {
-	CK_RV rv;
-	DEBUG(0, "enter");
+	CK_RV rv = CKR_OK;
+	DEBUG(1, "enter");
 	memcpy(pInfo, &library_info, sizeof(*pInfo));
-	DEBUG(0, "exit");
-	return CKR_OK;
+	DEBUG(1, "exit");
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetFunctionList)(
 	CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 {
-	DEBUG(0, "enter");
+	DEBUG(1, "enter");
 	if (!ppFunctionList)
 		return CKR_ARGUMENTS_BAD;
 
 	*ppFunctionList = (CK_FUNCTION_LIST_PTR)&function_list;
-	DEBUG(0, "exit");
+	DEBUG(1, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount)
 {
-	CK_RV rv;
+	CK_RV rv = CKR_OK;
 	CK_ULONG i;
 
-	DEBUG(0, "enter");
+	DEBUG(1, "enter");
 
 	/*
 	 * The token is always present, so we can ignore the tokenPresent
@@ -360,13 +389,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 
 	if (!pSlotList) {
 		*pulCount = nrof_slots;
-		DEBUG(0, "exit, just asked the nbrof slots");
+		DEBUG(1, "exit, just asked the nbrof slots");
 		return CKR_OK;
 	}
 
 	if (*pulCount < nrof_slots) {
 		*pulCount = nrof_slots;
-		DEBUG(0, "exit, buffer too small");
+		DEBUG(1, "exit, buffer too small");
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
@@ -375,7 +404,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	for (i = 0; i < nrof_slots; i++)
 		pSlotList[i] = slot_lst[i];
 
-	DEBUG(0, "exit");
+	DEBUG(1, "exit");
 	return CKR_OK;
 
   out:
@@ -387,13 +416,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotInfo)(CK_SLOT_ID slotID,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(0, "enter");
+	DEBUG(1, "enter");
 	if (!pInfo) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
 	rv = get_slot_info(slotID, pInfo);
-	DEBUG(0, "exit");
+	DEBUG(1, "exit");
 out:
 	return rv;
 }
@@ -403,13 +432,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetTokenInfo)(CK_SLOT_ID slotID,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(0, "enter");
+	DEBUG(1, "enter");
 	if (!pInfo) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
 	rv = get_token_info(slotID, pInfo);
-	DEBUG(0, "exit");
+	DEBUG(1, "exit");
 out:
 	return rv;
 }
@@ -419,7 +448,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(0, "enter");
+	DEBUG(1, "enter");
 	if (!pulCount) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
@@ -435,16 +464,16 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismInfo)(CK_SLOT_ID slotID,
 	CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_InitToken)(CK_SLOT_ID slotID,
 	CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen, CK_UTF8CHAR_PTR pLabel)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
 	return CKR_OK;
 }
 
@@ -454,13 +483,14 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(0, "enter app=%p, notify=%p", pApplication, Notify);
+	DEBUG(1, "enter app=%p, notify=%p", pApplication, Notify);
 	if (!phSession) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
-	*phSession = 0;
-	DEBUG(0, "exit");
+	DEBUG(1, "Opened session for slot %d", (int)slotID);
+	*phSession = open_session(slotID);
+	DEBUG(1, "exit");
 	return CKR_OK;
  out:
 	return(rv);
@@ -468,24 +498,24 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
-	return CKR_OK;
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
+	return(close_session(hSession));
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
-	return CKR_OK;
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
+	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 	CK_SESSION_INFO_PTR pInfo)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
-	return CKR_OK;
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
+	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 
@@ -493,8 +523,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 	CK_OBJECT_HANDLE_PTR phObject)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
@@ -502,58 +532,101 @@ CK_DECLARE_FUNCTION(CK_RV, C_CopyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phNewObject)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_DestroyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetObjectSize)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject, CK_ULONG_PTR pulSize)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
+
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
-	DEBUG(0, "enter %d %d %p %d", hSession, hObject, pTemplate, ulCount);
-	DEBUG(0, "exit");
-	return CKR_OK;
+	CK_RV rv = CKR_OK;
+	CK_ULONG i;
+	SESSION sess;
+	X509* cert;
+	CK_ATTRIBUTE_PTR attr;
+
+	DEBUG(1, "read cert %d %p %ld", (int)hObject, pTemplate, ulCount);
+	GET_SESSION(hSession, sess);
+	cert = get_cert(sess, hObject);
+	if (cert) {
+		for (i = 0; i < ulCount; i++) {
+			attr = &pTemplate[i];
+			DEBUG(1, "get %s", attr_name(attr->type));
+			switch (attr->type) {
+			case CKA_CERTIFICATE_TYPE:
+				{
+					CK_CERTIFICATE_TYPE cert_type = CKC_X_509;
+					attr->ulValueLen = sizeof(CK_ULONG);
+					memcpy(&attr->pValue, &cert_type, attr->ulValueLen);
+				}
+				break;
+			case CKA_VALUE:
+				break;
+			case CKA_MODULUS_BITS:
+				break;
+			case CKA_MODULUS:
+				break;
+			case CKA_PUBLIC_EXPONENT:
+				break;
+			case CKA_KEY_TYPE:
+				break;
+			case CKA_CLASS:
+				break;
+			case CKA_LABEL:
+				break;
+			case CKA_ID:
+				break;
+			default:
+				DEBUG(1, "attribute id %x", (int)attr->type);
+				break;
+			}
+		}
+	}
+	DEBUG(1, "exit");
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_SetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount)
 {
-	DEBUG(0, "enter");
-	DEBUG(0, "exit");
+	DEBUG(1, "enter");
+	DEBUG(1, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-/*
- * TODO: better session handling
- */
-
-static CK_ATTRIBUTE_PTR find_template = NULL;
-static CK_ULONG         find_count = 0;
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
-	DEBUG(0, "enter %d %p %d", hSession, pTemplate, ulCount);
-	find_template = pTemplate;
-	find_count = ulCount;
-	DEBUG(0, "exit");
+	SESSION sess;
+	CK_ULONG i;
+	DEBUG(1, "enter %d %p %d", (int)hSession, pTemplate, (int)ulCount);
+	GET_SESSION(hSession, sess);
+	sess->find_template = pTemplate;
+	for (i = 0; i < ulCount; i++) 
+		DEBUG(1, "search for %s=?", attr_name(pTemplate->type));
+	sess->find_count = ulCount;
+	DEBUG(1, "exit");
 	return CKR_OK;
 }
 
@@ -562,27 +635,49 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	CK_ULONG_PTR pulObjectCount)
 {
 	CK_RV rv = CKR_OK;
-	DEBUG(0, "enter");
+	SESSION sess;
+	CK_ULONG i;
 
-	if (!find_template) {
-		rv = CKR_ARGUMENTS_BAD;
+	DEBUG(1, "enter");
+	GET_SESSION(hSession, sess);
+	if (!sess->find_template) {
+		rv = CKR_OPERATION_NOT_INITIALIZED;
 		goto out;
 	}
 		
-	if (find_template->type == CKA_CERTIFICATE_TYPE) {
+	/* Debug: do not start to search, as the search never ends */
+	if (0 && sess->find_template->type == CKA_CLASS
+		&& (*(CK_ULONG*)sess->find_template->pValue) == CKO_CERTIFICATE)
+	{
+		DEBUG(1, "find certificates");
+		*pulObjectCount = ngsw_certman_nbrof_certs(sess->cmdomain);
+		if (phObject) {
+			for (i = 0; i < *pulObjectCount; i++) {
+				/*
+				 * Use just the ordinal number as a handle
+				 */
+				if (i < ulMaxObjectCount)
+					phObject[i] = i;
+			}
+		}
 	} else {
+		DEBUG(1, "find object type %d", (int)sess->find_template->type);
+		*pulObjectCount = 0;
 	}
-	*pulObjectCount = 0;
-	DEBUG(0, "exit");
+	DEBUG(1, "found %d", (int)*pulObjectCount);
+
   out:
+	DEBUG(1, "exit %d", (int)rv);
 	return rv;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 {
-	DEBUG(0, "enter");
-	find_template = NULL;
-	DEBUG(0, "exit");
+	SESSION sess;
+	DEBUG(1, "enter");
+	GET_SESSION(hSession, sess);
+	sess->find_template = NULL;
+	DEBUG(1, "exit");
 	return CKR_OK;
 }
 
@@ -880,3 +975,30 @@ CK_DECLARE_FUNCTION(CK_RV, C_GenerateRandom)(CK_SESSION_HANDLE hSession,
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 #endif
+
+static const char*
+attr_name(CK_ATTRIBUTE_TYPE of_a)
+{
+	switch (of_a) {
+	case CKA_CERTIFICATE_TYPE:
+		return( "CKA_CERTIFICATE_TYPE");
+	case CKA_VALUE:
+		return( "CKA_VALUE");
+	case CKA_MODULUS_BITS:
+		return("CKA_MODULUS_BITS");
+	case CKA_MODULUS:
+		return("CKA_MODULUS");
+	case CKA_PUBLIC_EXPONENT:
+		return("CKA_PUBLIC_EXPONENT");
+	case CKA_KEY_TYPE:
+		return("CKA_KEY_TYPE");
+	case CKA_CLASS:
+		return("CKA_CLASS");
+	case CKA_LABEL:
+		return("CKA_LABEL");
+	case CKA_ID:
+		return("CKA_ID");
+	default:
+		return("UNKNOWN");
+	}
+}
