@@ -13,6 +13,7 @@
 
 typedef struct int_slot_info {
 	int nr;
+	string label;
 	string domain;
 	bool is_shared;
 	bool is_writable;
@@ -23,6 +24,20 @@ static vector<I_SLOT_INFO> slots;
 extern "C" {
 
 	const char config_file_name[] = "/etc/ngcm_cryptoki.conf";
+
+	static void
+	strbcpy(CK_UTF8CHAR* to, const char* from, const unsigned blen)
+	{
+		int slen = strlen(from);
+		if (slen < blen) {
+			memcpy((char*)to, from, slen);
+			memset((char*)to + slen, ' ', blen - slen);
+		} else {
+			memcpy((char*)to, from, blen);
+		}
+		// This is not necessary
+		// *(to + blen - 1) = '\0';
+	}
 
 	CK_RV 
 	read_config(CK_ULONG* nrof_slots, 
@@ -53,6 +68,7 @@ extern "C" {
 						c_xmlnode* lnode = cnode->child(j);
 						I_SLOT_INFO islot = new(struct int_slot_info);
 						islot->nr = atoi(lnode->attribute("nbr", true, ""));
+						islot->label = lnode->attribute("label", false, "");
 						islot->domain = lnode->attribute("domain", false, "");
 						islot->is_shared = 
 							("shared" == lnode->attribute("type",true,""));
@@ -72,8 +88,10 @@ extern "C" {
 		}
 	done:		
 		*nrof_slots = slots.size();
-		for (int i = 0; i < slots.size(); i++)
+		for (int i = 0; i < slots.size(); i++) {
 			slot_list[i] = slots[i]->nr;
+			DEBUG(0, "Slot %d=%d", i, slot_list[i]);
+		}
 	end:
 		return(CKR_OK);
 	}
@@ -91,10 +109,10 @@ extern "C" {
 			}
 		}
 		if (sinfo && pInfo) {
-			strncpy((char*)pInfo->slotDescription,
+			strbcpy(pInfo->slotDescription,
 					"Maemo secure certificate store",
 					sizeof(pInfo->slotDescription));
-			strncpy((char*)pInfo->manufacturerID, 
+			strbcpy(pInfo->manufacturerID, 
 					"Nokia corporation",
 					sizeof(pInfo->manufacturerID));
 			pInfo->flags = CKF_TOKEN_PRESENT;
@@ -120,14 +138,16 @@ extern "C" {
 			}
 		}
 		if (sinfo && pInfo) {
-			DEBUG(0, "sizeof label is %d", sizeof(pInfo->label));
-			strncpy((char*)pInfo->label,
-					"token", // sinfo->domain.c_str(),
+			strbcpy(pInfo->label,
+					sinfo->label.c_str(),
 					sizeof(pInfo->label));
-			strncpy((char*)pInfo->manufacturerID, 
+			strbcpy(pInfo->manufacturerID, 
 					"Nokia corporation",
 					sizeof(pInfo->manufacturerID));
-			strncpy((char*)pInfo->serialNumber, 
+			strbcpy(pInfo->model, 
+					"certman",
+					sizeof(pInfo->model));
+			strbcpy(pInfo->serialNumber, 
 					"0000000000000000",
 					sizeof(pInfo->serialNumber));
 			pInfo->flags = CKF_TOKEN_INITIALIZED;
@@ -149,9 +169,9 @@ extern "C" {
 			pInfo->hardwareVersion.minor = 1;
 			pInfo->firmwareVersion.major = 0;
 			pInfo->firmwareVersion.minor = 1;
-			//			strncpy((char*)pInfo->utcTime, 
-			//		"                ",
-			//		sizeof(pInfo->utcTime));
+			strncpy((char*)pInfo->utcTime, 
+					"                ",
+					sizeof(pInfo->utcTime));
 			return(CKR_OK);
 		} else
 			return(CKR_ARGUMENTS_BAD);

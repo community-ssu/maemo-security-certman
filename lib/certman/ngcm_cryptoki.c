@@ -349,6 +349,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	DEBUG(0, "enter");
 
 	/*
+	 * The token is always present, so we can ignore the tokenPresent
+	 * argument, both cases always return all slots.
 	 * TODO: A lot
 	 */
 	if (!pulCount) {
@@ -358,18 +360,20 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 
 	if (!pSlotList) {
 		*pulCount = nrof_slots;
+		DEBUG(0, "exit, just asked the nbrof slots");
 		return CKR_OK;
 	}
 
 	if (*pulCount < nrof_slots) {
 		*pulCount = nrof_slots;
+		DEBUG(0, "exit, buffer too small");
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
 	*pulCount = nrof_slots;
 
 	for (i = 0; i < nrof_slots; i++)
-		pSlotList[0] = slot_lst[i];
+		pSlotList[i] = slot_lst[i];
 
 	DEBUG(0, "exit");
 	return CKR_OK;
