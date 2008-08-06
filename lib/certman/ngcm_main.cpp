@@ -503,7 +503,10 @@ extern "C" {
 			DEBUG(1, "%d: %p", i, cert);
 			if (cert) {
 				res = cb_func(i, cert, ctx);
-				X509_free(cert);
+				if (res != -1)
+					X509_free(cert);
+				else
+					res = 0;
 				if (res)
 					break;
 			} else

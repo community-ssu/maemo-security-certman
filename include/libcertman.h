@@ -94,10 +94,11 @@ extern int ngsw_certman_open_domain(
  * \param cb_func (in) a callback function called once for each
  *        certificate in the domain. The first parameter
  *        is the order number of the certificate in the domain
- *        (starting from 0), the secind a pointer to a X509 certificate
+ *        (starting from 0), the second a pointer to a X509 certificate
  *        struct and the third is the given ctx pointer.
- *        If the callback returns a non-zero value, the iteration is 
- *        terminated.
+ *        If the callback returns other than 0 or -1, the iteration is 
+ *        terminated. If the callback returns 0, the certificate 
+ *        is released right after the callback.
  * \param ctx (in) a void pointer passed to the callback function
  * \return if >= 0, the index where iteration terminated,
  *         if < 0, an error code

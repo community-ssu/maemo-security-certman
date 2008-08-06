@@ -31,6 +31,7 @@ extern "C" {
 		CK_ULONG find_count;
 		domain_handle cmdomain;
 		void* certs;
+		int find_point;
 	} *SESSION;
 
 	CK_SESSION_HANDLE open_session(CK_SLOT_ID slot_id);

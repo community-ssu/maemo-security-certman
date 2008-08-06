@@ -236,7 +236,7 @@ extern "C" {
 		cstore* certs = (cstore*)sh;
 		certs->push_back(cert);
 		DEBUG(1, "Read certificate");
-		return(0);
+		return(-1);
 	}
 
 	X509*
@@ -269,9 +269,11 @@ extern "C" {
 				SESSION sess = sessions[i];
 				sessions.erase(sessions.begin() + i);
 				if (sess->certs) {
-					/*
-					 * TODO: Release certificates
-					 */
+					cstore* certs = (cstore*)sess->certs;
+					for (size_t j = 0; j < certs->size(); j++) {
+						X509_free((*certs)[j]);
+					}
+					delete(certs);
 				}
 				delete(sess);
 				DEBUG(1, "exit, closed session %d", sess_id);

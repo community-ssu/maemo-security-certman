@@ -7,6 +7,8 @@
 #include "ngcm_cryptoki.h"
 
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/fcntl.h>
 #include <string.h>
 #include <sec_common.h>
 #include <libcertman.h>
@@ -324,11 +326,30 @@ static CK_SLOT_ID slot_lst[10];
 		}										\
 	} while (0);
 
+/*
+ * Helper functions
+ */
+static CK_RV
+copy_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
+{
+	CK_RV rv = CKR_OK;
+
+	if (p->pValue) {
+		if (p->ulValueLen >= size)
+			memcpy(p->pValue, value, size);
+		else {
+			DEBUG(1, "buf %ld cannot take %ld", p->ulValueLen, size);
+			rv = CKR_BUFFER_TOO_SMALL;
+		}
+	}
+	p->ulValueLen = size;
+	return(rv);
+}
+
 CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
 	CK_RV rv = CKR_OK;
 
-	debug_level = 2;
 	DEBUG(1, "enter");
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	if (rv == CKR_OK) {
@@ -575,11 +596,32 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 			case CKA_CERTIFICATE_TYPE:
 				{
 					CK_CERTIFICATE_TYPE cert_type = CKC_X_509;
-					attr->ulValueLen = sizeof(CK_ULONG);
-					memcpy(&attr->pValue, &cert_type, attr->ulValueLen);
+					rv = copy_attribute(&cert_type, sizeof(cert_type), attr);
 				}
 				break;
 			case CKA_VALUE:
+				{
+					unsigned char* obuf = NULL;
+					int len;
+
+					len = i2d_X509(cert, &obuf);
+					if (len <= 0) {
+						ERROR("Cannot encode cert (%d)", len);
+					} else {
+						DEBUG(1, "CKA_VALUE is %d bytes", len);
+						{
+							int fd = open("/var/jum/work/tmp/debug.dta", 
+										  O_CREAT | O_RDWR, 0666);
+							if (fd >= 0) {
+								write(fd, obuf, len);
+								close(fd);
+							}
+						}
+						rv = copy_attribute(obuf, len, attr);
+					}
+					if (obuf) 
+						OPENSSL_free(obuf);
+				}
 				break;
 			case CKA_MODULUS_BITS:
 				break;
@@ -592,8 +634,28 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 			case CKA_CLASS:
 				break;
 			case CKA_LABEL:
+				{
+					char buf [255];
+					const char* label = "";
+					label = X509_NAME_oneline(X509_get_subject_name(cert),
+											  buf, 
+											  sizeof(buf));
+					if (attr->pValue) {
+						if (attr->ulValueLen < strlen(label)) {
+							memcpy(attr->pValue, label, attr->ulValueLen);
+						} else {
+							memcpy(attr->pValue, label, strlen(label));
+						}
+					}
+					attr->ulValueLen = strlen(label);
+					DEBUG(1, "label: %s", label);
+				}
 				break;
 			case CKA_ID:
+				{
+					CK_ULONG cert_id = 0x1703 + hObject;
+					rv = copy_attribute(&cert_id, sizeof(cert_id), attr);
+				}
 				break;
 			default:
 				DEBUG(1, "attribute id %x", (int)attr->type);
@@ -603,6 +665,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	}
 	DEBUG(1, "exit");
 	return(rv);
+ error:
+	DEBUG(1, "error %ld", rv);
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_SetAttributeValue)(CK_SESSION_HANDLE hSession,
@@ -611,7 +676,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_SetAttributeValue)(CK_SESSION_HANDLE hSession,
 {
 	DEBUG(1, "enter");
 	DEBUG(1, "exit");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	return(CKR_FUNCTION_NOT_SUPPORTED);
 }
 
 
@@ -626,6 +691,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	for (i = 0; i < ulCount; i++) 
 		DEBUG(1, "search for %s=?", attr_name(pTemplate->type));
 	sess->find_count = ulCount;
+	sess->find_point = 0;
 	DEBUG(1, "exit");
 	return CKR_OK;
 }
@@ -637,34 +703,45 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	CK_RV rv = CKR_OK;
 	SESSION sess;
 	CK_ULONG i;
+	int found = 0, nbrof_certs = 0;
 
-	DEBUG(1, "enter");
+	DEBUG(1, "enter, find at most %d objects", (int)ulMaxObjectCount);
 	GET_SESSION(hSession, sess);
 	if (!sess->find_template) {
 		rv = CKR_OPERATION_NOT_INITIALIZED;
 		goto out;
 	}
+
+	nbrof_certs = ngsw_certman_nbrof_certs(sess->cmdomain);
 		
-	/* Debug: do not start to search, as the search never ends */
-	if (0 && sess->find_template->type == CKA_CLASS
+	/* 
+	 * TODO: match all attributes in the find template
+	 * (find_count tells the number of attributes in the
+	 * template
+	 */
+	if (sess->find_template->type == CKA_CLASS
 		&& (*(CK_ULONG*)sess->find_template->pValue) == CKO_CERTIFICATE)
 	{
-		DEBUG(1, "find certificates");
-		*pulObjectCount = ngsw_certman_nbrof_certs(sess->cmdomain);
+		DEBUG(1, "find certificates starting from %d", sess->find_point);
 		if (phObject) {
-			for (i = 0; i < *pulObjectCount; i++) {
+			for (i = sess->find_point; i < nbrof_certs; i++) {
 				/*
 				 * Use just the ordinal number as a handle
 				 */
-				if (i < ulMaxObjectCount)
-					phObject[i] = i;
+				if (found < ulMaxObjectCount) {
+					DEBUG(1, "find cert %d", (int)i);
+					phObject[found++] = i;
+					sess->find_point++;
+				} else
+					break;
 			}
 		}
+		*pulObjectCount = found;
 	} else {
 		DEBUG(1, "find object type %d", (int)sess->find_template->type);
 		*pulObjectCount = 0;
 	}
-	DEBUG(1, "found %d", (int)*pulObjectCount);
+	DEBUG(1, "found %d of %d", found, nbrof_certs);
 
   out:
 	DEBUG(1, "exit %d", (int)rv);
