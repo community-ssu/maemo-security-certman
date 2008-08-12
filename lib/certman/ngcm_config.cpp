@@ -214,6 +214,8 @@ extern "C" {
 		new_session->session_id = last_session++;
 		new_session->slot = slot_id;
 		new_session->cmdomain = domain;
+		new_session->read_only = !slot_info->is_writable;
+		new_session->state = sstat_base;
 		sessions.push_back(new_session);
 		return(new_session->session_id);
 	}

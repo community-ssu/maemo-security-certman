@@ -30,6 +30,7 @@
 #define CK_CALL_SPEC
 
 #define CK_PTR *
+#define CK_NULL_PTR (void*)0
 
 #define CK_DEFINE_FUNCTION(returnType, name) \
   returnType CK_EXPORT_SPEC CK_CALL_SPEC name

@@ -99,6 +99,8 @@ extern "C" {
 } // extern "C"
 #endif
 
+#include <syslog.h>
+
 /**
  * \def ERROR
  * \brief Report an error 
@@ -107,7 +109,7 @@ extern "C" {
  */
 #define ERROR(format,args...) \
 	do {\
-		printf("%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__,\
+		syslog(LOG_ERR, "%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__, \
 			   ##args);\
 	} while (0)
 
@@ -122,10 +124,8 @@ extern "C" {
  */
 #define DEBUG(level,format,args...)	\
 	do { \
-	    if (level <= debug_level) {	\
-		    printf("%s(%d)[%s]: " format "\n", __FILE__, __LINE__,__func__,\
-			   ##args);\
-	    } \
+		syslog(LOG_WARNING + level, "%s(%d)[%s]: " format "\n", __FILE__, __LINE__,\
+			   __func__ ,##args);\
     } while (0)
 
 /**

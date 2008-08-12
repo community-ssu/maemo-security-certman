@@ -32,7 +32,11 @@ extern "C" {
 		domain_handle cmdomain;
 		void* certs;
 		int find_point;
+		int state;
+		int read_only;
 	} *SESSION;
+
+	typedef enum {sstat_base, sstat_search} session_state;
 
 	CK_SESSION_HANDLE open_session(CK_SLOT_ID slot_id);
 	SESSION find_session(CK_SESSION_HANDLE sess_id);

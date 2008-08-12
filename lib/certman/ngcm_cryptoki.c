@@ -35,6 +35,12 @@ static const CK_INFO library_info = {
 	},
 };
 
+static CK_ULONG obj_type_cert = CKO_CERTIFICATE;
+
+static const CK_ATTRIBUTE find_certs_tpl = {
+	.type = CKA_CLASS,
+	.pValue = &obj_type_cert
+};
 
 static const CK_FUNCTION_LIST function_list = {
 	.version = {
@@ -47,262 +53,7 @@ static const CK_FUNCTION_LIST function_list = {
 #ifdef ALL_FUNCTIONS
 	#include "pkcs11f.h"
 #else
-/* C_Initialize initializes the Cryptoki library. */
-CK_PKCS11_FUNCTION_INFO(C_Initialize)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_VOID_PTR   pInitArgs  /* if this is not NULL_PTR, it gets
-                            * cast to CK_C_INITIALIZE_ARGS_PTR
-                            * and dereferenced */
-);
-#endif
-
-
-/* C_Finalize indicates that an application is done with the
- * Cryptoki library. */
-CK_PKCS11_FUNCTION_INFO(C_Finalize)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_VOID_PTR   pReserved  /* reserved.  Should be NULL_PTR */
-);
-#endif
-
-
-/* C_GetInfo returns general information about Cryptoki. */
-CK_PKCS11_FUNCTION_INFO(C_GetInfo)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_INFO_PTR   pInfo  /* location that receives information */
-);
-#endif
-
-
-/* C_GetFunctionList returns the function list. */
-CK_PKCS11_FUNCTION_INFO(C_GetFunctionList)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_FUNCTION_LIST_PTR_PTR ppFunctionList  /* receives pointer to
-                                            * function list */
-);
-#endif
-
-
-
-/* Slot and token management */
-
-/* C_GetSlotList obtains a list of slots in the system. */
-CK_PKCS11_FUNCTION_INFO(C_GetSlotList)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_BBOOL       tokenPresent,  /* only slots with tokens? */
-  CK_SLOT_ID_PTR pSlotList,     /* receives array of slot IDs */
-  CK_ULONG_PTR   pulCount       /* receives number of slots */
-);
-#endif
-
-
-/* C_GetSlotInfo obtains information about a particular slot in
- * the system. */
-CK_PKCS11_FUNCTION_INFO(C_GetSlotInfo)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SLOT_ID       slotID,  /* the ID of the slot */
-  CK_SLOT_INFO_PTR pInfo    /* receives the slot information */
-);
-#endif
-
-
-/* C_GetTokenInfo obtains information about a particular token
- * in the system. */
-CK_PKCS11_FUNCTION_INFO(C_GetTokenInfo)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SLOT_ID        slotID,  /* ID of the token's slot */
-  CK_TOKEN_INFO_PTR pInfo    /* receives the token information */
-);
-#endif
-
-
-/* C_GetMechanismList obtains a list of mechanism types
- * supported by a token. */
-CK_PKCS11_FUNCTION_INFO(C_GetMechanismList)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SLOT_ID            slotID,          /* ID of token's slot */
-  CK_MECHANISM_TYPE_PTR pMechanismList,  /* gets mech. array */
-  CK_ULONG_PTR          pulCount         /* gets # of mechs. */
-);
-#endif
-
-
-/* C_GetMechanismInfo obtains information about a particular
- * mechanism possibly supported by a token. */
-CK_PKCS11_FUNCTION_INFO(C_GetMechanismInfo)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SLOT_ID            slotID,  /* ID of the token's slot */
-  CK_MECHANISM_TYPE     type,    /* type of mechanism */
-  CK_MECHANISM_INFO_PTR pInfo    /* receives mechanism info */
-);
-#endif
-
-
-/* C_InitToken initializes a token. */
-CK_PKCS11_FUNCTION_INFO(C_InitToken)
-#ifdef CK_NEED_ARG_LIST
-/* pLabel changed from CK_CHAR_PTR to CK_UTF8CHAR_PTR for v2.10 */
-(
-  CK_SLOT_ID      slotID,    /* ID of the token's slot */
-  CK_UTF8CHAR_PTR pPin,      /* the SO's initial PIN */
-  CK_ULONG        ulPinLen,  /* length in bytes of the PIN */
-  CK_UTF8CHAR_PTR pLabel     /* 32-byte token label (blank padded) */
-);
-#endif
-CK_PKCS11_FUNCTION_INFO(C_OpenSession)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SLOT_ID            slotID,        /* the slot's ID */
-  CK_FLAGS              flags,         /* from CK_SESSION_INFO */
-  CK_VOID_PTR           pApplication,  /* passed to callback */
-  CK_NOTIFY             Notify,        /* callback function */
-  CK_SESSION_HANDLE_PTR phSession      /* gets session handle */
-);
-#endif
-
-
-/* C_CloseSession closes a session between an application and a
- * token. */
-CK_PKCS11_FUNCTION_INFO(C_CloseSession)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession  /* the session's handle */
-);
-#endif
-
-
-/* C_CloseAllSessions closes all sessions with a token. */
-CK_PKCS11_FUNCTION_INFO(C_CloseAllSessions)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SLOT_ID     slotID  /* the token's slot */
-);
-#endif
-
-
-/* C_GetSessionInfo obtains information about the session. */
-CK_PKCS11_FUNCTION_INFO(C_GetSessionInfo)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE   hSession,  /* the session's handle */
-  CK_SESSION_INFO_PTR pInfo      /* receives session info */
-);
-#endif
-CK_PKCS11_FUNCTION_INFO(C_CreateObject)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession,    /* the session's handle */
-  CK_ATTRIBUTE_PTR  pTemplate,   /* the object's template */
-  CK_ULONG          ulCount,     /* attributes in template */
-  CK_OBJECT_HANDLE_PTR phObject  /* gets new object's handle. */
-);
-#endif
-
-
-/* C_CopyObject copies an object, creating a new object for the
- * copy. */
-CK_PKCS11_FUNCTION_INFO(C_CopyObject)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE    hSession,    /* the session's handle */
-  CK_OBJECT_HANDLE     hObject,     /* the object's handle */
-  CK_ATTRIBUTE_PTR     pTemplate,   /* template for new object */
-  CK_ULONG             ulCount,     /* attributes in template */
-  CK_OBJECT_HANDLE_PTR phNewObject  /* receives handle of copy */
-);
-#endif
-
-
-/* C_DestroyObject destroys an object. */
-CK_PKCS11_FUNCTION_INFO(C_DestroyObject)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession,  /* the session's handle */
-  CK_OBJECT_HANDLE  hObject    /* the object's handle */
-);
-#endif
-
-
-/* C_GetObjectSize gets the size of an object in bytes. */
-CK_PKCS11_FUNCTION_INFO(C_GetObjectSize)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession,  /* the session's handle */
-  CK_OBJECT_HANDLE  hObject,   /* the object's handle */
-  CK_ULONG_PTR      pulSize    /* receives size of object */
-);
-#endif
-
-
-/* C_GetAttributeValue obtains the value of one or more object
- * attributes. */
-CK_PKCS11_FUNCTION_INFO(C_GetAttributeValue)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession,   /* the session's handle */
-  CK_OBJECT_HANDLE  hObject,    /* the object's handle */
-  CK_ATTRIBUTE_PTR  pTemplate,  /* specifies attrs; gets vals */
-  CK_ULONG          ulCount     /* attributes in template */
-);
-#endif
-
-
-/* C_SetAttributeValue modifies the value of one or more object
- * attributes */
-CK_PKCS11_FUNCTION_INFO(C_SetAttributeValue)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession,   /* the session's handle */
-  CK_OBJECT_HANDLE  hObject,    /* the object's handle */
-  CK_ATTRIBUTE_PTR  pTemplate,  /* specifies attrs and values */
-  CK_ULONG          ulCount     /* attributes in template */
-);
-#endif
-
-
-/* C_FindObjectsInit initializes a search for token and session
- * objects that match a template. */
-CK_PKCS11_FUNCTION_INFO(C_FindObjectsInit)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession,   /* the session's handle */
-  CK_ATTRIBUTE_PTR  pTemplate,  /* attribute values to match */
-  CK_ULONG          ulCount     /* attrs in search template */
-);
-#endif
-
-
-/* C_FindObjects continues a search for token and session
- * objects that match a template, obtaining additional object
- * handles. */
-CK_PKCS11_FUNCTION_INFO(C_FindObjects)
-#ifdef CK_NEED_ARG_LIST
-(
- CK_SESSION_HANDLE    hSession,          /* session's handle */
- CK_OBJECT_HANDLE_PTR phObject,          /* gets obj. handles */
- CK_ULONG             ulMaxObjectCount,  /* max handles to get */
- CK_ULONG_PTR         pulObjectCount     /* actual # returned */
-);
-#endif
-
-
-/* C_FindObjectsFinal finishes a search for token and session
- * objects. */
-CK_PKCS11_FUNCTION_INFO(C_FindObjectsFinal)
-#ifdef CK_NEED_ARG_LIST
-(
-  CK_SESSION_HANDLE hSession  /* the session's handle */
-);
-#endif
+	#include "pkcs11f-partial.h"
 #endif
 	#undef CK_PKCS11_FUNCTION_INFO
 };
@@ -346,10 +97,222 @@ copy_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 	return(rv);
 }
 
+static CK_RV
+match_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
+{
+	CK_RV rv;
+	if (p 
+		&& p->ulValueLen == size
+		&& p->pValue
+		&& memcmp(p->pValue, value, size) == 0)
+			rv = CKR_OK;
+	else {
+		DEBUG(2, "%s(%ld,%ld) %lx != %lx", attr_name(p->type),
+			  p->ulValueLen, size, 
+			  *(long*)p->pValue, *(long*)value);
+		rv = CKR_CANCEL;
+	}
+	return(rv);
+}
+
+
+static CK_RV
+access_attribute(SESSION sess,
+				 X509* cert,
+				 int cert_number,
+				 CK_ATTRIBUTE_PTR attr,
+				 CK_RV callback(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p))
+{
+	CK_RV rv = CKR_OK;
+
+	switch (attr->type) {
+	case CKA_CLASS:
+		{
+			CK_OBJECT_CLASS objtype = CKO_CERTIFICATE;
+			rv = callback(&objtype, sizeof(objtype), attr);
+		}
+		break;
+	case CKA_CERTIFICATE_TYPE:
+		{
+			CK_CERTIFICATE_TYPE cert_type = CKC_X_509;
+			rv = callback(&cert_type, sizeof(cert_type), attr);
+		}
+		break;
+	case CKA_VALUE:
+		{
+			unsigned char* obuf = NULL;
+			int len;
+
+			len = i2d_X509(cert, &obuf);
+			if (len <= 0) {
+				ERROR("Cannot encode cert (%d)", len);
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
+			} else {
+				rv = callback(obuf, len, attr);
+			}
+			if (obuf) 
+				OPENSSL_free(obuf);
+		}
+		break;
+	case CKA_TRUSTED:
+	case CKA_TOKEN:
+	case CKA_PRIVATE:
+		{
+			CK_BBOOL avalue = CK_TRUE;
+			rv = callback(&avalue, sizeof(avalue), attr);
+		}
+		break;
+	case CKA_MODIFIABLE:
+		{
+			CK_BBOOL avalue = CK_FALSE;
+			rv = callback(&avalue, sizeof(avalue), attr);
+		}
+		break;
+	case CKA_CERTIFICATE_CATEGORY:
+		{
+			/*
+			 * TODO: other than authority certs supported?
+			 * There seems not to be any constants for this?
+			 */
+			CK_ULONG avalue = 2;
+			rv = callback(&avalue, sizeof(avalue), attr);
+		}
+		break;
+	case CKA_CHECK_VALUE:
+		{
+			/*
+			 * TODO: a checksum, where should this be taken from?
+			 */
+			rv = callback(cert->sha1_hash, 
+						  SHA_DIGEST_LENGTH, 
+						  attr);
+		}
+		break;
+	case CKA_START_DATE:
+	case CKA_END_DATE:
+		{
+			CK_DATE avalue;
+			ASN1_GENERALIZEDTIME* svalue;
+			if (attr->type == CKA_START_DATE)
+				svalue = X509_get_notBefore(cert);
+			else
+				svalue = X509_get_notAfter(cert);
+			if (!svalue || svalue->length < 12) {
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
+			}
+			/*
+			 * TODO: UTC to local time conversion?
+			 */
+			memcpy(avalue.year,  &svalue->data[0], 4);
+			memcpy(avalue.month, &svalue->data[4], 2);
+			memcpy(avalue.day,   &svalue->data[6], 2);
+			rv = callback(&avalue, sizeof(avalue), attr);
+		}
+		break;
+#if 0
+	case CKA_MODULUS_BITS:
+		break;
+	case CKA_MODULUS:
+		break;
+	case CKA_PUBLIC_EXPONENT:
+		break;
+	case CKA_KEY_TYPE:
+		break;
+	case CKA_CLASS:
+		break;
+#endif
+	case CKA_SUBJECT:
+	case CKA_ISSUER:
+		{
+			unsigned char* buf = NULL;
+			X509_NAME* name;
+			int len;
+			
+			switch (attr->type) {
+			case CKA_SUBJECT:
+				name = X509_get_subject_name(cert);
+				break;
+			case CKA_ISSUER:
+				name = X509_get_issuer_name(cert);
+				break;
+			default:
+				attr->ulValueLen = -1;
+				goto out;
+			}
+			len = i2d_X509_NAME(name, &buf);
+			if (len > 0) {
+				rv = callback(buf, len, attr);
+			} else
+				rv = CKR_FUNCTION_FAILED;
+			if (buf)
+				OPENSSL_free(buf);
+		}
+		break;
+
+	case CKA_SERIAL_NUMBER:
+		{
+			unsigned char* buf = NULL;
+			ASN1_INTEGER* ival;
+			int len;
+
+			switch (attr->type) {
+			case CKA_SERIAL_NUMBER:
+				ival = X509_get_serialNumber(cert);
+				break;
+			default:
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
+			}
+			len = i2d_ASN1_INTEGER(ival, &buf);
+			if (len > 0) {
+				rv = callback(buf, len, attr);
+			} else
+				rv = CKR_FUNCTION_FAILED;
+			if (buf)
+				OPENSSL_free(buf);
+		}
+		break;
+				
+	case CKA_LABEL:
+		{
+#if 1
+			char buf[255];
+			sprintf(buf, "Certificate #%d", cert_number);
+			rv = callback(buf, strlen(buf), attr);
+#else
+			unsigned char* buf = NULL;
+			int len = i2d_X509_NAME(X509_get_subject_name(cert), &buf);
+			if (len > 0) {
+				rv = callback(buf, len, attr);
+			}
+			if (buf)
+				OPENSSL_free(buf);
+#endif
+		}
+		break;
+	case CKA_ID:
+		{
+			CK_ULONG cert_id = 0x1703 + cert_number;
+			rv = callback(&cert_id, sizeof(cert_id), attr);
+		}
+		break;
+	default:
+		DEBUG(1, "unsupported attribute id %x", (int)attr->type);
+		rv = CKR_FUNCTION_NOT_SUPPORTED;
+		break;
+	}
+ out:
+	return(rv);
+}
+
+
 CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
 	CK_RV rv = CKR_OK;
 
+	openlog("", LOG_PID, LOG_UUCP);
 	DEBUG(1, "enter");
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	if (rv == CKR_OK) {
@@ -534,9 +497,26 @@ CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 	CK_SESSION_INFO_PTR pInfo)
 {
+	CK_RV rv = CKR_OK;
+	SESSION sess;
+
 	DEBUG(1, "enter");
-	DEBUG(1, "exit");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	GET_SESSION(hSession, sess);
+
+	if (pInfo) {
+		pInfo->slotID = sess->slot;
+		/*
+		 * TODO: Read only or read-write?
+		 */
+		pInfo->state = CKS_RO_PUBLIC_SESSION;
+		pInfo->flags = CKF_SERIAL_SESSION;
+	} else {
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+ out:
+	DEBUG(1, "exit %ld", rv);
+	return(rv);
 }
 
 
@@ -571,9 +551,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetObjectSize)(CK_SESSION_HANDLE hSession,
 {
 	DEBUG(1, "enter");
 	DEBUG(1, "exit");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	return(CKR_FUNCTION_NOT_SUPPORTED);
 }
-
 
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
@@ -585,88 +564,22 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	X509* cert;
 	CK_ATTRIBUTE_PTR attr;
 
-	DEBUG(1, "read cert %d %p %ld", (int)hObject, pTemplate, ulCount);
+	DEBUG(1, "get %ld attributes of object %d", ulCount, (int)hObject);
 	GET_SESSION(hSession, sess);
 	cert = get_cert(sess, hObject);
 	if (cert) {
 		for (i = 0; i < ulCount; i++) {
 			attr = &pTemplate[i];
 			DEBUG(1, "get %s", attr_name(attr->type));
-			switch (attr->type) {
-			case CKA_CERTIFICATE_TYPE:
-				{
-					CK_CERTIFICATE_TYPE cert_type = CKC_X_509;
-					rv = copy_attribute(&cert_type, sizeof(cert_type), attr);
-				}
-				break;
-			case CKA_VALUE:
-				{
-					unsigned char* obuf = NULL;
-					int len;
-
-					len = i2d_X509(cert, &obuf);
-					if (len <= 0) {
-						ERROR("Cannot encode cert (%d)", len);
-					} else {
-						DEBUG(1, "CKA_VALUE is %d bytes", len);
-						{
-							int fd = open("/var/jum/work/tmp/debug.dta", 
-										  O_CREAT | O_RDWR, 0666);
-							if (fd >= 0) {
-								write(fd, obuf, len);
-								close(fd);
-							}
-						}
-						rv = copy_attribute(obuf, len, attr);
-					}
-					if (obuf) 
-						OPENSSL_free(obuf);
-				}
-				break;
-			case CKA_MODULUS_BITS:
-				break;
-			case CKA_MODULUS:
-				break;
-			case CKA_PUBLIC_EXPONENT:
-				break;
-			case CKA_KEY_TYPE:
-				break;
-			case CKA_CLASS:
-				break;
-			case CKA_LABEL:
-				{
-					char buf [255];
-					const char* label = "";
-					label = X509_NAME_oneline(X509_get_subject_name(cert),
-											  buf, 
-											  sizeof(buf));
-					if (attr->pValue) {
-						if (attr->ulValueLen < strlen(label)) {
-							memcpy(attr->pValue, label, attr->ulValueLen);
-						} else {
-							memcpy(attr->pValue, label, strlen(label));
-						}
-					}
-					attr->ulValueLen = strlen(label);
-					DEBUG(1, "label: %s", label);
-				}
-				break;
-			case CKA_ID:
-				{
-					CK_ULONG cert_id = 0x1703 + hObject;
-					rv = copy_attribute(&cert_id, sizeof(cert_id), attr);
-				}
-				break;
-			default:
-				DEBUG(1, "attribute id %x", (int)attr->type);
+			rv = access_attribute(sess, cert, (int)hObject, attr, copy_attribute);
+			if (rv != CKR_OK) {
+				attr->ulValueLen = -1;
 				break;
 			}
 		}
-	}
-	DEBUG(1, "exit");
-	return(rv);
- error:
-	DEBUG(1, "error %ld", rv);
+	} else
+		rv = CKR_ARGUMENTS_BAD;
+	DEBUG(1, "exit %lx", rv);
 	return(rv);
 }
 
@@ -687,11 +600,15 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	CK_ULONG i;
 	DEBUG(1, "enter %d %p %d", (int)hSession, pTemplate, (int)ulCount);
 	GET_SESSION(hSession, sess);
-	sess->find_template = pTemplate;
 	for (i = 0; i < ulCount; i++) 
-		DEBUG(1, "search for %s=?", attr_name(pTemplate->type));
+		DEBUG(1, "search for %s == %ld:%lx", 
+			  attr_name(pTemplate[i].type),
+			  pTemplate[i].ulValueLen,
+			  *(long*)pTemplate[i].pValue);
+	sess->find_template = pTemplate;
 	sess->find_count = ulCount;
 	sess->find_point = 0;
+	sess->state = sstat_search;
 	DEBUG(1, "exit");
 	return CKR_OK;
 }
@@ -702,50 +619,55 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 {
 	CK_RV rv = CKR_OK;
 	SESSION sess;
-	CK_ULONG i;
+	CK_ULONG i, j;
 	int found = 0, nbrof_certs = 0;
 
 	DEBUG(1, "enter, find at most %d objects", (int)ulMaxObjectCount);
 	GET_SESSION(hSession, sess);
-	if (!sess->find_template) {
+	if (sess->state != sstat_search) {
 		rv = CKR_OPERATION_NOT_INITIALIZED;
 		goto out;
 	}
 
-	nbrof_certs = ngsw_certman_nbrof_certs(sess->cmdomain);
-		
-	/* 
-	 * TODO: match all attributes in the find template
-	 * (find_count tells the number of attributes in the
-	 * template
+	/*
+	 * Rationale: iterate through all data objects and compare
+	 * their attributes with the given template. If all attributes
+	 * match, populate the handle-table. If no attributes are
+	 * given in the search template, all objects are returned.
 	 */
-	if (sess->find_template->type == CKA_CLASS
-		&& (*(CK_ULONG*)sess->find_template->pValue) == CKO_CERTIFICATE)
-	{
-		DEBUG(1, "find certificates starting from %d", sess->find_point);
-		if (phObject) {
-			for (i = sess->find_point; i < nbrof_certs; i++) {
-				/*
-				 * Use just the ordinal number as a handle
-				 */
-				if (found < ulMaxObjectCount) {
-					DEBUG(1, "find cert %d", (int)i);
-					phObject[found++] = i;
-					sess->find_point++;
-				} else
-					break;
+	nbrof_certs = ngsw_certman_nbrof_certs(sess->cmdomain);
+	for (i = sess->find_point; i < nbrof_certs; i++) {
+		int is_match = 1;
+		X509* cert = get_cert(sess, i);
+		for (j = 0; j < sess->find_count; j++) {
+			CK_RV tst = access_attribute(sess, cert, i, 
+										 &sess->find_template[j],
+										 match_attribute);
+			if (tst != CKR_OK) {
+				is_match = 0;
+				if (tst != CKR_CANCEL) {
+					ERROR("match_attribute:%lx", tst);
+					rv = tst;
+					goto out;
+				}
+				break;
 			}
 		}
-		*pulObjectCount = found;
-	} else {
-		DEBUG(1, "find object type %d", (int)sess->find_template->type);
-		*pulObjectCount = 0;
+		if (is_match) {
+			DEBUG(2, "cert %ld matches", i);
+			if (found < ulMaxObjectCount) {
+				phObject[found++] = i;
+				sess->find_point++;
+			} else
+				break;
+		}
 	}
+	*pulObjectCount = found;
 	DEBUG(1, "found %d of %d", found, nbrof_certs);
 
   out:
-	DEBUG(1, "exit %d", (int)rv);
-	return rv;
+	DEBUG(1, "exit %lx", rv);
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
@@ -754,6 +676,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 	DEBUG(1, "enter");
 	GET_SESSION(hSession, sess);
 	sess->find_template = NULL;
+	sess->state = sstat_base;
 	DEBUG(1, "exit");
 	return CKR_OK;
 }
@@ -1053,29 +976,33 @@ CK_DECLARE_FUNCTION(CK_RV, C_GenerateRandom)(CK_SESSION_HANDLE hSession,
 }
 #endif
 
+#define RETATTR(s,x) case s: return(x)
+
 static const char*
 attr_name(CK_ATTRIBUTE_TYPE of_a)
 {
 	switch (of_a) {
-	case CKA_CERTIFICATE_TYPE:
-		return( "CKA_CERTIFICATE_TYPE");
-	case CKA_VALUE:
-		return( "CKA_VALUE");
-	case CKA_MODULUS_BITS:
-		return("CKA_MODULUS_BITS");
-	case CKA_MODULUS:
-		return("CKA_MODULUS");
-	case CKA_PUBLIC_EXPONENT:
-		return("CKA_PUBLIC_EXPONENT");
-	case CKA_KEY_TYPE:
-		return("CKA_KEY_TYPE");
-	case CKA_CLASS:
-		return("CKA_CLASS");
-	case CKA_LABEL:
-		return("CKA_LABEL");
-	case CKA_ID:
-		return("CKA_ID");
+		RETATTR(CKA_CLASS,"CKA_CLASS");
+		RETATTR(CKA_CERTIFICATE_TYPE,"CKA_CERTIFICATE_TYPE");
+	    RETATTR(CKA_VALUE,"CKA_VALUE");
+	    RETATTR(CKA_TRUSTED,"CKA_TRUSTED");
+		RETATTR(CKA_TOKEN,"CKA_TOKEN");
+		RETATTR(CKA_PRIVATE,"CKA_PRIVATE");
+		RETATTR(CKA_MODIFIABLE,"CKA_MODIFIABLE");
+		RETATTR(CKA_CERTIFICATE_CATEGORY,"CKA_CERTIFICATE_CATEGORY");
+		RETATTR(CKA_CHECK_VALUE,"CKA_CHECK_VALUE");
+		RETATTR(CKA_START_DATE,"CKA_START_DATE");
+		RETATTR(CKA_END_DATE,"CKA_END_DATE");
+		RETATTR(CKA_SUBJECT,"CKA_SUBJECT");
+		RETATTR(CKA_ISSUER,"CKA_ISSUER");
+		RETATTR(CKA_SERIAL_NUMBER,"CKA_SERIAL_NUMBER");
+		RETATTR(CKA_LABEL,"CKA_LABEL");
+		RETATTR(CKA_ID,"CKA_ID");
 	default:
-		return("UNKNOWN");
+		{
+			static char dbg_buf[128];
+			sprintf(dbg_buf, "UNKNOWN(%lx)", of_a);
+			return(dbg_buf);
+		}
 	}
 }
