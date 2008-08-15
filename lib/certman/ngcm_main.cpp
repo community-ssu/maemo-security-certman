@@ -200,7 +200,7 @@ local_cert_dir(string& to_this, string& storename)
 	to_this.append(PATH_SEP);
 	to_this.append(priv_dir_name);
 	to_this.append(PATH_SEP);
-	absolute_pathname(GETENV("_",""), curbinname);
+	process_name(curbinname);
 	for (int i = 0; i < curbinname.length(); i++) {
 		if (curbinname[i] == *PATH_SEP)
 			curbinname[i] = '.';

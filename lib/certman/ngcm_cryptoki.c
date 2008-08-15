@@ -14,6 +14,16 @@
 #include <libcertman.h>
 #include "ngcm_config.h"
 
+/*
+ * Include Netscape's (Mozilla's) vendor defined extensions
+ */
+#define INCL_NETSCAPE_VDE 1
+
+#ifdef INCL_NETSCAPE_VDE
+#define PR_CALLBACK
+#include "pkcs11n.h"
+#endif
+
 static X509_STORE* root_certs;
 
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
@@ -86,9 +96,10 @@ copy_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 	CK_RV rv = CKR_OK;
 
 	if (p->pValue) {
-		if (p->ulValueLen >= size)
+		if (p->ulValueLen >= size) {
+			DEBUG(2, "%s", attr_name(p->type));
 			memcpy(p->pValue, value, size);
-		else {
+		} else {
 			DEBUG(1, "buf %ld cannot take %ld", p->ulValueLen, size);
 			rv = CKR_BUFFER_TOO_SMALL;
 		}
@@ -101,15 +112,21 @@ static CK_RV
 match_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 {
 	CK_RV rv;
-	if (p 
+	if (   p 
 		&& p->ulValueLen == size
 		&& p->pValue
 		&& memcmp(p->pValue, value, size) == 0)
-			rv = CKR_OK;
-	else {
-		DEBUG(2, "%s(%ld,%ld) %lx != %lx", attr_name(p->type),
+    {
+		rv = CKR_OK;
+	} else {
+#ifdef INCL_NETSCAPE_VDE
+		long val = *(long*)p->pValue;
+		DEBUG(2, "%s(%ld,%ld) %lx(%lx) != %lx", attr_name(p->type),
 			  p->ulValueLen, size, 
-			  *(long*)p->pValue, *(long*)value);
+			  val, 
+			  val >= CKO_NSS ? val - CKO_NSS : -1,
+			  *(long*)value);
+#endif
 		rv = CKR_CANCEL;
 	}
 	return(rv);
@@ -312,7 +329,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
 	CK_RV rv = CKR_OK;
 
+#ifdef USE_SYSLOG
 	openlog("", LOG_PID, LOG_UUCP);
+#endif
 	DEBUG(1, "enter");
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	if (rv == CKR_OK) {

@@ -1,12 +1,13 @@
 # Test programs
 
+BINS=sscli cmcli xmlpp cmcli-dyn procname
+
 include ../../make/Makefile.inc
 
 LDFLAGS+=-lssl -lstdc++
 CFLAGS+= -I../../include
 CPPFLAGS+= -I../../include -I../../lib/security
 LIBS=../../lib/libngswsecurity.a ../../lib/libbb5.a
-BINS=sscli cmcli xmlpp cmcli-dyn
 
 all: $(BINS)
 
@@ -18,6 +19,8 @@ cmcli : cmcli.o ../../lib/libngswcertman.a $(LIBS)
 
 cmcli-dyn : cmcli.o
 	cc -o cmcli-dyn -g -lssl -lstdc++ -L../../lib -lngswcertman $^
+
+procname : procname.o $(LIBS)
 
 clean :
 	$(CLEAN_OBJS)

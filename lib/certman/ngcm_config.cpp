@@ -49,7 +49,7 @@ extern "C" {
 		string cfilename;
 		string appname;
 
-		absolute_pathname(GETENV("_",""), appname);
+		process_name(appname);
 		DEBUG(1, "Init PKCS11 for '%s'", appname.c_str());
 		cfile.parse_file(config_file_name);
 		cnode = cfile.root();

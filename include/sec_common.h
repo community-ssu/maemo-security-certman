@@ -32,6 +32,8 @@
 #ifndef SEC_COMMON_H
 #define SEC_COMMON_H
 
+#define USE_SYSLOG 1
+
 #ifdef	__cplusplus
 #include <string>
 using namespace std;
@@ -46,7 +48,7 @@ extern "C" {
 	 * otherwise false
 	 */
 	bool absolute_pathname(const char* name, string& to_this);
-
+	bool process_name(string& to_this);
 #else
 	/**
 	 * \def bool
@@ -99,6 +101,7 @@ extern "C" {
 } // extern "C"
 #endif
 
+#ifdef USE_SYSLOG
 #include <syslog.h>
 
 /**
@@ -117,7 +120,7 @@ extern "C" {
  * \def DEBUG
  * \brief Print a debug message
  * \param level (in) The detail level. Only those messages are actually
- * printed that have the detail level less than or equal than the
+ * printed thatb have the detail level less than or equal than the
  * current value of the debug_level variable.
  * \param format,args (in) Format string and a list of optional arguments
  * as in "printf". The newline is appended automatically.
@@ -127,6 +130,21 @@ extern "C" {
 		syslog(LOG_WARNING + level, "%s(%d)[%s]: " format "\n", __FILE__, __LINE__,\
 			   __func__ ,##args);\
     } while (0)
+#else
+#define ERROR(format,args...) \
+	do {\
+		fprintf(stderr, "%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__, \
+			   ##args);\
+	} while (0)
+#define DEBUG(level,format,args...)										\
+	do {																\
+		if (level <= debug_level) {										\
+			fprintf(stderr, "%s(%d)[%s]: " format "\n",					\
+					__FILE__, __LINE__,									\
+					__func__ ,##args);									\
+		}																\
+    } while (0)
+#endif
 
 /**
  * \def GETENV

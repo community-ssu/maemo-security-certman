@@ -2,6 +2,7 @@
 
 #include "sec_common.h"
 
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 
@@ -40,14 +41,32 @@ extern "C" {
 		char cdirname [PATH_MAX];
 		char* dirsep = NULL;
 		bool is_local = false;
+		char* tgtname = NULL;
+		size_t rv;
 
 		if ('\0' == *pathname)
 			return(false);
 
-		rc = stat(pathname, &fs);
+		rc = lstat(pathname, &fs);
 		if (rc == -1) {
 			ERROR("cannot stat '%s' (%d)", pathname, errno);
 			return(false);
+		}
+
+		if (S_ISLNK(fs.st_mode)) {
+			tgtname = (char*)malloc(PATH_MAX);
+			if (!tgtname) {
+				ERROR("cannot allocate");
+				goto fail;
+			}
+			rv = readlink(pathname, tgtname, PATH_MAX - 1);
+			if (rv == -1) {
+				ERROR("cannot read link '%s' (%d)", pathname, errno);
+				goto fail;
+			} else {
+				*(tgtname + rv) = '\0';
+			}
+			pathname = tgtname;
 		}
 
 		if (!S_ISDIR(fs.st_mode)) {
@@ -65,7 +84,7 @@ extern "C" {
 			curdirh = open(".", O_RDONLY);
 			if (curdirh == -1) {
 				ERROR("cannot open current directory (%d)", errno);
-				return(false);
+				goto fail;
 			}
 
 			// Change into the given directory
@@ -89,7 +108,7 @@ extern "C" {
 		}
 
 		if (!is_local) {
-		// Change back to original working dir
+			// Change back to original working dir
 			rc = fchdir(curdirh);
 			if (rc == -1) {
 				ERROR("cannot change back (%d)", errno);
@@ -97,14 +116,29 @@ extern "C" {
 			close(curdirh);
 		}
 
+		if (tgtname)
+			free(tgtname);
 		return(true);
 
 	  fail:
-		if (curdirh) {
+		if (curdirh != -1) {
 			fchdir(curdirh);
 			close(curdirh);
 		}
+		if (tgtname)
+			free(tgtname);
 		return(false);
+	}
+
+	bool
+	process_name(string& to_this)
+	{
+		pid_t my_pid = getpid();
+		char exe_name [256];
+
+		sprintf(exe_name, "/proc/%ld/exe", my_pid);
+		absolute_pathname(exe_name, to_this);
+		return(true);
 	}
 
 	bool 
