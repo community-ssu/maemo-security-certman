@@ -616,14 +616,24 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
 	SESSION sess;
-	CK_ULONG i;
+	CK_ULONG i, val;
 	DEBUG(1, "enter %d %p %d", (int)hSession, pTemplate, (int)ulCount);
 	GET_SESSION(hSession, sess);
-	for (i = 0; i < ulCount; i++) 
-		DEBUG(1, "search for %s == %ld:%lx", 
+	for (i = 0; i < ulCount; i++) {
+		val = *(CK_ULONG*)pTemplate[i].pValue;
+#ifdef INCL_NETSCAPE_VDE
+		DEBUG(2, "search for %s == %ld:%lx(%lx)", 
 			  attr_name(pTemplate[i].type),
 			  pTemplate[i].ulValueLen,
-			  *(long*)pTemplate[i].pValue);
+			  val,
+			  val >= CKO_NSS ? val - CKO_NSS : -1);
+#else
+		DEBUG(2, "search for %s == %ld:%lx", 
+			  attr_name(pTemplate[i].type),
+			  pTemplate[i].ulValueLen,
+			  val);
+#endif
+	}
 	sess->find_template = pTemplate;
 	sess->find_count = ulCount;
 	sess->find_point = 0;

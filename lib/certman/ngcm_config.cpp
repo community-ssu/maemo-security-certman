@@ -176,7 +176,7 @@ extern "C" {
 		} else
 			return(CKR_ARGUMENTS_BAD);
 	}
-
+	
 	static CK_SESSION_HANDLE last_session = 0;
 	static vector<SESSION> sessions;
 	typedef vector<SESSION>::iterator siter;
@@ -211,7 +211,10 @@ extern "C" {
 
 		new_session = new(struct session);
 		memset(new_session, '\0', sizeof(struct session));
-		new_session->session_id = last_session++;
+		/*
+		 * Don't start from zero as zero is an invalid session handle
+		 */
+		new_session->session_id = ++last_session;
 		new_session->slot = slot_id;
 		new_session->cmdomain = domain;
 		new_session->read_only = !slot_info->is_writable;
