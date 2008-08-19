@@ -346,6 +346,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 {
 	CK_RV rv = CKR_OK;
 	DEBUG(1, "enter");
+	release_config();
 	ngsw_certman_close(root_certs);
 	DEBUG(1, "exit");
 	return(rv);
@@ -501,16 +502,20 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 {
+	CK_RV rv = CKR_OK;
 	DEBUG(1, "enter");
-	DEBUG(1, "exit");
-	return(close_session(hSession));
+	rv = close_session(hSession);
+	DEBUG(1, "exit %ld", rv);
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 {
+	CK_RV rv = CKR_OK;
 	DEBUG(1, "enter");
-	DEBUG(1, "exit");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	rv = close_all_sessions(slotID);
+	DEBUG(1, "exit %ld", rv);
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,

@@ -96,6 +96,15 @@ extern "C" {
 		return(CKR_OK);
 	}
 
+	void
+	release_config(void)
+	{
+		for (int i = 0; i < slots.size(); i++) {
+			slots.erase(slots.begin() + i);
+			delete(slots[i]);
+		}
+	}
+
 	extern CK_RV get_slot_info(CK_SLOT_ID slotID,
 							   CK_SLOT_INFO_PTR pInfo)
 	{
@@ -280,6 +289,8 @@ extern "C" {
 					}
 					delete(certs);
 				}
+				if (sess->cmdomain != NGSW_CM_DOMAIN_NONE)
+					ngsw_certman_close_domain(sess->cmdomain);
 				delete(sess);
 				DEBUG(1, "exit, closed session %d", sess_id);
 				return(CKR_OK);
@@ -294,9 +305,7 @@ extern "C" {
 	{
 		for (size_t i = 0; i < sessions.size(); i++) {
 			if (sessions[i]->slot == slot_id) {
-				SESSION sess = sessions[i];
-				sessions.erase(sessions.begin() + i);
-				delete(sess);
+				close_session(sessions[i]->session_id);
 			}
 		}
 		DEBUG(1, "closed all sessions for slot %d", slot_id);

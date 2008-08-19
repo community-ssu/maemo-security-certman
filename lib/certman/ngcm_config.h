@@ -24,6 +24,8 @@ extern "C" {
 	CK_RV get_token_info(CK_SLOT_ID slotID,
 						 CK_TOKEN_INFO_PTR pInfo);
 
+	void release_config(void);
+
 	typedef struct session {
 		CK_SESSION_HANDLE session_id;
 		CK_SLOT_ID slot;

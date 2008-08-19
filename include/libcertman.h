@@ -37,6 +37,13 @@
  */
 typedef void* domain_handle;
 
+/**
+ * \def NGSW_CM_DOMAIN_NONE
+ * \brief The value a domain handle cannot have if its properly
+ * opened.
+ */
+#define NGSW_CM_DOMAIN_NONE (void*)(0)
+
 
 /// \name General certificate management functions
 //@{
