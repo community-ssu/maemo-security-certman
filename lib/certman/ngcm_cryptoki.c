@@ -134,6 +134,27 @@ match_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 
 
 static CK_RV
+read_attribute(CK_ATTRIBUTE_PTR p, 
+			   void* value, 
+			   CK_ULONG max_size, 
+			   CK_ULONG* real_size)
+{
+	if (!p
+		|| !p->pValue
+		|| p->ulValueLen == 0
+		|| !value)
+		return(CKR_ARGUMENTS_BAD);
+
+	*real_size = p->ulValueLen;
+
+	if (p->ulValueLen > max_size)
+		return(CKR_BUFFER_TOO_SMALL);
+	memcpy(value, p->pValue, p->ulValueLen);
+	return(CKR_OK);
+}
+
+
+static CK_RV
 access_attribute(SESSION sess,
 				 X509* cert,
 				 int cert_number,
@@ -296,7 +317,9 @@ access_attribute(SESSION sess,
 		{
 #if 1
 			char buf[255];
-			sprintf(buf, "Certificate #%d", cert_number);
+			snprintf(buf, sizeof(buf), "%s#%d", 
+					 sess->domain_name, 
+					 cert_number);
 			rv = callback(buf, strlen(buf), attr);
 #else
 			unsigned char* buf = NULL;
@@ -309,21 +332,159 @@ access_attribute(SESSION sess,
 #endif
 		}
 		break;
+
 	case CKA_ID:
 		{
+			/*
+			 * TODO: Guess what
+			 */
 			CK_ULONG cert_id = 0x1703 + cert_number;
 			rv = callback(&cert_id, sizeof(cert_id), attr);
 		}
 		break;
+
 	default:
 		DEBUG(1, "unsupported attribute id %x", (int)attr->type);
-		rv = CKR_FUNCTION_NOT_SUPPORTED;
+#if 0
+		if (attr->pValue)
+			rv = CKR_FUNCTION_NOT_SUPPORTED;
+#endif
+		attr->ulValueLen = -1;
 		break;
 	}
  out:
 	return(rv);
 }
 
+
+static CK_RV
+set_attribute(SESSION sess,
+			  X509** cert,
+			  CK_ATTRIBUTE_PTR attr
+) {
+	CK_RV rv = CKR_OK;
+	CK_ULONG val_len;
+
+	switch (attr->type) {
+	case CKA_CLASS:
+		{
+			CK_OBJECT_CLASS objtype;
+			rv = read_attribute(attr, &objtype, sizeof(objtype), &val_len);
+			if (CKR_OK == rv && CKO_CERTIFICATE != objtype)
+				rv = CKR_FUNCTION_NOT_SUPPORTED;
+		}
+		break;
+
+	case CKA_CERTIFICATE_TYPE:
+		{
+			CK_CERTIFICATE_TYPE cert_type;
+			rv = read_attribute(attr, &cert_type, sizeof(cert_type), &val_len);
+			if (CKR_OK == rv && CKC_X_509 != cert_type)
+				rv = CKR_FUNCTION_NOT_SUPPORTED;
+		}
+		break;
+
+	case CKA_VALUE:
+		{
+			unsigned char* buf = attr->pValue;
+			*cert = d2i_X509(NULL, (void*)&buf, attr->ulValueLen);
+			if (*cert) {
+				DEBUG(1, "created new certificate");
+			} else {
+				ERROR("cannot create certificate");
+			}
+		}
+		break;
+
+	case CKA_TRUSTED:
+	case CKA_TOKEN:
+	case CKA_PRIVATE:
+		{
+			CK_BBOOL avalue;
+			rv = read_attribute(attr, &avalue, sizeof(avalue), &val_len);
+			if (CKR_OK == rv) {
+				char* name = "";
+				switch (attr->type) {
+				case CKA_TRUSTED:
+					name = "trusted";
+					break;
+				case CKA_TOKEN:
+					name = "token";
+					break;
+				case CKA_PRIVATE:
+					name = "private";
+					break;
+				}
+				DEBUG(1, "Set cert %s to %s", name, avalue?"true":"false");
+			}
+		}
+		break;
+	case CKA_SUBJECT:
+	case CKA_ISSUER:
+		{
+			/*
+			 * TODO: enter into certificate
+			 */
+#if 0
+			char name[255];
+			memset(name, '\0', sizeof(name));
+			rv = read_attribute(attr, name, sizeof(name) - 1, &val_len);
+			if (CKR_OK == rv) {
+#endif
+				DEBUG(1, "Set cert %s", 
+					  attr->type == CKA_SUBJECT ? "subject" : "issuer");
+#if 0
+			}
+#endif
+		}
+		break;
+
+	case CKA_SERIAL_NUMBER:
+		{
+			ASN1_INTEGER* ival;
+			unsigned char* buf = attr->pValue;
+
+			ival = d2i_ASN1_INTEGER(NULL, (void*)&buf, attr->ulValueLen);
+			if (NULL != ival) {
+				/*
+				 * TODO: Set in certificate
+				 */
+				DEBUG(1,"Set serial number");
+				M_ASN1_INTEGER_free(ival);
+			}
+		}
+		break;
+				
+	case CKA_LABEL:
+		{
+			char name[255];
+			memset(name, '\0', sizeof(name));
+			rv = read_attribute(attr, name, sizeof(name) - 1, &val_len);
+			if (CKR_OK == rv) {
+				DEBUG(1, "Set cert label to %s", name);
+			}
+		}
+		break;
+
+	case CKA_ID:
+		{
+			unsigned char cert_id[100];
+			rv = read_attribute(attr, &cert_id, sizeof(cert_id), &val_len);
+			if (CKR_OK == rv)
+				DEBUG(1, "Set cert id");
+		}
+		break;
+
+	default:
+		DEBUG(1, "unsupported attribute id %x", (int)attr->type);
+		break;
+	}
+	return(rv);
+}
+
+/*
+ * Public functions
+ */
 
 CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
@@ -366,7 +527,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetFunctionList)(
 {
 	DEBUG(1, "enter");
 	if (!ppFunctionList)
-		return CKR_ARGUMENTS_BAD;
+		return(CKR_ARGUMENTS_BAD);
 
 	*ppFunctionList = (CK_FUNCTION_LIST_PTR)&function_list;
 	DEBUG(1, "exit");
@@ -548,9 +709,30 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 	CK_OBJECT_HANDLE_PTR phObject)
 {
+	CK_RV rv = CKR_OK;
+	X509* cert = NULL;
+	CK_ULONG i;
+	int cert_nbr;
+	SESSION sess;
+
 	DEBUG(1, "enter");
-	DEBUG(1, "exit");
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	*phObject = -1;
+	GET_SESSION(hSession, sess);
+
+	DEBUG(1, "enter");
+	for (i = 0; i < ulCount; i++) {
+		DEBUG(1, "set %s", attr_name(pTemplate[i].type));
+		rv = set_attribute(sess, &cert, &pTemplate[i]);
+		if (CKR_OK != rv)
+			break;
+	}
+	if (CKR_OK == rv && NULL != cert) {
+		rv = add_cert(sess, cert, &cert_nbr);
+		if (CKR_OK == rv)
+			*phObject = (CK_OBJECT_HANDLE)cert_nbr;
+	}
+	DEBUG(1, "exit %lx", rv);
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_CopyObject)(CK_SESSION_HANDLE hSession,
@@ -597,7 +779,6 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 			DEBUG(1, "get %s", attr_name(attr->type));
 			rv = access_attribute(sess, cert, (int)hObject, attr, copy_attribute);
 			if (rv != CKR_OK) {
-				attr->ulValueLen = -1;
 				break;
 			}
 		}

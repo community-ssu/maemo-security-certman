@@ -210,6 +210,7 @@ extern "C" {
 			  slot_info->is_shared
 			  ?"shared":"private",
 			  slot_info->domain.c_str());
+
 		rc = ngsw_certman_open_domain(slot_info->domain.c_str(),
 									  slot_info->is_shared
 									  ?NGSW_CD_COMMON:NGSW_CD_PRIVATE,
@@ -226,6 +227,7 @@ extern "C" {
 		new_session->session_id = ++last_session;
 		new_session->slot = slot_id;
 		new_session->cmdomain = domain;
+		new_session->domain_name = strdup(slot_info->domain.c_str());
 		new_session->read_only = !slot_info->is_writable;
 		new_session->state = sstat_base;
 		sessions.push_back(new_session);
@@ -276,6 +278,37 @@ extern "C" {
 	}
 
 	CK_RV
+	add_cert(SESSION sess, X509* cert, int* ord_nbr)
+	{
+		int rv;
+		cstore* certs;
+
+		if (   !sess
+			|| NGSW_CM_DOMAIN_NONE == sess->cmdomain) 
+		{
+			DEBUG(1, "sess %p, sess->cmdomain %p",
+				  sess, sess->cmdomain);
+			return(CKR_SESSION_HANDLE_INVALID);
+		}
+
+		if (sess->certs == NULL) {
+			certs = new(cstore);
+			sess->certs = certs;
+		} else {
+			certs = (cstore*)sess->certs;
+		}
+
+		certs->push_back(cert);
+		*ord_nbr = certs->size() - 1;
+		rv = ngsw_certman_add_cert(sess->cmdomain, cert);
+		if (0 != rv) {
+			ERROR("ngsw_certman_add_cert ret %d", rv);
+			return(CKR_FUNCTION_FAILED);
+		}
+		return(CKR_OK);
+	}
+
+	CK_RV
 	close_session(CK_SESSION_HANDLE sess_id)
 	{
 		for (size_t i = 0; i < sessions.size(); i++) {
@@ -291,6 +324,8 @@ extern "C" {
 				}
 				if (sess->cmdomain != NGSW_CM_DOMAIN_NONE)
 					ngsw_certman_close_domain(sess->cmdomain);
+				if (sess->domain_name)
+					free((void*)sess->domain_name);
 				delete(sess);
 				DEBUG(1, "exit, closed session %d", sess_id);
 				return(CKR_OK);

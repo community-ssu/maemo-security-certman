@@ -32,6 +32,7 @@ extern "C" {
 		CK_ATTRIBUTE_PTR find_template;
 		CK_ULONG find_count;
 		domain_handle cmdomain;
+		const char* domain_name;
 		void* certs;
 		int find_point;
 		int state;
@@ -47,6 +48,8 @@ extern "C" {
 
 	CK_ULONG nbrof_certs(CK_SLOT_ID slotID);
 	X509* get_cert(SESSION sess, int ord_nbr);
+	CK_RV add_cert(SESSION sess, X509* cert, int* ord_nbr);
+
 
 #ifdef	__cplusplus
 } // extern "C"
