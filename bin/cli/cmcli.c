@@ -245,7 +245,7 @@ main(int argc, char* argv[])
 						optarg, rc);
 				return(-1);
 			} else if (0 < ngsw_certman_nbrof_certs(my_domain)) {
-				ngsw_certman_collect(optarg, flags, &certs);
+				ngsw_certman_collect(optarg, flags, certs);
 			}
 			break;
 

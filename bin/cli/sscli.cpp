@@ -31,8 +31,7 @@ usage(void)
 int
 main(int argc, char* argv[])
 {
-	char a;
-	int len;
+	int a, len;
 	string storagename;
 	char* flags;
 	storage* ss = NULL;
