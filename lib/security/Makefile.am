@@ -8,3 +8,6 @@ libmaemosec_la_SOURCES = \
  ../../include/sec_storage.h sec_storage.cpp \
  c_xmlnode.h c_xmlnode.cpp \
  c_xmldoc.h c_xmldoc.cpp
+
+libmaemosec_la_LIBADD = -lcrypto -lssl -lexpat \
+ -L../libbb5/.libs -lbb5

@@ -34,7 +34,7 @@ load_root_certificate(X509_STORE* to_this)
 	lookup = X509_STORE_add_lookup(to_this, X509_LOOKUP_file());
 	if (lookup == NULL) {
 		ERROR("cannot add lookup");
-		print_openssl_errors();
+		// print_openssl_errors();
 		goto end;
 	}
 		
@@ -74,7 +74,7 @@ load_root_key(void)
 	// TODO: there are many different formats for keys
 	if (BIO_read_filename(keyfile, root_key_name) <= 0) {
 		ERROR("cannot load root CA key from '%s'", root_key_name);
-		print_openssl_errors();
+		// print_openssl_errors();
 		return;
 	}
 	root_key = PEM_read_bio_PrivateKey(keyfile, NULL, NULL, NULL);
@@ -101,7 +101,7 @@ extern "C" {
 		root_store = X509_STORE_new();
 		if (root_store == NULL) {
 			ERROR("cannot create X509 store");
-			print_openssl_errors();
+			// print_openssl_errors();
 			return;
 		}
 		load_root_certificate(root_store);
@@ -151,7 +151,7 @@ extern "C" {
 		rc = EVP_SignFinal(ctx, lmd, &signlen, root_key);
 		if (rc != 1) {
 			ERROR("signing failed");
-			print_openssl_errors();
+			// print_openssl_errors();
 			return(0);
 		}
 		if (signlen <= maxlen) {

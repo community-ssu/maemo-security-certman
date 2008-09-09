@@ -1,7 +1,7 @@
 AC_PREREQ(2.59)
-AC_INIT([maemosec_certman],[0.1])
+AC_INIT([maemosec-certman],[0.0.1])
 dnl AC_CONFIG_SRCDIR([lib/libbb5/libbb5stub.cpp],[lib/security/sec_common.cpp],[lib/certman/ngcm_main.cpp],[bin/cli/sscli.cpp])
-AM_INIT_AUTOMAKE(gnu 0.1 no-define dist-bzip2)
+AM_INIT_AUTOMAKE(gnu 0.0.1 no-define dist-bzip2)
 dnl AC_CONFIG_HEADER(include/config.h)
 AC_PROG_CC
 AC_PROG_CXX
