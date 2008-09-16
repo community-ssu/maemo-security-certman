@@ -1,0 +1,18 @@
+Source: maemo-security-certman
+Section: user/other
+Priority: extra
+Maintainer: Juhani Makela <ext-juhani.3.makela@nokia.com>
+Build-Depends: debhelper (>= 5), autotools-dev
+Standards-Version: 3.7.2
+
+Package: maemo-security-certman
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Maemo certificate manager consists of a set
+ of libraries and command line utilities for certificate
+ manegement.
+
+Package: maemo-security-certman-doc
+Architecture: all
+Description: No documentation available.
+
