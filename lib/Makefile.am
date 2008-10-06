@@ -1,1 +1,1 @@
-SUBDIRS = libbb5 security certman librestok
+SUBDIRS = libbb5 security certman
