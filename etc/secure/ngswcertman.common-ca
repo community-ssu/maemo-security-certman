@@ -1,0 +1,27 @@
+3dad79b867839178d3ff4363f03ac20bd96a062e */etc/certs/common-ca/Baltimore.1.pem
+af85a7fc0168709909e5d9cc2f60609c51c8fec7 */etc/certs/common-ca/Baltimore.2.pem
+d98816a5fcd05e0735ac16f821736f420c07c1bc */etc/certs/common-ca/Entrust_net.1.pem
+3a15340e7aa7e808940c820e87947a7cca0d28e5 */etc/certs/common-ca/Entrust_net.2.pem
+5df3fac0d1c8c37ca0a89d12b9a747c083f1ba3f */etc/certs/common-ca/Entrust_net.3.pem
+03de306e6bead81b0de390a2c47ba264139e4e69 */etc/certs/common-ca/Equifax.1.pem
+60e95fc329a9f2ad7c81568237e320985f9f543c */etc/certs/common-ca/Equifax_Secure_Inc_.1.pem
+1acf150d1f17b6cd06ff11d6703042b05bca0086 */etc/certs/common-ca/GTE_Corporation.1.pem
+33948162d3468a5d7b0b0147c58d6cb047ac4296 */etc/certs/common-ca/GlobalSign.1.pem
+5a67dc429129b77f763491be2ade4a35897c1cfc */etc/certs/common-ca/GlobalSign_nv_sa.1.pem
+95cb2afe0785f0c90a121dc637d77c19bf79206f */etc/certs/common-ca/Nokia.1.pem
+7d11bbccb7ea4d8ed8bba7969086e4f3e9f81148 */etc/certs/common-ca/RSA_Data_Security.1.pem
+c789902239080dc7e2e82fa856a5f6ca20ecc97e */etc/certs/common-ca/Starfield_Technologies.1.pem
+65f010b52dfacd7684b71afa8cb7357f27a208b6 */etc/certs/common-ca/Thawte_Consulting_cc.1.pem
+18f5a50c3fe7da37693a4325fba9f17f95c9d3d7 */etc/certs/common-ca/Thawte_Consulting_cc.2.pem
+98f1cc3d9f0973691eb4ae9a1eafac7fd6301dfb */etc/certs/common-ca/The_Go_Daddy_Group.1.pem
+7e33d5e1aef5b3469f8af109accdd3ef87019eb0 */etc/certs/common-ca/ValiCert.1.pem
+9f6625250c2512434532f776f52038cc2a56164c */etc/certs/common-ca/VeriSign.1.pem
+92e109791674722d1c2d12af81a512a8b9ba32e5 */etc/certs/common-ca/VeriSign.2.pem
+bf35fe1fa00ea00cbe880801f03afa0eba2833f2 */etc/certs/common-ca/VeriSign.3.pem
+b6ac90234f72582580ce77395afac680a51f86c1 */etc/certs/common-ca/VeriSign.4.pem
+0c5ee54ccfd1e2eb100f95303fd49e7ecefd182b */etc/certs/common-ca/VeriSign.5.pem
+SIGNATURE:
+061dd30b6dc8c5c1f758a67e0bb7781c40987c8fee0262a71c390a15af99d13e
+0709ef85e22f8044b2fc7e65ef814d56cb303347b7de6db6dacf3e39043e3577
+e36346ec928811a07b0bc17b794801b3c09b1a11822205211b396831d63591ef
+e08a95961d28d37a9849cf068362be56b9e166da1e37f2f4d676ef80194c6120
