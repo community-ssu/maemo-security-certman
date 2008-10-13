@@ -1,18 +1,47 @@
 Source: maemo-security-certman
 Section: user/other
 Priority: extra
-Maintainer: Juhani Makela <ext-juhani.3.makela@nokia.com>
+Maintainer: Juhani Mäkelä <ext-juhani.3.makela@nokia.com>
 Build-Depends: debhelper (>= 5), autotools-dev
 Standards-Version: 3.7.2
 
-Package: maemo-security-certman
+Package: libmaemosec0
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Maemo certificate manager consists of a set
- of libraries and command line utilities for certificate
- manegement.
+Description: Maemo security base library
+ Common security related library 
 
-Package: maemo-security-certman-doc
+Package: libmaemosec0-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${binary:Version}
+Description: Maemo security base library
+ Development files for common security related library 
+
+Package: libmaemosec-certman0
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Maemo certificate manager shared library
+ The common shared library of the maemo certificate manager.
+
+Package: libmaemosec-certman0-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${binary:Version}
+Description: Maemo certificate manager shared library
+ The common shared library and development files of 
+ the maemo certificate manager.
+
+Package: maemosec-certman-tools
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Maemo certificate manager runtime tools
+ The command line tools for managing certificate stores.
+
+Package: maemosec-certman-data
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Common CA certificates
+ The common CA certificate store.
+
+Package: maemosec-certman-doc
 Architecture: all
 Description: No documentation available.
-
