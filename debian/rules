@@ -66,7 +66,6 @@ install: build
 	# Add here commands to install the package into debian/tmp
 	$(MAKE) DESTDIR=$(CURDIR)/debian/maemo-security-certman install
 	dh_install
-	chmod 400 /etc/certs/trusted/root.key
 
 # Build architecture-independent files here.
 binary-indep: build install

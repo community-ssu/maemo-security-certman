@@ -44,4 +44,5 @@ Description: Common CA certificates
 
 Package: maemosec-certman-doc
 Architecture: all
-Description: No documentation available.
+Description: Maemo certificate manager documentation.
+ Maemo certificate manager documentation is currently empty.
