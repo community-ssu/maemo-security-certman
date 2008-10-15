@@ -9,26 +9,25 @@ Package: libmaemosec0
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Maemo security base library
- Common security related library 
+ The common security base library 
 
 Package: libmaemosec0-dev
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmaemosec0-${binary:Version}
+Depends: ${shlibs:Depends}, ${misc:Depends}, 
 Description: Maemo security base library
- Development files for common security related library 
+ Development files for the maemo security base library 
 
 Package: libmaemosec-certman0
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Maemo certificate manager shared library
- The common shared library of the maemo certificate manager.
+ The maemo certificate manager shared library.
 
 Package: libmaemosec-certman0-dev
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmaemosec-certman0-${binary:Version}
+Depends: ${shlibs:Depends}, ${misc:Depends}, 
 Description: Maemo certificate manager shared library
- The common shared library and development files of 
- the maemo certificate manager.
+ Development files for the maemo certificate manager.
 
 Package: maemosec-certman-tools
 Architecture: any
@@ -37,8 +36,7 @@ Description: Maemo certificate manager runtime tools
  The command line tools for managing certificate stores.
 
 Package: maemosec-certman-common-ca
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Architecture: all
 Description: Common CA certificates
  The common CA certificate store.
 
