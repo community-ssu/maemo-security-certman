@@ -13,7 +13,7 @@ Description: Maemo security base library
 
 Package: libmaemosec0-dev
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${binary:Version}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmaemosec0-${binary:Version}
 Description: Maemo security base library
  Development files for common security related library 
 
@@ -25,7 +25,7 @@ Description: Maemo certificate manager shared library
 
 Package: libmaemosec-certman0-dev
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${binary:Version}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmaemosec-certman0-${binary:Version}
 Description: Maemo certificate manager shared library
  The common shared library and development files of 
  the maemo certificate manager.
