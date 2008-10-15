@@ -9,5 +9,5 @@ libmaemosec_la_SOURCES = \
  c_xmlnode.h c_xmlnode.cpp \
  c_xmldoc.h c_xmldoc.cpp
 
-libmaemosec_la_LIBADD = -lcrypto -lssl -lexpat \
+libmaemosec_la_LIBADD = -lcrypto -lexpat \
  -L../libbb5/.libs -lbb5

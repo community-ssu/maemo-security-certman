@@ -11,7 +11,7 @@ libmaemosec_certman_la_SOURCES = \
 
 # Include all necessary libraries in the .so so that it can be used
 # as a PCKS#11 plugin
-libmaemosec_certman_la_LIBADD = -lcrypto -lssl -lexpat \
+libmaemosec_certman_la_LIBADD = -lcrypto \
  -L../libbb5/.libs -lbb5 \
  -L../security/.libs -lmaemosec
 

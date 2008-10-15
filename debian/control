@@ -36,7 +36,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Maemo certificate manager runtime tools
  The command line tools for managing certificate stores.
 
-Package: maemosec-certman-data
+Package: maemosec-certman-common-ca
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Common CA certificates
