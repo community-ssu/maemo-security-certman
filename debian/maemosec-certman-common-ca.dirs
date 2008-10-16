@@ -1,1 +1,1 @@
-/etc/secure /etc/certs /etc/certs/trusted /etc/certs/common-ca
+/etc/certs/common-ca

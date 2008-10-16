@@ -1,2 +1,3 @@
 #!/bin/sh
+chmod 400 /etc/certs/trusted/root.key
 ldconfig
