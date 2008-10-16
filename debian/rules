@@ -53,7 +53,7 @@ clean:
 	rm -f build-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
-	# -$(MAKE) clean
+	-$(MAKE) distclean
 
 	dh_clean 
 
@@ -64,7 +64,8 @@ install: build
 	dh_installdirs
 
 	# Add here commands to install the package into debian/tmp
-	$(MAKE) DESTDIR=$(CURDIR)/debian/maemo-security-certman install
+	# $(MAKE) install DESTDIR=$(CURDIR)/debian/maemosec
+
 	dh_install
 
 # Build architecture-independent files here.
