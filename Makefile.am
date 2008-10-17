@@ -1,3 +1,22 @@
 SUBDIRS = lib bin
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = pkgconfig/maemosec.pc pkgconfig/maemosec-certman.pc 
+
+EXTRA_DIST = \
+	include
+
+DISTCLEANFILES = \
+	aclocal.m4 \
+	include/config.h.in \
+	Makefile.in \
+	configure \
+	autom4te.cache/* \
+	config.sub \
+	config.guess \
+	ltmain.sh \
+	libtool \
+	depcomp \
+	install-sh \
+	missing
 
