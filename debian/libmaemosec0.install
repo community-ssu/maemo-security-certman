@@ -1,2 +1,1 @@
-lib/security/.libs/libmaemosec.so.0.0.0 lib/security/.libs/libmaemosec.so.0 lib/security/.libs/libmaemosec.so lib/libbb5/.libs/libbb5.so.0.0.0 lib/libbb5/.libs/libbb5.so.0 lib/libbb5/.libs/libbb5.so /usr/lib
 etc/certs/trusted/root.ca etc/certs/trusted/root.key /etc/certs/trusted

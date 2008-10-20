@@ -1,2 +1,0 @@
-include/libcertman.h /usr/include
-lib/certman/.libs/libmaemosec_certman.a /usr/lib

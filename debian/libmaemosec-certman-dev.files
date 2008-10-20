@@ -1,0 +1,4 @@
+usr/include/libcertman.h
+usr/lib/libmaemosec_certman.a usr/lib/libmaemosec_certman.so
+usr/lib/pkgconfig/maemosec-certman.pc
+

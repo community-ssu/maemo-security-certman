@@ -3,6 +3,9 @@ SUBDIRS = lib bin
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = pkgconfig/maemosec.pc pkgconfig/maemosec-certman.pc 
 
+include_HEADERS = \
+	include/*.h
+
 EXTRA_DIST = \
 	include
 

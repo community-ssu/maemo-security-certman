@@ -1,2 +1,0 @@
-include/libbb5.h include/libbb5stub.h include/sec_common.h include/sec_storage.h /usr/include
-lib/security/.libs/libmaemosec.a lib/libbb5/.libs/libbb5.a /usr/lib
