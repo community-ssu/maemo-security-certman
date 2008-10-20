@@ -6,6 +6,6 @@ includedir=${prefix}/include
 Name: maemosec-certman
 Description: Certificate manager library
 Version: 0.0.1
-Requires: openssl
+Requires: openssl maemosec
 Libs: -lmaemosec-certman
 Cflags: 

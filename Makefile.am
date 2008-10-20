@@ -4,7 +4,11 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = pkgconfig/maemosec.pc pkgconfig/maemosec-certman.pc 
 
 include_HEADERS = \
-	include/*.h
+	include/libbb5.h \
+	include/libbb5stub.h \
+	include/sec_common.h \
+	include/sec_storage.h \
+	include/libcertman.h
 
 EXTRA_DIST = \
 	include
