@@ -15,6 +15,10 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 /**
  * \def NGSW_CD_PRIVATE
  * \brief Private certificate domains can only be accessed by 
@@ -55,7 +59,7 @@ typedef void* domain_handle;
  * when the function is called.
  * \returns 0 on success, otherwise an error code
  */
-extern int ngsw_certman_open(X509_STORE** my_cert_store);
+int ngsw_certman_open(X509_STORE** my_cert_store);
 
 /**
  * \brief Load and verify the certificates of the given domain. 
@@ -66,16 +70,16 @@ extern int ngsw_certman_open(X509_STORE** my_cert_store);
  * \param my_cert_store (in,out) the store where to add the certificates
  * \return 0 on success, otherwise an error code
  */
-extern int ngsw_certman_collect(const char* domain, 
-								int shared, 
-								X509_STORE* my_cert_store);
+int ngsw_certman_collect(const char* domain, 
+						 int shared, 
+						 X509_STORE* my_cert_store);
 
 /**
  * \brief Close the certificate store and release reserved resources
  * \param my_cert_store (in) the certificate store to be released
  * \return 0 on success, otherwise an error code
  */
-extern int ngsw_certman_close(X509_STORE* my_cert_store);
+int ngsw_certman_close(X509_STORE* my_cert_store);
 
 //@}
 
@@ -89,10 +93,9 @@ extern int ngsw_certman_close(X509_STORE* my_cert_store);
  * \param handle (out) a handle to the domain to be used in subsequent calls
  * \return 0 on success, otherwise an error code
  */
-extern int ngsw_certman_open_domain(
-	const char* domain_name, 
-	int flags, 
-	domain_handle* handle);
+int ngsw_certman_open_domain(const char* domain_name, 
+							 int flags, 
+							 domain_handle* handle);
 
 /**
  * \brief Iterate through a domain
@@ -113,10 +116,9 @@ extern int ngsw_certman_open_domain(
  *        with "add cert" or "rm cert", the results may be quite unpredictable.
  *        So don't.
  */
-extern int ngsw_certman_iterate_domain(
-	domain_handle the_domain, 
-	int cb_func(int,X509*,void*), 
-	void* ctx);
+int ngsw_certman_iterate_domain(domain_handle the_domain, 
+								int cb_func(int,X509*,void*), 
+								void* ctx);
 
 /**
  * \brief Add a certificate into the domain
@@ -126,7 +128,7 @@ extern int ngsw_certman_iterate_domain(
  * if the application does not have the power to modify
  * the domain.
  */
-extern int ngsw_certman_add_cert(domain_handle to_domain, X509* cert);
+int ngsw_certman_add_cert(domain_handle to_domain, X509* cert);
 
 /**
  * \brief Remove a certificate from the domain
@@ -136,14 +138,14 @@ extern int ngsw_certman_add_cert(domain_handle to_domain, X509* cert);
  * if the application does not have the power to modify
  * the domain.
  */
-extern int ngsw_certman_rm_cert(domain_handle from_domain, int pos);
+int ngsw_certman_rm_cert(domain_handle from_domain, int pos);
 
 /**
  * \brief Return the number of certificates in a domain
  * \param in_domain (in) a handle to the domain
  * \return >= 0 on success, otherwise -1
  */
-extern int ngsw_certman_nbrof_certs(domain_handle in_domain);
+int ngsw_certman_nbrof_certs(domain_handle in_domain);
 
 /**
  * \brief Close a domain
@@ -153,8 +155,12 @@ extern int ngsw_certman_nbrof_certs(domain_handle in_domain);
  * Upon closing the changes are updated on the disk, if the
  * application has permissions to do that.
  */
-extern int ngsw_certman_close_domain(domain_handle handle);
+int ngsw_certman_close_domain(domain_handle handle);
 
 //@}
+
+#ifdef	__cplusplus
+} // extern "C"
+#endif
 
 #endif

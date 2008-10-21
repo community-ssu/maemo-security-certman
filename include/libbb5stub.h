@@ -11,14 +11,14 @@ extern "C" {
 #endif
 
 // A stub implementation of the BB5 module for testing in a laptop
-extern void        bb5_init();
-extern void        bb5_finish();
+void        bb5_init();
+void        bb5_finish();
 
-extern ssize_t     bb5_get_random(unsigned char *buf, size_t len);
-extern X509*       bb5_get_cert(int nbrof);
-extern int         bb5_rsakp_sign(EVP_MD_CTX* ctx, unsigned char* md, size_t maxlen);
-extern ssize_t     bb5_rsakp_decrypt(int set, int key, const unsigned char *msg,
-									 size_t len, unsigned char **plain);
+ssize_t     bb5_get_random(unsigned char *buf, size_t len);
+X509*       bb5_get_cert(int nbrof);
+int         bb5_rsakp_sign(EVP_MD_CTX* ctx, unsigned char* md, size_t maxlen);
+ssize_t     bb5_rsakp_decrypt(int set, int key, const unsigned char *msg,
+							  size_t len, unsigned char **plain);
 
 #ifdef	__cplusplus
 }

@@ -41,19 +41,19 @@ struct bb5_sd_info {
  * Check presence of the underlying device.
  * Returns zero if device is available, else negative error code.
  */
-extern int bb5_check_device(void);
+int bb5_check_device(void);
 
 /*
  * Fill given buffer with random data.
  * Returns number of bytes output or a negative error code.
  */
-extern ssize_t bb5_get_random(unsigned char *buf, size_t len);
+ssize_t bb5_get_random(unsigned char *buf, size_t len);
 
 /*
  * Rot13 given buffer.
  * Returns number of bytes rot'ed or a negative error code.
  */
-extern ssize_t bb5_rot13(unsigned char *buf, size_t len);
+ssize_t bb5_rot13(unsigned char *buf, size_t len);
 
 /*
  * Functions for getting response to labeling cmd. The functions work
@@ -61,47 +61,47 @@ extern ssize_t bb5_rot13(unsigned char *buf, size_t len);
  * name. The functions allocate response buffer and return it in
  * *resp. They return length of response data or a negative error code.
  */
-extern ssize_t bb5_label_resp_npc(unsigned long mask, const unsigned char *buf,
+ssize_t bb5_label_resp_npc(unsigned long mask, const unsigned char *buf,
 					size_t len, unsigned char **resp);
 		
-extern ssize_t bb5_label_resp_rdc(unsigned long mask, const unsigned char *buf,
+ssize_t bb5_label_resp_rdc(unsigned long mask, const unsigned char *buf,
 					size_t len, unsigned char **resp);
 
-extern ssize_t bb5_label_resp_assk(unsigned long mask, const unsigned char *buf,
+ssize_t bb5_label_resp_assk(unsigned long mask, const unsigned char *buf,
 					size_t len, unsigned char **resp);
 
 /*
  * Generate an RSA key. The public key is returned in the buffer
  * pointed to by pubkey. Return is zero for success or a negative error code.
  */
-extern ssize_t bb5_rsakp_generate(int type, int set, int key, unsigned long exp,
+ssize_t bb5_rsakp_generate(int type, int set, int key, unsigned long exp,
 							unsigned char **pubkey);
 
 /*
  * Delete an RSA key.
  * Return is zero for success or a negative error code.
  */
-extern int bb5_rsakp_delete(int set, int key);
+int bb5_rsakp_delete(int set, int key);
 
 /*
  * Import an RSA key.
  * Returns zero for success or a negative error code.
  */
-extern int bb5_rsakp_import(const unsigned char *buf, size_t len);
+int bb5_rsakp_import(const unsigned char *buf, size_t len);
 
 /*
  * Sign msg using an RSA key. Allocates output buffer and returns it in
  * *signature. Returns length of output or a negative error code.
  */
-extern ssize_t bb5_rsakp_sign(int set, int key, const unsigned char *msg,
-			      size_t len, unsigned char **signature);
+ssize_t bb5_rsakp_sign(int set, int key, const unsigned char *msg,
+		       size_t len, unsigned char **signature);
 
 /*
  * Decrypt msg using an RSA key. Allocates output buffer and returns it in
  * *plain. Returns length of output or a negative error code.
  */
-extern ssize_t bb5_rsakp_decrypt(int set, int key, const unsigned char *msg,
-				 size_t len, unsigned char **plain);
+ssize_t bb5_rsakp_decrypt(int set, int key, const unsigned char *msg,
+			  size_t len, unsigned char **plain);
 
 /*
  * Get information on an RSA private key. The function will allocate a
@@ -114,7 +114,7 @@ int bb5_rsakp_info(int set, int key, struct bb5_rsa_key_info **info);
  * Store a certificate. Will overwrite any existing certificate with the
  * same id. Returns len for success, or a negative error code.
  */
-extern ssize_t bb5_cert_store(bb5_cert_t id, const unsigned char *buf,
+ssize_t bb5_cert_store(bb5_cert_t id, const unsigned char *buf,
 			      size_t len);
 
 /*
@@ -122,14 +122,14 @@ extern ssize_t bb5_cert_store(bb5_cert_t id, const unsigned char *buf,
  * and returns its address in *buf. Returns length of data in *buf or a
  * negative error code.
  */
-extern ssize_t bb5_cert_read(bb5_cert_t id, unsigned char **buf);
+ssize_t bb5_cert_read(bb5_cert_t id, unsigned char **buf);
 
 /*
  * Delete a certificate. Returns zero if it was successfully deleted, or there
  * wasn't a certificate stored with given id. Returns negative error code
  * if deletion failed.
  */
-extern int bb5_cert_delete(bb5_cert_t id);
+int bb5_cert_delete(bb5_cert_t id);
 
 /*
  * Import NVM unlocking key to Baxter Peak. 
@@ -139,7 +139,7 @@ extern int bb5_cert_delete(bb5_cert_t id);
  *       of the imported key.
  * Returns length of data at *hout, or negative for error.
  */
-extern int bb5_bxp_import(const unsigned char *blob, size_t blen,
+int bb5_bxp_import(const unsigned char *blob, size_t blen,
 			  unsigned char **hout);
 
 /*
@@ -148,7 +148,7 @@ extern int bb5_bxp_import(const unsigned char *blob, size_t blen,
  * to a 16-byte buffer containing the exported key.
  * Returns length of data at *key, or negative for error.
  */
-extern int bb5_bxp_export(unsigned char **key);
+int bb5_bxp_export(unsigned char **key);
 
 /*
  * Store SuperDongle keys in secure storage.
@@ -156,7 +156,7 @@ extern int bb5_bxp_export(unsigned char **key);
  * len:  length of data in blob
  * Returns zero for success, or negative for error.
  */
-extern int bb5_sd_prod_init(const unsigned char *blob, size_t len);
+int bb5_sd_prod_init(const unsigned char *blob, size_t len);
 
 /*
  * SuperDongle authentication phase #1. Session id, chip id and algorithm are
@@ -167,7 +167,7 @@ extern int bb5_sd_prod_init(const unsigned char *blob, size_t len);
  * algo:     algorithm to use.
  * Returns zero for success, or negative for error.
  */
-extern int bb5_sd_auth_init(unsigned char *session, unsigned char *chip,
+int bb5_sd_auth_init(unsigned char *session, unsigned char *chip,
 			    bb5_auth_algo_t *algo);
 
 /*
@@ -175,7 +175,7 @@ extern int bb5_sd_auth_init(unsigned char *session, unsigned char *chip,
  * and authentication code, and you get SD info out as well as a response
  * message. Returns length of data in *resp, or negative error code.
  */
-extern int bb5_sd_auth(int msgid, struct bb5_sd_info *sdin, int session2,
+int bb5_sd_auth(int msgid, struct bb5_sd_info *sdin, int session2,
 		       const unsigned char *mac, unsigned char **resp);
 
 /*
@@ -184,6 +184,6 @@ extern int bb5_sd_auth(int msgid, struct bb5_sd_info *sdin, int session2,
  * mac: message authentication code, 8 bytes.
  * Returns zero for success, or negative for error.
  */
-extern int bb5_sd_verify(const unsigned char *msg, const unsigned char *mac);
+int bb5_sd_verify(const unsigned char *msg, const unsigned char *mac);
 
 #endif /* LIBBB5_H */

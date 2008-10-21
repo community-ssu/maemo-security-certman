@@ -57,11 +57,13 @@ extern "C" {
 	 #define bool int
 #endif
 
+#if 0
     /**
     * \var debug_level
 	* \brief Set this value non-zero to produce debug output
 	*/
 	extern int debug_level;
+#endif
 
 	/**
 	 * \def path_sep
@@ -130,19 +132,20 @@ extern "C" {
 		syslog(LOG_WARNING + level, "%s(%d)[%s]: " format "\n", __FILE__, __LINE__,\
 			   __func__ ,##args);\
     } while (0)
+
 #else
+
 #define ERROR(format,args...) \
 	do {\
 		fprintf(stderr, "%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__, \
 			   ##args);\
 	} while (0)
+
 #define DEBUG(level,format,args...)										\
 	do {																\
-		if (level <= debug_level) {										\
-			fprintf(stderr, "%s(%d)[%s]: " format "\n",					\
-					__FILE__, __LINE__,									\
-					__func__ ,##args);									\
-		}																\
+		fprintf(stderr, "%s(%d)[%s]: " format "\n",						\
+				__FILE__, __LINE__,										\
+				__func__ ,##args);										\
     } while (0)
 #endif
 
