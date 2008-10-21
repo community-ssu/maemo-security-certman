@@ -4,7 +4,7 @@
 /// \brief The implementation of the c_xmldoc class
 
 #include "c_xmldoc.h"
-#include "sec_common.h"
+#include "maemosec_common.h"
 
 #include <stdio.h>
 #include <errno.h>

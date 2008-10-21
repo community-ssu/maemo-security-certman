@@ -15,7 +15,7 @@ extern "C" {
 #include <openssl/x509v3.h>
 #include <openssl/rand.h>
 
-#include "sec_common.h"
+#include "maemosec_common.h"
 
 static const char root_crt_name [] = "/etc/certs/trusted/root.ca";
 static const char root_key_name [] = "/etc/certs/trusted/root.key";
