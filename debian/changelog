@@ -1,4 +1,12 @@
+maemo-security-certman (0.0.2) unstable; urgency=low
+	
+  * Renamed all functions and constants not to refer to NG or NGSW
+    but maemo in stead.
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Tue, 21 Oct 2008 17:04:44 +0300
+
 maemo-security-certman (0.0.1) unstable; urgency=low
+	
   * First release
 
  -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Wed, 01 Oct 2008 15:46:33 +0300
