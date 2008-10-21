@@ -1,6 +1,6 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
- * \file x509_container_cert.h
+ * \file x509_container.h
  * \brief A helper class to parse and analyze certificates
  */
 

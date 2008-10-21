@@ -1,7 +1,7 @@
 // -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
   
-  \file sec_common.h
+  \file maemosec_common.h
   \brief NGSW Security common definitions
   
   \mainpage NGSW Security

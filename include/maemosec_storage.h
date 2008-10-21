@@ -1,6 +1,6 @@
 // -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
 /**
- \file sec_storage.h
+ \file maemosec_storage.h
  \ingroup sec_storage
  \brief Protected storage library.
 

@@ -1,7 +1,7 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
 
-   \file sec_storage.cpp
+   \file maemosec_storage.cpp
    \ingroup sec_storage
    \brief The protected storage implementation
 

@@ -1,6 +1,6 @@
 // -*- mode:c; tab-width:4; c-basic-offset:4; -*- 
 /**
- \file libcertman.h
+ \file maemosec_certman.h
  \ingroup libcertman
  \brief The certman library low-level API
 

@@ -1,6 +1,6 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
- * \file maemosec_certman_config.cpp
+ * \file cryptoki_config.cpp
  * \brief Configuration for the certman library
  */
 
