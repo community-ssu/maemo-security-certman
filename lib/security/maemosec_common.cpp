@@ -1,6 +1,6 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 
-#include "sec_common.h"
+#include "maemosec_common.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

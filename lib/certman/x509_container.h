@@ -1,6 +1,6 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
- * \file ngcm_x509_cert.h
+ * \file x509_container_cert.h
  * \brief A helper class to parse and analyze certificates
  */
 
@@ -30,21 +30,21 @@ using namespace std;
 #include <openssl/x509v3.h>
 #include <openssl/pem.h>
 
-#include "sec_common.h"
+#include "maemosec_common.h"
 
-namespace ngsw_sec {
+namespace maemosec {
 
     /** 
-	 * \class ngcm_x509_cert 
+	 * \class x509_container_cert 
 	 * \brief A helper class to sort and analyze X509 certificates
 	 */
-	class ngcm_x509_cert 
+	class x509_container 
 	{
 		/// \cond
         //  Don't make doxygen documentation 
 	private:
 		X509* m_cert;
-		ngcm_x509_cert* m_issuer;
+		x509_container* m_issuer;
 		void analyze_cert();
 		string m_subject_name;
 		string m_key_id;
@@ -53,14 +53,14 @@ namespace ngsw_sec {
 	public:
 		bool m_handled;
 		bool m_verified;
-		ngcm_x509_cert(const char* pathname);
-		~ngcm_x509_cert();
+		x509_container(const char* pathname);
+		~x509_container();
 		X509* cert() {return(m_cert);};
-		ngcm_x509_cert* issuer() {return(m_issuer);};
+		x509_container* issuer() {return(m_issuer);};
 		const char* subject_name() {return(m_subject_name.c_str());};
 		const char* key_id() {return(m_key_id.c_str());};
 		const char* issuer_key_id() {return(m_issuer_key_id.c_str());};
-		void set_issuer(ngcm_x509_cert* to_this);
+		void set_issuer(x509_container* to_this);
 		void print();
 		/// \endcond
 	};

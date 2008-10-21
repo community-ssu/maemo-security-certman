@@ -1,6 +1,6 @@
 dnl AC_PREREQ(2.59)
 AC_INIT([maemo-security-certman], [0.0.1])
-AC_CONFIG_SRCDIR(lib/certman/ngcm_main.cpp)
+dnl AC_CONFIG_SRCDIR(lib/certman/maemosec_certman_main.cpp)
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AC_CONFIG_HEADERS(include/config.h)
 AC_PROG_CC

@@ -1,10 +1,10 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 
-#include <sec_common.h>
-#include <sec_storage.h>
+#include <maemosec_common.h>
+#include <maemosec_storage.h>
 #include <libbb5stub.h>
 
-using namespace ngsw_sec;
+using namespace maemosec;
 
 extern int debug_level;
 

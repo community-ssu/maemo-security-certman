@@ -1,11 +1,11 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
- * \file ngcm_config.cpp
+ * \file maemosec_certman_config.cpp
  * \brief Configuration for the certman library
  */
 
-#include "ngcm_config.h"
-#include <sec_common.h>
+#include "cryptoki_config.h"
+#include <maemosec_common.h>
 #include "c_xmldoc.h"
 
 #include <string>
@@ -23,12 +23,12 @@ static vector<I_SLOT_INFO> slots;
 
 extern "C" {
 
-	const char config_file_name[] = "/etc/ngcm_cryptoki.conf";
+	const char config_file_name[] = "/etc/maemosec-certman-cryptoki.conf";
 
 	static void
 	strbcpy(CK_UTF8CHAR* to, const char* from, const unsigned blen)
 	{
-		int slen = strlen(from);
+		unsigned slen = strlen(from);
 		if (slen < blen) {
 			memcpy((char*)to, from, slen);
 			memset((char*)to + slen, ' ', blen - slen);
@@ -211,9 +211,10 @@ extern "C" {
 			  ?"shared":"private",
 			  slot_info->domain.c_str());
 
-		rc = ngsw_certman_open_domain(slot_info->domain.c_str(),
+		rc = maemosec_certman_open_domain(slot_info->domain.c_str(),
 									  slot_info->is_shared
-									  ?NGSW_CD_COMMON:NGSW_CD_PRIVATE,
+									  ?MAEMOSEC_CERTMAN_DOMAIN_SHARED
+									  :MAEMOSEC_CERTMAN_DOMAIN_PRIVATE,
 									  &domain);
 		if (rc != 0) {
 			return(CKR_SLOT_ID_INVALID);
@@ -263,7 +264,7 @@ extern "C" {
 		if (sess->certs == NULL) {
 			certs = new(cstore);
 			sess->certs = certs;
-			ngsw_certman_iterate_domain(sess->cmdomain, 
+			maemosec_certman_iterate_domain(sess->cmdomain, 
 										cb_copy_cert,
 										sess->certs);
 		} else {
@@ -284,7 +285,7 @@ extern "C" {
 		cstore* certs;
 
 		if (   !sess
-			|| NGSW_CM_DOMAIN_NONE == sess->cmdomain) 
+			|| MAEMOSEC_CERTMAN_DOMAIN_NONE == sess->cmdomain) 
 		{
 			DEBUG(1, "sess %p, sess->cmdomain %p",
 				  sess, sess->cmdomain);
@@ -300,9 +301,9 @@ extern "C" {
 
 		certs->push_back(cert);
 		*ord_nbr = certs->size() - 1;
-		rv = ngsw_certman_add_cert(sess->cmdomain, cert);
+		rv = maemosec_certman_add_cert(sess->cmdomain, cert);
 		if (0 != rv) {
-			ERROR("ngsw_certman_add_cert ret %d", rv);
+			ERROR("maemosec_certman_add_cert ret %d", rv);
 			return(CKR_FUNCTION_FAILED);
 		}
 		return(CKR_OK);
@@ -322,8 +323,8 @@ extern "C" {
 					}
 					delete(certs);
 				}
-				if (sess->cmdomain != NGSW_CM_DOMAIN_NONE)
-					ngsw_certman_close_domain(sess->cmdomain);
+				if (sess->cmdomain != MAEMOSEC_CERTMAN_DOMAIN_NONE)
+					maemosec_certman_close_domain(sess->cmdomain);
 				if (sess->domain_name)
 					free((void*)sess->domain_name);
 				delete(sess);

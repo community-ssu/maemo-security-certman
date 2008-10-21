@@ -1,13 +1,13 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /// \cond Don't make doxygen documentation
 
-#include "ngcm_x509_cert.h"
+#include "x509_container.h"
 
 void print_openssl_errors(void);
 
-namespace ngsw_sec {
+namespace maemosec {
 
-	ngcm_x509_cert::ngcm_x509_cert(const char* pathname)
+	x509_container::x509_container(const char* pathname)
 	{
 		FILE* fp = fopen(pathname, "r");
 
@@ -29,7 +29,7 @@ namespace ngsw_sec {
 		DEBUG(2, "created new %p(%p)", this, m_cert);
 	}
 
-	ngcm_x509_cert::~ngcm_x509_cert()
+	x509_container::~x509_container()
 	{
 		DEBUG(2, "erasing %p(%p)", this, m_cert);
 		if (m_cert)
@@ -37,7 +37,7 @@ namespace ngsw_sec {
 	}
 
 	void 
-	ngcm_x509_cert::analyze_cert()
+	x509_container::analyze_cert()
 	{
 		char buf[256];
 		int i, len;
@@ -93,7 +93,7 @@ namespace ngsw_sec {
 	}
 
 	void
-	ngcm_x509_cert::print(void)
+	x509_container::print(void)
 	{
 		PEM_write_X509(stdout, m_cert);
 	}

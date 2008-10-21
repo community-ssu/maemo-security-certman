@@ -7,7 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "../../lib/security/c_xmldoc.h"
-#include <sec_common.h>
+#include <maemosec_common.h>
 
 #if 0
 static void print_output(c_wordlist* model, c_xmlnode* node)

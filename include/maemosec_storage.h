@@ -34,11 +34,11 @@
 using namespace std;
 
 /**
- * \namespace ngsw_sec
- * \brief Namespace ngsw_sec means "NGSW Security"
+ * \namespace maemosec_sec
+ * \brief Namespace maemosec_sec means "NGSW Security"
  */
 
-namespace ngsw_sec {
+namespace maemosec {
 
 	/**
 	 * \class storage

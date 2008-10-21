@@ -1,8 +1,6 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 
-extern "C" {
-#include <libcertman.h>
-};
+#include <maemosec_certman.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -35,17 +33,17 @@ using namespace std;
 
 // #include <libbb5.h>
 #include <libbb5stub.h>
-#include <sec_common.h>
-#include <sec_storage.h>
-using namespace ngsw_sec;
+#include <maemosec_common.h>
+#include <maemosec_storage.h>
+using namespace maemosec;
 
-#include "ngcm_x509_cert.h"
+#include "x509_container.h"
 
 // Some initialization with hard-coded constants.
 // Some of these should maybe be moved to a config
 // file...
 
-static const char cert_storage_prefix [] = "ngswcertman.";
+static const char cert_storage_prefix [] = "maemosec-certman.";
 static const char cert_dir_name       [] = "/etc/certs";
 static const char priv_dir_name       [] = ".certs";
 
@@ -53,7 +51,7 @@ static const char priv_dir_name       [] = ".certs";
 EVP_PKEY *root_pkey = NULL;
 
 
-namespace ngsw_sec 
+namespace maemosec 
 {
     /**
 	 * \brief A secure certificate container
@@ -98,8 +96,8 @@ static bool
 load_certs(vector<string> &certnames,
 		   X509_STORE* certs
 ) {
-	map<string, ngcm_x509_cert*> cert_map;
-	stack<ngcm_x509_cert*> temp;
+	map<string, x509_container*> cert_map;
+	stack<x509_container*> temp;
 
 	// TODO: Is this logic necessary at all now that the 
 	// certificates have been divided to domains? After all,
@@ -110,7 +108,7 @@ load_certs(vector<string> &certnames,
 	// and put the rest into a map for quick access
 
 	for (size_t i = 0; i < certnames.size(); i++) {
-		ngcm_x509_cert* cert = new ngcm_x509_cert(certnames[i].c_str());
+		x509_container* cert = new x509_container(certnames[i].c_str());
 
 		if (strcmp(cert->key_id(), cert->issuer_key_id()) == 0
 			|| strlen(cert->issuer_key_id()) == 0) 
@@ -130,12 +128,12 @@ load_certs(vector<string> &certnames,
 
 	// Load and verify the rest of the certificates in the proper order
 	for (
-		map<string, ngcm_x509_cert*>::const_iterator ii = cert_map.begin();
+		map<string, x509_container*>::const_iterator ii = cert_map.begin();
 		ii != cert_map.end();
 		ii++
 	) {
-		ngcm_x509_cert* cert = ii->second;
-		ngcm_x509_cert* issuer;
+		x509_container* cert = ii->second;
+		x509_container* issuer;
 
 		DEBUG(2, "iterate next (%p,%d)", cert, cert->m_verified);
 
@@ -176,11 +174,11 @@ load_certs(vector<string> &certnames,
 	}
 	DEBUG(2, "erasing map");
 	for (
-		map<string, ngcm_x509_cert*>::const_iterator ii = cert_map.begin();
+		map<string, x509_container*>::const_iterator ii = cert_map.begin();
 		ii != cert_map.end();
 		ii++
 	) {
-		ngcm_x509_cert* cert = ii->second;
+		x509_container* cert = ii->second;
 		delete(cert);
 	}
 	cert_map.clear();
@@ -215,7 +213,7 @@ local_cert_dir(string& to_this, string& storename)
 static void
 decide_storage_name(const char* domain_name, int flags, string& dirname, string& storename)
 {
-	if (NGSW_CD_PRIVATE == flags) {
+	if (MAEMOSEC_CERTMAN_DOMAIN_PRIVATE == flags) {
 		// Make private name
 		local_cert_dir(dirname, storename);
 		storename.insert(0, cert_storage_prefix);
@@ -373,7 +371,7 @@ x509_equals(int pos, X509* cert, void* with_cert)
 extern "C" {
 
 	int 
-	ngsw_certman_open(X509_STORE** my_cert_store)
+	maemosec_certman_open(X509_STORE** my_cert_store)
 	{
 		X509* bb5cert;
 
@@ -385,7 +383,7 @@ extern "C" {
 		return(0);
 	}
 
-	int ngsw_certman_collect(const char* domain, int shared, X509_STORE* my_cert_store)
+	int maemosec_certman_collect(const char* domain, int shared, X509_STORE* my_cert_store)
 	{
 		vector<string> x;
 		const char* sep, *start = domain;
@@ -403,10 +401,10 @@ extern "C" {
 
 			if (shared) {
 				storvis = storage::vis_shared;
-				decide_storage_name(domainname.c_str(), NGSW_CD_COMMON, 
+				decide_storage_name(domainname.c_str(), MAEMOSEC_CERTMAN_DOMAIN_SHARED, 
 									dirname, storagename);
 			} else {
-				decide_storage_name(domainname.c_str(), NGSW_CD_PRIVATE, 
+				decide_storage_name(domainname.c_str(), MAEMOSEC_CERTMAN_DOMAIN_PRIVATE, 
 									dirname, storagename);
 				storvis = storage::vis_private;
 			}
@@ -438,7 +436,7 @@ extern "C" {
 	}
 
 	int
-	ngsw_certman_close(X509_STORE* my_cert_store)
+	maemosec_certman_close(X509_STORE* my_cert_store)
 	{
 		X509_STORE_free(my_cert_store);
 		bb5_finish();
@@ -449,7 +447,7 @@ extern "C" {
 	#define PRIVATE_DIR_MODE 0700
 
 	int 
-	ngsw_certman_open_domain(const char* domain_name, 
+	maemosec_certman_open_domain(const char* domain_name, 
 							 int flags, 
 							 domain_handle* handle)
 	{
@@ -462,7 +460,7 @@ extern "C" {
 		*handle = NULL;
 		decide_storage_name(domain_name, flags, mydomain.dirname, storename);
 
-		if (NGSW_CD_PRIVATE == flags) {
+		if (MAEMOSEC_CERTMAN_DOMAIN_PRIVATE == flags) {
 			rc = create_directory(mydomain.dirname.c_str(), PRIVATE_DIR_MODE);
 			storvis = storage::vis_private;
 		} else {
@@ -483,7 +481,7 @@ extern "C" {
 	}
 
 	int 
-	ngsw_certman_iterate_domain(
+	maemosec_certman_iterate_domain(
 		domain_handle the_domain, 
 		int cb_func(int,X509*,void*), 
 		void* ctx)
@@ -516,7 +514,7 @@ extern "C" {
 	}
 
 	int
-	ngsw_certman_nbrof_certs(domain_handle in_domain)
+	maemosec_certman_nbrof_certs(domain_handle in_domain)
 	{
 		if (in_domain)
 			return(((struct local_domain*)in_domain)->index->nbrof_files());
@@ -525,7 +523,7 @@ extern "C" {
 	}
 
 	int 
-	ngsw_certman_add_cert(domain_handle to_domain, X509* cert)
+	maemosec_certman_add_cert(domain_handle to_domain, X509* cert)
 	{
 		struct local_domain* mydomain = (struct local_domain*)to_domain;
 		FILE* to_file;
@@ -535,8 +533,8 @@ extern "C" {
 		if (!to_domain || !cert)
 			return(EINVAL);
 
-		pos = ngsw_certman_iterate_domain(to_domain, x509_equals, cert);
-		if (pos < ngsw_certman_nbrof_certs(to_domain)) {
+		pos = maemosec_certman_iterate_domain(to_domain, x509_equals, cert);
+		if (pos < maemosec_certman_nbrof_certs(to_domain)) {
 			DEBUG(0,"The certificate is already in the domain");
 			return(EEXIST);
 		}
@@ -565,7 +563,7 @@ extern "C" {
 
 
 	int
-	ngsw_certman_rm_cert(domain_handle to_domain, int pos)
+	maemosec_certman_rm_cert(domain_handle to_domain, int pos)
 	{
 		int count, rc;
 		storage::stringlist certs;
@@ -582,7 +580,7 @@ extern "C" {
 	}
 
 	int 
-	ngsw_certman_close_domain(domain_handle handle)
+	maemosec_certman_close_domain(domain_handle handle)
 	{
 		struct local_domain* mydomain;
 

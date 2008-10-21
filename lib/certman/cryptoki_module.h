@@ -1,6 +1,6 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
- * \file ngcm_cryptoki.h
+ * \file cryptoki_module.h
  * \brief The PKCS#11 interface to the certificate manager
  */
 

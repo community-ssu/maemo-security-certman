@@ -28,8 +28,8 @@
 #define sk_STORE_OBJECT_num(st) SKM_sk_num(STORE_OBJECT, (st))
 #endif
 
-#include <libcertman.h>
-#include <sec_common.h>
+#include <maemosec_certman.h>
+#include <maemosec_common.h>
 
 /**
  * \var debug_level
@@ -180,7 +180,7 @@ main(int argc, char* argv[])
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
 
-	rc = ngsw_certman_open(&certs);
+	rc = maemosec_certman_open(&certs);
 	if (rc != 0) {
 		fprintf(stderr, "ERROR: cannot open certificate repository (%d)\n", rc);
 		return(-1);
@@ -199,7 +199,7 @@ main(int argc, char* argv[])
 
 		case 'T':
 		case 't':
-			rc = ngsw_certman_collect(optarg, ('T' == a), certs);
+			rc = maemosec_certman_collect(optarg, ('T' == a), certs);
 			if (rc != 0) {
 				fprintf(stderr, "ERROR: cannot open domain '%s' (%d)\n", 
 						optarg, rc);
@@ -229,23 +229,23 @@ main(int argc, char* argv[])
 			// Also list domain contents, if one is opened
 			if (my_domain) {
 				printf("Private:\n");
-				ngsw_certman_iterate_domain(my_domain, show_cert, NULL);
+				maemosec_certman_iterate_domain(my_domain, show_cert, NULL);
 			}
 			break;
 
 		case 'c':
 		case 'p':
 			if ('c' == a)
-				flags = NGSW_CD_COMMON;
+				flags = MAEMOSEC_CERTMAN_DOMAIN_SHARED;
 			else
-				flags = NGSW_CD_PRIVATE;
-			rc = ngsw_certman_open_domain(optarg, flags, &my_domain);
+				flags = MAEMOSEC_CERTMAN_DOMAIN_PRIVATE;
+			rc = maemosec_certman_open_domain(optarg, flags, &my_domain);
 			if (0 != rc) {
 				fprintf(stderr, "ERROR: cannot open/create domain '%s' (%d)\n", 
 						optarg, rc);
 				return(-1);
-			} else if (0 < ngsw_certman_nbrof_certs(my_domain)) {
-				ngsw_certman_collect(optarg, flags, certs);
+			} else if (0 < maemosec_certman_nbrof_certs(my_domain)) {
+				maemosec_certman_collect(optarg, flags, certs);
 			}
 			break;
 
@@ -281,7 +281,7 @@ main(int argc, char* argv[])
 								"WARNING: adding unverifiable certificate\n%s\n",
 								name);
 				}
-				rc = ngsw_certman_add_cert(my_domain, my_cert);
+				rc = maemosec_certman_add_cert(my_domain, my_cert);
 				if (0 == rc)
 					printf("Added %s\n", name);
 				else
@@ -297,14 +297,14 @@ main(int argc, char* argv[])
 				return(-1);
 			}
 			pos = atoi(optarg);
-			if (pos < 0 || pos >= ngsw_certman_nbrof_certs(my_domain)) {
+			if (pos < 0 || pos >= maemosec_certman_nbrof_certs(my_domain)) {
 				fprintf(stderr, 
 						"ERROR: domain does not contain certificate #%d\n",
 						pos);
 				goto end;
 				
 			}
-			rc = ngsw_certman_rm_cert(my_domain, pos);
+			rc = maemosec_certman_rm_cert(my_domain, pos);
 			if (0 != rc) {
 				fprintf(stderr, "ERROR: cannot remove certificate #%d (%d)\n",
 							pos, rc);
@@ -330,8 +330,8 @@ main(int argc, char* argv[])
 
 end:
 	if (my_domain)
-		ngsw_certman_close_domain(my_domain);
+		maemosec_certman_close_domain(my_domain);
 
-	ngsw_certman_close(certs);
+	maemosec_certman_close(certs);
 	return(0);
 }

@@ -6,9 +6,9 @@ pkgconfig_DATA = pkgconfig/maemosec.pc pkgconfig/maemosec-certman.pc
 include_HEADERS = \
 	include/libbb5.h \
 	include/libbb5stub.h \
-	include/sec_common.h \
-	include/sec_storage.h \
-	include/libcertman.h
+	include/maemosec_common.h \
+	include/maemosec_storage.h \
+	include/maemosec_certman.h
 
 EXTRA_DIST = \
 	include

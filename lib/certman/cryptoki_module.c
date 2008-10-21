@@ -1,18 +1,18 @@
 /* -*- mode:c++; tab-width:4; c-basic-offset:4; -*- */
 /**
- * \file ngcm_cryptoki.c
+ * \file cryptoki_module.c
  * \brief The PKCS#11 implementation on the certificate manager
  */
 
-#include "ngcm_cryptoki.h"
+#include "cryptoki_module.h"
 
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <string.h>
-#include <sec_common.h>
-#include <libcertman.h>
-#include "ngcm_config.h"
+#include <maemosec_common.h>
+#include <maemosec_certman.h>
+#include "cryptoki_config.h"
 
 /*
  * Include Netscape's (Mozilla's) vendor defined extensions
@@ -496,7 +496,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 	DEBUG(1, "enter");
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	if (rv == CKR_OK) {
-		if (0 != ngsw_certman_open(&root_certs))
+		if (0 != maemosec_certman_open(&root_certs))
 			rv = CKR_DEVICE_ERROR;
 	}
 	DEBUG(1, "exit");
@@ -508,7 +508,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 	CK_RV rv = CKR_OK;
 	DEBUG(1, "enter");
 	release_config();
-	ngsw_certman_close(root_certs);
+	maemosec_certman_close(root_certs);
 	DEBUG(1, "exit");
 	return(rv);
 }
@@ -850,7 +850,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	 * match, populate the handle-table. If no attributes are
 	 * given in the search template, all objects are returned.
 	 */
-	nbrof_certs = ngsw_certman_nbrof_certs(sess->cmdomain);
+	nbrof_certs = maemosec_certman_nbrof_certs(sess->cmdomain);
 	for (i = sess->find_point; i < nbrof_certs; i++) {
 		int is_match = 1;
 		X509* cert = get_cert(sess, i);

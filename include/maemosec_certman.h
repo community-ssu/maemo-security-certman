@@ -9,8 +9,8 @@
 
 */
 
-#ifndef NGCM_H
-#define NGCM_H
+#ifndef MAEMOSEC_CERTMAN_H
+#define MAEMOSEC_CERTMAN_H
 
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
@@ -20,33 +20,33 @@ extern "C" {
 #endif
 
 /**
- * \def NGSW_CD_PRIVATE
+ * \def MAEMOSEC_CERTMAN_DOMAIN_PRIVATE
  * \brief Private certificate domains can only be accessed by 
  *        one application, the one that has created them and
  *        owns them.
  */
-#define NGSW_CD_PRIVATE 0
+#define MAEMOSEC_CERTMAN_DOMAIN_PRIVATE 0
 
 /**
- * \def NGSW_CD_COMMON
+ * \def MAEMOSEC_CERTMAN_DOMAIN_SHARED
  * \brief Common certificate domain, accessible by all applications
  */
-#define NGSW_CD_COMMON 1
+#define MAEMOSEC_CERTMAN_DOMAIN_SHARED 1
 
 /**
  * \typedef domain_handle
  * \brief A magic cookie reference to a domain opened by \ref
- * ngsw_certman_open_domain and to be used in the domain management 
+ * maemosec_certman_open_domain and to be used in the domain management 
  * functions.
  */
 typedef void* domain_handle;
 
 /**
- * \def NGSW_CM_DOMAIN_NONE
+ * \def MAEMOSEC_CERTMAN_DOMAIN_NONE
  * \brief The value a domain handle cannot have if its properly
  * opened.
  */
-#define NGSW_CM_DOMAIN_NONE (void*)(0)
+#define MAEMOSEC_CERTMAN_DOMAIN_NONE (void*)(0)
 
 
 /// \name General certificate management functions
@@ -59,7 +59,7 @@ typedef void* domain_handle;
  * when the function is called.
  * \returns 0 on success, otherwise an error code
  */
-int ngsw_certman_open(X509_STORE** my_cert_store);
+int maemosec_certman_open(X509_STORE** my_cert_store);
 
 /**
  * \brief Load and verify the certificates of the given domain. 
@@ -70,7 +70,7 @@ int ngsw_certman_open(X509_STORE** my_cert_store);
  * \param my_cert_store (in,out) the store where to add the certificates
  * \return 0 on success, otherwise an error code
  */
-int ngsw_certman_collect(const char* domain, 
+int maemosec_certman_collect(const char* domain, 
 						 int shared, 
 						 X509_STORE* my_cert_store);
 
@@ -79,7 +79,7 @@ int ngsw_certman_collect(const char* domain,
  * \param my_cert_store (in) the certificate store to be released
  * \return 0 on success, otherwise an error code
  */
-int ngsw_certman_close(X509_STORE* my_cert_store);
+int maemosec_certman_close(X509_STORE* my_cert_store);
 
 //@}
 
@@ -89,18 +89,18 @@ int ngsw_certman_close(X509_STORE* my_cert_store);
 /**
  * \brief Open an existing domain or create a new one
  * \param domain_name (in) logical name of the domain
- * \param flags (in) type of domain to open/create (see NGSW_CD_* flags)
+ * \param flags (in) type of domain to open/create (see MAEMOSEC_CD_* flags)
  * \param handle (out) a handle to the domain to be used in subsequent calls
  * \return 0 on success, otherwise an error code
  */
-int ngsw_certman_open_domain(const char* domain_name, 
+int maemosec_certman_open_domain(const char* domain_name, 
 							 int flags, 
 							 domain_handle* handle);
 
 /**
  * \brief Iterate through a domain
  * \param the_domain (in) a handle to the domain returned by 
- *        \ref ngsw_certman_open_domain
+ *        \ref maemosec_certman_open_domain
  * \param cb_func (in) a callback function called once for each
  *        certificate in the domain. The first parameter
  *        is the order number of the certificate in the domain
@@ -116,7 +116,7 @@ int ngsw_certman_open_domain(const char* domain_name,
  *        with "add cert" or "rm cert", the results may be quite unpredictable.
  *        So don't.
  */
-int ngsw_certman_iterate_domain(domain_handle the_domain, 
+int maemosec_certman_iterate_domain(domain_handle the_domain, 
 								int cb_func(int,X509*,void*), 
 								void* ctx);
 
@@ -128,7 +128,7 @@ int ngsw_certman_iterate_domain(domain_handle the_domain,
  * if the application does not have the power to modify
  * the domain.
  */
-int ngsw_certman_add_cert(domain_handle to_domain, X509* cert);
+int maemosec_certman_add_cert(domain_handle to_domain, X509* cert);
 
 /**
  * \brief Remove a certificate from the domain
@@ -138,14 +138,14 @@ int ngsw_certman_add_cert(domain_handle to_domain, X509* cert);
  * if the application does not have the power to modify
  * the domain.
  */
-int ngsw_certman_rm_cert(domain_handle from_domain, int pos);
+int maemosec_certman_rm_cert(domain_handle from_domain, int pos);
 
 /**
  * \brief Return the number of certificates in a domain
  * \param in_domain (in) a handle to the domain
  * \return >= 0 on success, otherwise -1
  */
-int ngsw_certman_nbrof_certs(domain_handle in_domain);
+int maemosec_certman_nbrof_certs(domain_handle in_domain);
 
 /**
  * \brief Close a domain
@@ -155,7 +155,7 @@ int ngsw_certman_nbrof_certs(domain_handle in_domain);
  * Upon closing the changes are updated on the disk, if the
  * application has permissions to do that.
  */
-int ngsw_certman_close_domain(domain_handle handle);
+int maemosec_certman_close_domain(domain_handle handle);
 
 //@}
 

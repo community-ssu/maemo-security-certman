@@ -7,8 +7,8 @@
 
 */
 
-#include "sec_storage.h"
-using namespace ngsw_sec;
+#include "maemosec_storage.h"
+using namespace maemosec;
 
 #include <string.h>
 #include <stdio.h>
@@ -24,7 +24,7 @@ using namespace ngsw_sec;
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 
-#include "sec_common.h"
+#include "maemosec_common.h"
 #include "libbb5stub.h"
 
 /**
