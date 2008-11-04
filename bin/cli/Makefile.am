@@ -1,6 +1,6 @@
 INCLUDES = -I../../include -I../../lib/security
 
-bin_PROGRAMS = sscli cmcli xmlpp
+bin_PROGRAMS = sscli cmcli xmlpp dlog
 
 sscli_SOURCES = sscli.cpp
 sscli_LDADD =  -L../../lib/libbb5/.libs -lbb5\
@@ -12,4 +12,6 @@ cmcli_LDADD =  -L../../lib/security/.libs -lmaemosec\
 
 xmlpp_SOURCES = xmlpp.cpp
 xmlpp_LDADD =  -L../../lib/security/.libs -lmaemosec
+
+dlog_SOURCES = dlog.c
 

@@ -99,12 +99,14 @@ extern "C" {
 	 */
 	int create_directory(const char* path, int mode);
 
+	/**
+	 * \brief Send a debug or error message to the dlog
+	 */
+	void dlog_message(const char* format, ...);
+
 #ifdef	__cplusplus
 } // extern "C"
 #endif
-
-#ifdef USE_SYSLOG
-#include <syslog.h>
 
 /**
  * \def ERROR
@@ -114,7 +116,7 @@ extern "C" {
  */
 #define ERROR(format,args...) \
 	do {\
-		syslog(LOG_ERR, "%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__, \
+		dlog_message("%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__, \
 			   ##args);\
 	} while (0)
 
@@ -129,25 +131,9 @@ extern "C" {
  */
 #define DEBUG(level,format,args...)	\
 	do { \
-		syslog(LOG_WARNING + level, "%s(%d)[%s]: " format "\n", __FILE__, __LINE__,\
+		dlog_message("<%d>%s(%d)[%s]: " format "\n", level, __FILE__, __LINE__, \
 			   __func__ ,##args);\
     } while (0)
-
-#else
-
-#define ERROR(format,args...) \
-	do {\
-		fprintf(stderr, "%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__, \
-			   ##args);\
-	} while (0)
-
-#define DEBUG(level,format,args...)										\
-	do {																\
-		fprintf(stderr, "%s(%d)[%s]: " format "\n",						\
-				__FILE__, __LINE__,										\
-				__func__ ,##args);										\
-    } while (0)
-#endif
 
 /**
  * \def GETENV

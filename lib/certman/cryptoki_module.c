@@ -490,9 +490,6 @@ CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
 	CK_RV rv = CKR_OK;
 
-#ifdef USE_SYSLOG
-	openlog("", LOG_PID, LOG_UUCP);
-#endif
 	DEBUG(1, "enter");
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	if (rv == CKR_OK) {
