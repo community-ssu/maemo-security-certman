@@ -47,6 +47,7 @@ dlog_message(const char* format, ...)
 	
 	va_start(p_arg, format);
 	printed = vsnprintf(sndbuf, sizeof(sndbuf) - 1, format, p_arg);
+	va_end(p_arg);
 	rc = sendto(dlog_socket, sndbuf, printed, MSG_DONTWAIT, 
 				(struct sockaddr*)&i_rad, 
 				sizeof(struct sockaddr_in));

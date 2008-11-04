@@ -116,7 +116,7 @@ extern "C" {
  */
 #define ERROR(format,args...) \
 	do {\
-		dlog_message("%s(%d)[%s]: ERROR " format "\n", __FILE__, __LINE__,__func__, \
+		dlog_message("<0>%s(%d)[%s]: ERROR " format, __FILE__, __LINE__,__func__, \
 			   ##args);\
 	} while (0)
 
@@ -131,7 +131,7 @@ extern "C" {
  */
 #define DEBUG(level,format,args...)	\
 	do { \
-		dlog_message("<%d>%s(%d)[%s]: " format "\n", level, __FILE__, __LINE__, \
+		dlog_message("<%d>%s(%d)[%s]: " format, level, __FILE__, __LINE__, \
 			   __func__ ,##args);\
     } while (0)
 
