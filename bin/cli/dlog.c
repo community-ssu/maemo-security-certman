@@ -19,26 +19,23 @@ static char recbuf [1024];
 int 
 main(int argc, char* argv[])
 {
-	int sd, rc, port = 2300;
+	int sd, rc, level = 9;
 	size_t rlen;
 	char arg;
 	char* msg = NULL;
 	struct sockaddr_in i_mad, i_rad;
 
-	if (argc < 2) {
-		fprintf(stderr, "Usage: dlog [-l port] [-s message]\n");
-	}
-
 	while ((arg = getopt(argc, argv, "l:s:")) >= 0) {
 		switch (arg) {
 		case 'l':
-			port = atoi(optarg);
+			level = atoi(optarg);
 			break;
 		case 's':
 			msg = optarg;
 			break;
 		default:
-			;
+			fprintf(stderr, "Usage: dlog [-l level] [-s message]\n");
+			return(-1);
 		}
 	}
 
@@ -77,8 +74,9 @@ main(int argc, char* argv[])
 		}
 	} else {
 		struct timeval now;
-		time_t tt_now;
 		struct tm* t_now;
+		struct timeval prev_stamp = {0, 0};
+		int dlevel;
 		while (1) {
 			rlen = sizeof(struct sockaddr_in);
 			rc = recvfrom(sd, recbuf, sizeof(recbuf) - 1, 0, 
@@ -88,18 +86,40 @@ main(int argc, char* argv[])
 				fprintf(stderr, "Error from recvfrom (%d)\n", errno);
 				break;
 			}
-			gettimeofday(&now, NULL);
-			time(&tt_now);
-			t_now = localtime(&tt_now);
+			if (rc < 3)
+				continue;
+
 			recbuf[rc] = '\0';
-			printf("%04d-%02d-%02dT%02d:%02d:%02d.%06ld %s\n", 
-				   t_now->tm_year + 1900, t_now->tm_mon + 1, t_now->tm_mday,
-				   t_now->tm_hour, t_now->tm_min, t_now->tm_sec, now.tv_usec,
-				   recbuf);
+			if (recbuf[0] == '<' && recbuf[2] == '>') {
+				dlevel = recbuf[1] - '0';
+				if (dlevel > level)
+					continue;
+			}
+
+			gettimeofday(&now, NULL);
+			if (now.tv_sec > prev_stamp.tv_sec + 10) {
+				t_now = localtime(&now.tv_sec);
+				printf("%04d-%02d-%02d %02d:%02d:%02d.%06ld %s\n", 
+					   t_now->tm_year + 1900, t_now->tm_mon + 1, t_now->tm_mday,
+					   t_now->tm_hour, t_now->tm_min, t_now->tm_sec, now.tv_usec,
+					   recbuf + 3);
+				prev_stamp = now;
+			} else {
+				time_t diff_sec;
+				suseconds_t diff_usec;
+				if (now.tv_usec < prev_stamp.tv_usec) {
+					diff_sec  = now.tv_sec - 1 - prev_stamp.tv_sec;
+					diff_usec = 1000000 + now.tv_usec - prev_stamp.tv_usec;
+				} else {
+					diff_sec  = now.tv_sec - prev_stamp.tv_sec;
+					diff_usec = now.tv_usec - prev_stamp.tv_usec;
+				}
+				printf("                +%02ld.%06ld %s\n", 
+					   diff_sec, diff_usec, recbuf + 3);
+			}
 		}
 	}
 
 	close(sd);
-
 	return(0);
 }
