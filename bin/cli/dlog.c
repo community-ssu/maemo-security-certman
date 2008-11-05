@@ -77,6 +77,8 @@ main(int argc, char* argv[])
 		struct tm* t_now;
 		struct timeval prev_stamp = {0, 0};
 		int dlevel;
+		char* c;
+
 		while (1) {
 			rlen = sizeof(struct sockaddr_in);
 			rc = recvfrom(sd, recbuf, sizeof(recbuf) - 1, 0, 
@@ -99,10 +101,9 @@ main(int argc, char* argv[])
 			gettimeofday(&now, NULL);
 			if (now.tv_sec > prev_stamp.tv_sec + 10) {
 				t_now = localtime(&now.tv_sec);
-				printf("%04d-%02d-%02d %02d:%02d:%02d.%06ld %s\n", 
+				printf("%04d-%02d-%02d %02d:%02d:%02d.%06ld ", 
 					   t_now->tm_year + 1900, t_now->tm_mon + 1, t_now->tm_mday,
-					   t_now->tm_hour, t_now->tm_min, t_now->tm_sec, now.tv_usec,
-					   recbuf + 3);
+					   t_now->tm_hour, t_now->tm_min, t_now->tm_sec, now.tv_usec);
 				prev_stamp = now;
 			} else {
 				time_t diff_sec;
@@ -114,9 +115,27 @@ main(int argc, char* argv[])
 					diff_sec  = now.tv_sec - prev_stamp.tv_sec;
 					diff_usec = now.tv_usec - prev_stamp.tv_usec;
 				}
-				printf("                +%02ld.%06ld %s\n", 
-					   diff_sec, diff_usec, recbuf + 3);
+				printf("%16s+%02ld.%06ld ", "",
+					   diff_sec, diff_usec);
 			}
+			c = recbuf + 3;
+			while ( c && *c ) {
+				char* a;
+				if (*c == '\n') {
+					if (*(c + 1)) {
+						printf("\n%27s", "");
+						c++;
+					} else {
+						printf("%c", '\n');
+						break;
+					}
+				}
+				for (a = c; *a && ('\n' != *a); a++)
+					printf("%c", *a);
+				c = a;
+			}
+			if ('\n' != *c)
+				printf("%c", '\n');
 		}
 	}
 
