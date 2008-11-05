@@ -33,7 +33,7 @@ load_root_certificate(X509_STORE* to_this)
 	
 	lookup = X509_STORE_add_lookup(to_this, X509_LOOKUP_file());
 	if (lookup == NULL) {
-		ERROR("cannot add lookup");
+		MAEMOSEC_ERROR("cannot add lookup");
 		// print_openssl_errors();
 		goto end;
 	}
@@ -44,15 +44,15 @@ load_root_certificate(X509_STORE* to_this)
 		X509_FILETYPE_PEM);
 
 	if (rc == 0) {
-		DEBUG(1, "cannot load root certificate from '%s'", root_crt_name);
+		MAEMOSEC_DEBUG(1, "cannot load root certificate from '%s'", root_crt_name);
 	} else {
 		X509_OBJECT* obj;
-		DEBUG(1, "loaded root ca from '%s'", root_crt_name);
+		MAEMOSEC_DEBUG(1, "loaded root ca from '%s'", root_crt_name);
 		obj = sk_X509_OBJECT_value(to_this->objs, 0);
 		if (obj && obj->type == X509_LU_X509)
 			root_crt = obj->data.x509;
 		else
-			ERROR("cannot find root certificate");
+			MAEMOSEC_ERROR("cannot find root certificate");
 	}
   end:
 	;
@@ -67,21 +67,21 @@ load_root_key(void)
 	keyfile = BIO_new(BIO_s_file());
 
 	if (!keyfile) {
-		ERROR("cannot create BIO");
+		MAEMOSEC_ERROR("cannot create BIO");
 		return;
 	}
 	
 	// TODO: there are many different formats for keys
 	if (BIO_read_filename(keyfile, root_key_name) <= 0) {
-		ERROR("cannot load root CA key from '%s'", root_key_name);
+		MAEMOSEC_ERROR("cannot load root CA key from '%s'", root_key_name);
 		// print_openssl_errors();
 		return;
 	}
 	root_key = PEM_read_bio_PrivateKey(keyfile, NULL, NULL, NULL);
 	if (!root_key) {
-		ERROR("Cannot load private key from '%s'", root_key_name);
+		MAEMOSEC_ERROR("Cannot load private key from '%s'", root_key_name);
 	} else
-		DEBUG(1, "loaded root key from '%s'", root_key_name);
+		MAEMOSEC_DEBUG(1, "loaded root key from '%s'", root_key_name);
 	BIO_free(keyfile);
 }
 
@@ -100,7 +100,7 @@ extern "C" {
 
 		root_store = X509_STORE_new();
 		if (root_store == NULL) {
-			ERROR("cannot create X509 store");
+			MAEMOSEC_ERROR("cannot create X509 store");
 			// print_openssl_errors();
 			return;
 		}
@@ -144,13 +144,13 @@ extern "C" {
 		unsigned char lmd[1024];
 
 		if (!root_key) {
-			ERROR("cannot sign: no private key");
+			MAEMOSEC_ERROR("cannot sign: no private key");
 			return(0);
 		}
 		
 		rc = EVP_SignFinal(ctx, lmd, &signlen, root_key);
 		if (rc != 1) {
-			ERROR("signing failed");
+			MAEMOSEC_ERROR("signing failed");
 			// print_openssl_errors();
 			return(0);
 		}
@@ -158,7 +158,7 @@ extern "C" {
 			memcpy(md, lmd, signlen);
 			return(signlen);
 		} else {
-			ERROR("signature buffer overflow (%d > %d)", signlen, maxlen);
+			MAEMOSEC_ERROR("signature buffer overflow (%d > %d)", signlen, maxlen);
 			return(-ENOMEM);
 		}
 	}
@@ -175,7 +175,7 @@ extern "C" {
 			if (res >= 0) {
 				len -= res;
 			} else
-				ERROR("cannot read /dev/random");
+				MAEMOSEC_ERROR("cannot read /dev/random");
 			close(fd);
 		}
 		// backup method
@@ -198,12 +198,12 @@ extern "C" {
 		RSA *rsakey = EVP_PKEY_get1_RSA(root_key);
 
 		if (!rsakey) {
-			ERROR("No RSA key available");
+			MAEMOSEC_ERROR("No RSA key available");
 			return(-1);
 		}
 		*plain = (unsigned char*) malloc(RSA_size(rsakey));
 		if (!*plain) {
-			ERROR("cannot malloc");
+			MAEMOSEC_ERROR("cannot malloc");
 			return(-1);
 		}
 		res = RSA_private_decrypt(len, msg, *plain, rsakey, RSA_PKCS1_PADDING);

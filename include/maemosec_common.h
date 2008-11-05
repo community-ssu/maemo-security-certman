@@ -109,27 +109,27 @@ extern "C" {
 #endif
 
 /**
- * \def ERROR
- * \brief Report an error 
+ * \def MAEMOSEC_ERROR
+ * \brief Report an error to the dlog server.
  * \param format,args Format string and a list of optional arguments
- * as in "printf". The newline is appended automatically.
+ * as in "printf".
  */
-#define ERROR(format,args...) \
+#define MAEMOSEC_ERROR(format,args...) \
 	do {\
 		dlog_message("<0>%s(%d)[%s]: ERROR " format, __FILE__, __LINE__,__func__, \
 			   ##args);\
 	} while (0)
 
 /**
- * \def DEBUG
- * \brief Print a debug message
+ * \def MAEMOSEC_DEBUG
+ * \brief Send a debug message to the dlog server.
  * \param level (in) The detail level. Only those messages are actually
  * printed thatb have the detail level less than or equal than the
  * current value of the debug_level variable.
  * \param format,args (in) Format string and a list of optional arguments
- * as in "printf". The newline is appended automatically.
+ * as in "printf".
  */
-#define DEBUG(level,format,args...)	\
+#define MAEMOSEC_DEBUG(level,format,args...)	\
 	do { \
 		dlog_message("<%d>%s(%d)[%s]: " format, level, __FILE__, __LINE__, \
 			   __func__ ,##args);\

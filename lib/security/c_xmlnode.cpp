@@ -16,7 +16,7 @@
 c_xmlnode::c_xmlnode(c_xmlnode* of_parent, const char* of_name)
 {
 	if (!of_name || strlen(of_name) == 0) {
-		ERROR("XML tag must have a name");
+		MAEMOSEC_ERROR("XML tag must have a name");
 		return;
 	}
 	m_parent = of_parent;
@@ -64,7 +64,7 @@ void c_xmlnode :: append_content (const char* data)
 
 void c_xmlnode :: append_file (const char* file_name)
 {
-	ERROR("not implemented");
+	MAEMOSEC_ERROR("not implemented");
 #if 0
 	string cont;
 	cont.append_file(file_name);
@@ -106,7 +106,7 @@ const char* c_xmlnode :: attribute_name (int of_pos)
 	map<string, string>::const_iterator ii = m_attributes.begin();
 
 	if (of_pos < 0 || of_pos >= m_attributes.size())
-		ERROR("index %d out of range", of_pos);
+		MAEMOSEC_ERROR("index %d out of range", of_pos);
 
 	while (of_pos > 0 && ii != m_attributes.end()) {
 		ii++;
@@ -122,7 +122,7 @@ const char* c_xmlnode :: attribute_value (int of_pos)
 	map<string, string>::const_iterator ii = m_attributes.begin();
 
 	if (of_pos < 0 || of_pos >= m_attributes.size())
-		ERROR("index %d out of range", of_pos);
+		MAEMOSEC_ERROR("index %d out of range", of_pos);
 
 	while (of_pos > 0 && ii != m_attributes.end()) {
 		ii++;
@@ -139,7 +139,7 @@ void c_xmlnode :: remove_attribute (const char* name)
 	if (ii != m_attributes.end()) 
 		m_attributes.erase(ii);
 	else {
-		ERROR("no such element '%s'", name);
+		MAEMOSEC_ERROR("no such element '%s'", name);
 	}
 }
 
@@ -153,7 +153,7 @@ const char* c_xmlnode :: attribute (const char* name, bool required, const char*
 	else if (!required)
 		return(defval);
 	else {
-		ERROR("required attribute '%s' not found", name);
+		MAEMOSEC_ERROR("required attribute '%s' not found", name);
 		return("");
 	}
 }
@@ -176,7 +176,7 @@ int c_xmlnode :: nbrof_children ()
 c_xmlnode* c_xmlnode :: child (int of_pos)
 {
 	if (of_pos < 0 || of_pos >= m_children.size()) {
-		ERROR("index %d out of range", of_pos);
+		MAEMOSEC_ERROR("index %d out of range", of_pos);
 		return(NULL);
 	}
 	return m_children[of_pos];
@@ -190,7 +190,7 @@ c_xmlnode* c_xmlnode :: child(const char* of_name, bool required)
 			return(m_children[i]);
 	}
 	if (required) {
-		ERROR("required child '%s' of '%s' not found", of_name, xpath().c_str());
+		MAEMOSEC_ERROR("required child '%s' of '%s' not found", of_name, xpath().c_str());
 	}
 	return NULL;
 }
@@ -199,7 +199,7 @@ c_xmlnode* c_xmlnode :: child(const char* of_name, bool required)
 void c_xmlnode :: remove_child (int of_pos)
 {
 	if (of_pos < 0 || of_pos >= m_children.size()) {
-		ERROR("index %d out of range", of_pos);
+		MAEMOSEC_ERROR("index %d out of range", of_pos);
 		return;
 	}
 	delete(m_children[of_pos]);
@@ -297,7 +297,7 @@ c_xmlnode::as_string (bool add_linebreaks, int indent_width, int indent_level)
 
 void c_xmlnode :: trim_whitespace()
 {
-	DEBUG(0, "not implemented");
+	MAEMOSEC_DEBUG(0, "not implemented");
 #if 0
 	m_content.trim();
 #endif
@@ -331,10 +331,10 @@ c_xmlnode* c_xmlnode :: navigate(const char* to_xpath, bool required)
 				else if (child_name != ".")
 					result = result->child(child_name.c_str(), required);
 			} else {
-				ERROR("empty path element in '%s'", to_xpath);
+				MAEMOSEC_ERROR("empty path element in '%s'", to_xpath);
 			}
 			if (!result && required) {
-				ERROR("required path element '%s' not found", 
+				MAEMOSEC_ERROR("required path element '%s' not found", 
 					  child_name.c_str());
 			}
 		}

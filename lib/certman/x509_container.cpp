@@ -20,18 +20,18 @@ namespace maemosec {
 			if (m_cert)
 				analyze_cert();
 			else {
-				ERROR("cannot load certificate from '%s'", pathname);
+				MAEMOSEC_ERROR("cannot load certificate from '%s'", pathname);
 				print_openssl_errors();
 			}
 		} else
-			ERROR("cannot find file '%s' (%d)", pathname, errno);
+			MAEMOSEC_ERROR("cannot find file '%s' (%d)", pathname, errno);
 
-		DEBUG(2, "created new %p(%p)", this, m_cert);
+		MAEMOSEC_DEBUG(2, "created new %p(%p)", this, m_cert);
 	}
 
 	x509_container::~x509_container()
 	{
-		DEBUG(2, "erasing %p(%p)", this, m_cert);
+		MAEMOSEC_DEBUG(2, "erasing %p(%p)", this, m_cert);
 		if (m_cert)
 			X509_free(m_cert);
 	}
@@ -56,7 +56,7 @@ namespace maemosec {
 
 		m_bio = BIO_new(BIO_s_mem());
 		if (!m_bio) {
-			ERROR("cannot create new BIO");
+			MAEMOSEC_ERROR("cannot create new BIO");
 			return;
 		}
 
@@ -66,15 +66,15 @@ namespace maemosec {
 			const char* ext_name;
 			char* c;
 
-			DEBUG(2, "extension %d", i);
+			MAEMOSEC_DEBUG(2, "extension %d", i);
 			ext = sk_X509_EXTENSION_value(exts, i);
 			ext_name = OBJ_nid2ln(OBJ_obj2nid(ext->object));
 			X509V3_EXT_print(m_bio, ext, 0, 0);
 			len = BIO_gets(m_bio, buf, sizeof(buf));
-			DEBUG(2, "got %d bytes", len);
+			MAEMOSEC_DEBUG(2, "got %d bytes", len);
 			if (len && buf[len - 1] == '\n')
 				buf[len - 1] = '\0';
-			DEBUG(3, "%s=%s", ext_name, buf);
+			MAEMOSEC_DEBUG(3, "%s=%s", ext_name, buf);
 
 			// TODO: The ordering should really be made according to issuer 
 			// name and serial number.

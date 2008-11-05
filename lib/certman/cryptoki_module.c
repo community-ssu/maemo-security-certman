@@ -82,7 +82,7 @@ static CK_SLOT_ID slot_lst[10];
 	do {										\
 		to_this = find_session(id);				\
 		if (!to_this) {							\
-			ERROR("session %d not found", (int)id);	\
+			MAEMOSEC_ERROR("session %d not found", (int)id);	\
 			return(CKR_SESSION_HANDLE_INVALID);	\
 		}										\
 	} while (0);
@@ -97,10 +97,10 @@ copy_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 
 	if (p->pValue) {
 		if (p->ulValueLen >= size) {
-			DEBUG(2, "%s", attr_name(p->type));
+			MAEMOSEC_DEBUG(2, "%s", attr_name(p->type));
 			memcpy(p->pValue, value, size);
 		} else {
-			DEBUG(1, "buf %ld cannot take %ld", p->ulValueLen, size);
+			MAEMOSEC_DEBUG(1, "buf %ld cannot take %ld", p->ulValueLen, size);
 			rv = CKR_BUFFER_TOO_SMALL;
 		}
 	}
@@ -121,7 +121,7 @@ match_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 	} else {
 #ifdef INCL_NETSCAPE_VDE
 		long val = *(long*)p->pValue;
-		DEBUG(2, "%s(%ld,%ld) %lx(%lx) != %lx", attr_name(p->type),
+		MAEMOSEC_DEBUG(2, "%s(%ld,%ld) %lx(%lx) != %lx", attr_name(p->type),
 			  p->ulValueLen, size, 
 			  val, 
 			  val >= CKO_NSS ? val - CKO_NSS : -1,
@@ -183,7 +183,7 @@ access_attribute(SESSION sess,
 
 			len = i2d_X509(cert, &obuf);
 			if (len <= 0) {
-				ERROR("Cannot encode cert (%d)", len);
+				MAEMOSEC_ERROR("Cannot encode cert (%d)", len);
 				rv = CKR_FUNCTION_FAILED;
 				goto out;
 			} else {
@@ -344,7 +344,7 @@ access_attribute(SESSION sess,
 		break;
 
 	default:
-		DEBUG(1, "unsupported attribute id %x", (int)attr->type);
+		MAEMOSEC_DEBUG(1, "unsupported attribute id %x", (int)attr->type);
 #if 0
 		if (attr->pValue)
 			rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -389,9 +389,9 @@ set_attribute(SESSION sess,
 			unsigned char* buf = attr->pValue;
 			*cert = d2i_X509(NULL, (void*)&buf, attr->ulValueLen);
 			if (*cert) {
-				DEBUG(1, "created new certificate");
+				MAEMOSEC_DEBUG(1, "created new certificate");
 			} else {
-				ERROR("cannot create certificate");
+				MAEMOSEC_ERROR("cannot create certificate");
 			}
 		}
 		break;
@@ -415,7 +415,7 @@ set_attribute(SESSION sess,
 					name = "private";
 					break;
 				}
-				DEBUG(1, "Set cert %s to %s", name, avalue?"true":"false");
+				MAEMOSEC_DEBUG(1, "Set cert %s to %s", name, avalue?"true":"false");
 			}
 		}
 		break;
@@ -431,7 +431,7 @@ set_attribute(SESSION sess,
 			rv = read_attribute(attr, name, sizeof(name) - 1, &val_len);
 			if (CKR_OK == rv) {
 #endif
-				DEBUG(1, "Set cert %s", 
+				MAEMOSEC_DEBUG(1, "Set cert %s", 
 					  attr->type == CKA_SUBJECT ? "subject" : "issuer");
 #if 0
 			}
@@ -449,7 +449,7 @@ set_attribute(SESSION sess,
 				/*
 				 * TODO: Set in certificate
 				 */
-				DEBUG(1,"Set serial number");
+				MAEMOSEC_DEBUG(1,"Set serial number");
 				M_ASN1_INTEGER_free(ival);
 			}
 		}
@@ -461,7 +461,7 @@ set_attribute(SESSION sess,
 			memset(name, '\0', sizeof(name));
 			rv = read_attribute(attr, name, sizeof(name) - 1, &val_len);
 			if (CKR_OK == rv) {
-				DEBUG(1, "Set cert label to %s", name);
+				MAEMOSEC_DEBUG(1, "Set cert label to %s", name);
 			}
 		}
 		break;
@@ -471,12 +471,12 @@ set_attribute(SESSION sess,
 			unsigned char cert_id[100];
 			rv = read_attribute(attr, &cert_id, sizeof(cert_id), &val_len);
 			if (CKR_OK == rv)
-				DEBUG(1, "Set cert id");
+				MAEMOSEC_DEBUG(1, "Set cert id");
 		}
 		break;
 
 	default:
-		DEBUG(1, "unsupported attribute id %x", (int)attr->type);
+		MAEMOSEC_DEBUG(1, "unsupported attribute id %x", (int)attr->type);
 		break;
 	}
 	return(rv);
@@ -490,44 +490,44 @@ CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	if (rv == CKR_OK) {
 		if (0 != maemosec_certman_open(&root_certs))
 			rv = CKR_DEVICE_ERROR;
 	}
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return rv;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 {
 	CK_RV rv = CKR_OK;
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	release_config();
 	maemosec_certman_close(root_certs);
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo)
 {
 	CK_RV rv = CKR_OK;
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	memcpy(pInfo, &library_info, sizeof(*pInfo));
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetFunctionList)(
 	CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 {
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	if (!ppFunctionList)
 		return(CKR_ARGUMENTS_BAD);
 
 	*ppFunctionList = (CK_FUNCTION_LIST_PTR)&function_list;
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_OK;
 }
 
@@ -537,7 +537,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	CK_RV rv = CKR_OK;
 	CK_ULONG i;
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 
 	/*
 	 * The token is always present, so we can ignore the tokenPresent
@@ -551,13 +551,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 
 	if (!pSlotList) {
 		*pulCount = nrof_slots;
-		DEBUG(1, "exit, just asked the nbrof slots");
+		MAEMOSEC_DEBUG(1, "exit, just asked the nbrof slots");
 		return CKR_OK;
 	}
 
 	if (*pulCount < nrof_slots) {
 		*pulCount = nrof_slots;
-		DEBUG(1, "exit, buffer too small");
+		MAEMOSEC_DEBUG(1, "exit, buffer too small");
 		return CKR_BUFFER_TOO_SMALL;
 	}
 
@@ -566,7 +566,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	for (i = 0; i < nrof_slots; i++)
 		pSlotList[i] = slot_lst[i];
 
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_OK;
 
   out:
@@ -578,13 +578,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotInfo)(CK_SLOT_ID slotID,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	if (!pInfo) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
 	rv = get_slot_info(slotID, pInfo);
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 out:
 	return rv;
 }
@@ -594,13 +594,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetTokenInfo)(CK_SLOT_ID slotID,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	if (!pInfo) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
 	rv = get_token_info(slotID, pInfo);
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 out:
 	return rv;
 }
@@ -610,7 +610,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	if (!pulCount) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
@@ -626,16 +626,16 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismInfo)(CK_SLOT_ID slotID,
 	CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
 {
-	DEBUG(1, "enter");
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_InitToken)(CK_SLOT_ID slotID,
 	CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen, CK_UTF8CHAR_PTR pLabel)
 {
-	DEBUG(1, "enter");
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_OK;
 }
 
@@ -645,14 +645,14 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 {
 	CK_RV rv = CKR_OK;
 
-	DEBUG(1, "enter app=%p, notify=%p", pApplication, Notify);
+	MAEMOSEC_DEBUG(1, "enter app=%p, notify=%p", pApplication, Notify);
 	if (!phSession) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
-	DEBUG(1, "Opened session for slot %d", (int)slotID);
+	MAEMOSEC_DEBUG(1, "Opened session for slot %d", (int)slotID);
 	*phSession = open_session(slotID);
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_OK;
  out:
 	return(rv);
@@ -661,18 +661,18 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 {
 	CK_RV rv = CKR_OK;
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	rv = close_session(hSession);
-	DEBUG(1, "exit %ld", rv);
+	MAEMOSEC_DEBUG(1, "exit %ld", rv);
 	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 {
 	CK_RV rv = CKR_OK;
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	rv = close_all_sessions(slotID);
-	DEBUG(1, "exit %ld", rv);
+	MAEMOSEC_DEBUG(1, "exit %ld", rv);
 	return(rv);
 }
 
@@ -682,7 +682,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 	CK_RV rv = CKR_OK;
 	SESSION sess;
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	GET_SESSION(hSession, sess);
 
 	if (pInfo) {
@@ -697,7 +697,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 		goto out;
 	}
  out:
-	DEBUG(1, "exit %ld", rv);
+	MAEMOSEC_DEBUG(1, "exit %ld", rv);
 	return(rv);
 }
 
@@ -712,13 +712,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 	int cert_nbr;
 	SESSION sess;
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	*phObject = -1;
 	GET_SESSION(hSession, sess);
 
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	for (i = 0; i < ulCount; i++) {
-		DEBUG(1, "set %s", attr_name(pTemplate[i].type));
+		MAEMOSEC_DEBUG(1, "set %s", attr_name(pTemplate[i].type));
 		rv = set_attribute(sess, &cert, &pTemplate[i]);
 		if (CKR_OK != rv)
 			break;
@@ -728,7 +728,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 		if (CKR_OK == rv)
 			*phObject = (CK_OBJECT_HANDLE)cert_nbr;
 	}
-	DEBUG(1, "exit %lx", rv);
+	MAEMOSEC_DEBUG(1, "exit %lx", rv);
 	return(rv);
 }
 
@@ -736,24 +736,24 @@ CK_DECLARE_FUNCTION(CK_RV, C_CopyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phNewObject)
 {
-	DEBUG(1, "enter");
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_DestroyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject)
 {
-	DEBUG(1, "enter");
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetObjectSize)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject, CK_ULONG_PTR pulSize)
 {
-	DEBUG(1, "enter");
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "exit");
 	return(CKR_FUNCTION_NOT_SUPPORTED);
 }
 
@@ -767,13 +767,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	X509* cert;
 	CK_ATTRIBUTE_PTR attr;
 
-	DEBUG(1, "get %ld attributes of object %d", ulCount, (int)hObject);
+	MAEMOSEC_DEBUG(1, "get %ld attributes of object %d", ulCount, (int)hObject);
 	GET_SESSION(hSession, sess);
 	cert = get_cert(sess, hObject);
 	if (cert) {
 		for (i = 0; i < ulCount; i++) {
 			attr = &pTemplate[i];
-			DEBUG(1, "get %s", attr_name(attr->type));
+			MAEMOSEC_DEBUG(1, "get %s", attr_name(attr->type));
 			rv = access_attribute(sess, cert, (int)hObject, attr, copy_attribute);
 			if (rv != CKR_OK) {
 				break;
@@ -781,7 +781,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 		}
 	} else
 		rv = CKR_ARGUMENTS_BAD;
-	DEBUG(1, "exit %lx", rv);
+	MAEMOSEC_DEBUG(1, "exit %lx", rv);
 	return(rv);
 }
 
@@ -789,8 +789,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_SetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount)
 {
-	DEBUG(1, "enter");
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "exit");
 	return(CKR_FUNCTION_NOT_SUPPORTED);
 }
 
@@ -800,18 +800,18 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 {
 	SESSION sess;
 	CK_ULONG i, val;
-	DEBUG(1, "enter %d %p %d", (int)hSession, pTemplate, (int)ulCount);
+	MAEMOSEC_DEBUG(1, "enter %d %p %d", (int)hSession, pTemplate, (int)ulCount);
 	GET_SESSION(hSession, sess);
 	for (i = 0; i < ulCount; i++) {
 		val = *(CK_ULONG*)pTemplate[i].pValue;
 #ifdef INCL_NETSCAPE_VDE
-		DEBUG(2, "search for %s == %ld:%lx(%lx)", 
+		MAEMOSEC_DEBUG(2, "search for %s == %ld:%lx(%lx)", 
 			  attr_name(pTemplate[i].type),
 			  pTemplate[i].ulValueLen,
 			  val,
 			  val >= CKO_NSS ? val - CKO_NSS : -1);
 #else
-		DEBUG(2, "search for %s == %ld:%lx", 
+		MAEMOSEC_DEBUG(2, "search for %s == %ld:%lx", 
 			  attr_name(pTemplate[i].type),
 			  pTemplate[i].ulValueLen,
 			  val);
@@ -821,7 +821,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	sess->find_count = ulCount;
 	sess->find_point = 0;
 	sess->state = sstat_search;
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_OK;
 }
 
@@ -834,7 +834,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	CK_ULONG i, j;
 	int found = 0, nbrof_certs = 0;
 
-	DEBUG(1, "enter, find at most %d objects", (int)ulMaxObjectCount);
+	MAEMOSEC_DEBUG(1, "enter, find at most %d objects", (int)ulMaxObjectCount);
 	GET_SESSION(hSession, sess);
 	if (sess->state != sstat_search) {
 		rv = CKR_OPERATION_NOT_INITIALIZED;
@@ -858,7 +858,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			if (tst != CKR_OK) {
 				is_match = 0;
 				if (tst != CKR_CANCEL) {
-					ERROR("match_attribute:%lx", tst);
+					MAEMOSEC_ERROR("match_attribute:%lx", tst);
 					rv = tst;
 					goto out;
 				}
@@ -866,7 +866,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			}
 		}
 		if (is_match) {
-			DEBUG(2, "cert %ld matches", i);
+			MAEMOSEC_DEBUG(2, "cert %ld matches", i);
 			if (found < ulMaxObjectCount) {
 				phObject[found++] = i;
 				sess->find_point++;
@@ -875,21 +875,21 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 		}
 	}
 	*pulObjectCount = found;
-	DEBUG(1, "found %d of %d", found, nbrof_certs);
+	MAEMOSEC_DEBUG(1, "found %d of %d", found, nbrof_certs);
 
   out:
-	DEBUG(1, "exit %lx", rv);
+	MAEMOSEC_DEBUG(1, "exit %lx", rv);
 	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 {
 	SESSION sess;
-	DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "enter");
 	GET_SESSION(hSession, sess);
 	sess->find_template = NULL;
 	sess->state = sstat_base;
-	DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "exit");
 	return CKR_OK;
 }
 

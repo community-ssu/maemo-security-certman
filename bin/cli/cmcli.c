@@ -89,21 +89,23 @@ show_cert(int pos, X509* cert, void* x)
 static int 
 is_self_signed(X509* cert)
 {
-	char buf[255];
+	char buf1[255];
+	char buf2[255];
 
 	if (!cert)
 		return(0);
 	/*
 	 * How exactly this should be done...
 	 */
-	DEBUG(1, "name = %s", X509_NAME_oneline(X509_get_subject_name(cert), buf, sizeof(buf)));
-	DEBUG(1, "issuer = %s", X509_NAME_oneline(X509_get_issuer_name(cert), buf, sizeof(buf)));
-	DEBUG(1, "cert type = %x", X509_certificate_type(cert, NULL));
+	MAEMOSEC_DEBUG(1, "name = %s\nissuer = %s\ncert type = %x", 
+				   X509_NAME_oneline(X509_get_subject_name(cert), buf1, sizeof(buf1)),
+				   X509_NAME_oneline(X509_get_issuer_name(cert), buf2, sizeof(buf2)),
+				   X509_certificate_type(cert, NULL));
 	if (X509_NAME_cmp(X509_get_subject_name(cert), X509_get_issuer_name(cert)) == 0) {
-		DEBUG(1, "is self signed");
+		MAEMOSEC_DEBUG(1, "is self signed");
 		return(1);
 	} else {
-		DEBUG(1, "is not self signed");
+		MAEMOSEC_DEBUG(1, "is not self signed");
 		return(0);
 	}
 }

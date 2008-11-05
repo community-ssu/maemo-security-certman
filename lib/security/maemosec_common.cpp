@@ -49,19 +49,19 @@ extern "C" {
 
 		rc = lstat(pathname, &fs);
 		if (rc == -1) {
-			ERROR("cannot stat '%s' (%d)", pathname, errno);
+			MAEMOSEC_ERROR("cannot stat '%s' (%d)", pathname, errno);
 			return(false);
 		}
 
 		if (S_ISLNK(fs.st_mode)) {
 			tgtname = (char*)malloc(PATH_MAX);
 			if (!tgtname) {
-				ERROR("cannot allocate");
+				MAEMOSEC_ERROR("cannot allocate");
 				goto fail;
 			}
 			rv = readlink(pathname, tgtname, PATH_MAX - 1);
 			if (rv == -1) {
-				ERROR("cannot read link '%s' (%d)", pathname, errno);
+				MAEMOSEC_ERROR("cannot read link '%s' (%d)", pathname, errno);
 				goto fail;
 			} else {
 				*(tgtname + rv) = '\0';
@@ -83,21 +83,21 @@ extern "C" {
 			// Take a handle to the current directory
 			curdirh = open(".", O_RDONLY);
 			if (curdirh == -1) {
-				ERROR("cannot open current directory (%d)", errno);
+				MAEMOSEC_ERROR("cannot open current directory (%d)", errno);
 				goto fail;
 			}
 
 			// Change into the given directory
 			rc = chdir(dirname.c_str());
 			if (rc == -1) {
-				ERROR("cannot change into '%s' (%d)", dirname.c_str(), errno);
+				MAEMOSEC_ERROR("cannot change into '%s' (%d)", dirname.c_str(), errno);
 				goto fail;
 			}
 		}
 
 		// Get the absolute pathname
 		getcwd(cdirname, sizeof(cdirname));
-		DEBUG(1, "current dir is '%s'", cdirname);
+		MAEMOSEC_DEBUG(1, "current dir is '%s'", cdirname);
 	
 		to_this = cdirname;
 		if (is_local) {
@@ -111,7 +111,7 @@ extern "C" {
 			// Change back to original working dir
 			rc = fchdir(curdirh);
 			if (rc == -1) {
-				ERROR("cannot change back (%d)", errno);
+				MAEMOSEC_ERROR("cannot change back (%d)", errno);
 			}
 			close(curdirh);
 		}
@@ -149,7 +149,7 @@ extern "C" {
 
 		rc = stat(name, &fs);
 		if (rc == -1) {
-			DEBUG(1, "cannot stat '%s' (%s)", name, strerror(errno));
+			MAEMOSEC_DEBUG(1, "cannot stat '%s' (%s)", name, strerror(errno));
 			return(false);
 		}
 		if (S_ISREG(fs.st_mode))
@@ -166,7 +166,7 @@ extern "C" {
 
 		rc = stat(name, &fs);
 		if (rc == -1) {
-			DEBUG(1, "cannot stat '%s' (%s)", name, strerror(errno));
+			MAEMOSEC_DEBUG(1, "cannot stat '%s' (%s)", name, strerror(errno));
 			return(false);
 		}
 		if (S_ISDIR(fs.st_mode))
@@ -181,26 +181,26 @@ extern "C" {
 		struct stat fs;
 		int rc;
 	
-		DEBUG(2, "Test '%s'", dir);
+		MAEMOSEC_DEBUG(2, "Test '%s'", dir);
 		rc = stat(dir, &fs);
 		if (-1 == rc) {
 			if (errno == ENOENT) {
-				DEBUG(2, "Create '%s'", dir);
+				MAEMOSEC_DEBUG(2, "Create '%s'", dir);
 				rc = mkdir(dir, mode);
 				if (-1 != rc) {
 					return(0);
 				} else {
-					DEBUG(2, "Creation failed (%s)", strerror(rc));
+					MAEMOSEC_DEBUG(2, "Creation failed (%s)", strerror(rc));
 					return(errno);
 				}
 			} else {
-				DEBUG(2, "Error other than ENOENT with '%s' (%s)", 
+				MAEMOSEC_DEBUG(2, "Error other than ENOENT with '%s' (%s)", 
 					  dir, strerror(rc));
 				return(errno);
 			}
 		} else {
 			if (!S_ISDIR(fs.st_mode)) {
-				DEBUG(2, "overlapping non-directory");
+				MAEMOSEC_DEBUG(2, "overlapping non-directory");
 				return(EEXIST);
 			} else
 				return(0);
@@ -228,7 +228,7 @@ extern "C" {
 				*sep = '\0';
 				rc = create_if_needed(locbuf.c_str(), mode);
 				if (0 != rc) {
-					ERROR("creation of '%s' failed (%s)",
+					MAEMOSEC_ERROR("creation of '%s' failed (%s)",
 						  locbuf.c_str(), strerror(errno));
 					return(errno);
 				}
@@ -238,7 +238,7 @@ extern "C" {
 		}
 		rc = create_if_needed(path, mode);
 		if (0 != rc) {
-			ERROR("creation of '%s' failed (%s)",
+			MAEMOSEC_ERROR("creation of '%s' failed (%s)",
 				  locbuf.c_str(), strerror(errno));
 			return(rc);
 		} else

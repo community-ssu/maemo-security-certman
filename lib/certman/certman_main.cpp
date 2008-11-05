@@ -73,14 +73,14 @@ verify_cert(X509_STORE* ctx, X509* cert)
 
 	csc = X509_STORE_CTX_new();
 	if (csc == NULL) {
-		ERROR("cannot create new context");
+		MAEMOSEC_ERROR("cannot create new context");
 		print_openssl_errors();
 		return(false);
 	}
 
 	rc = X509_STORE_CTX_init(csc, ctx, cert, NULL);
 	if (rc == 0) {
-		ERROR("cannot initialize new context");
+		MAEMOSEC_ERROR("cannot initialize new context");
 		print_openssl_errors();
 		return(false);
 	}
@@ -113,13 +113,13 @@ load_certs(vector<string> &certnames,
 		if (strcmp(cert->key_id(), cert->issuer_key_id()) == 0
 			|| strlen(cert->issuer_key_id()) == 0) 
 		{
-			DEBUG(1, "self signed: %s", cert->subject_name());
+			MAEMOSEC_DEBUG(1, "self signed: %s", cert->subject_name());
 			cert->m_verified = true;
 			X509_STORE_add_cert(certs, cert->cert());
 			delete(cert);
 		} else {
 			cert_map[cert->key_id()] = cert;
-			DEBUG(1, "%s\n\tkey    %s\n\tissuer %s", 
+			MAEMOSEC_DEBUG(1, "%s\n\tkey    %s\n\tissuer %s", 
 				  cert->subject_name(),
 				  cert->key_id(), 
 				  cert->issuer_key_id());
@@ -135,10 +135,10 @@ load_certs(vector<string> &certnames,
 		x509_container* cert = ii->second;
 		x509_container* issuer;
 
-		DEBUG(2, "iterate next (%p,%d)", cert, cert->m_verified);
+		MAEMOSEC_DEBUG(2, "iterate next (%p,%d)", cert, cert->m_verified);
 
 		if (!cert) {
-			DEBUG(0, "What hell? (%s)", ii->first.c_str());
+			MAEMOSEC_DEBUG(0, "What hell? (%s)", ii->first.c_str());
 			continue;
 		}
 
@@ -152,27 +152,27 @@ load_certs(vector<string> &certnames,
 					else
 						break;
 				} else
-					ERROR("cannot find issuer %s for %s", 
+					MAEMOSEC_ERROR("cannot find issuer %s for %s", 
 						  cert->issuer_key_id(),
 						  cert->subject_name()); 
 				cert = issuer;
 			}
 
 			while (temp.size()) {
-				DEBUG(2, "pop %d", temp.size());
+				MAEMOSEC_DEBUG(2, "pop %d", temp.size());
 				cert = temp.top();
 				temp.pop();
 				if (verify_cert(certs, cert->cert())) {
-					DEBUG(2, "verified: %s", cert->subject_name());
+					MAEMOSEC_DEBUG(2, "verified: %s", cert->subject_name());
 					X509_STORE_add_cert(certs, cert->cert());
 					cert->m_verified = true;
 				} else {
-					ERROR("%s verification fails", cert->subject_name());
+					MAEMOSEC_ERROR("%s verification fails", cert->subject_name());
 				}
 			}
 		}
 	}
-	DEBUG(2, "erasing map");
+	MAEMOSEC_DEBUG(2, "erasing map");
 	for (
 		map<string, x509_container*>::const_iterator ii = cert_map.begin();
 		ii != cert_map.end();
@@ -205,7 +205,7 @@ local_cert_dir(string& to_this, string& storename)
 	}
 	to_this.append(curbinname);
 	storename.assign(curbinname);
-	DEBUG(1, "\nlocal cert dir = '%s'\nprivate store name = '%s'", 
+	MAEMOSEC_DEBUG(1, "\nlocal cert dir = '%s'\nprivate store name = '%s'", 
 		  to_this.c_str(), storename.c_str());
 }
 
@@ -223,14 +223,14 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 			storename.append(".");
 			storename.append(domain_name);
 		}
-		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
+		MAEMOSEC_DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
 	} else {
 		storename.assign(domain_name);
 		storename.insert(0, cert_storage_prefix);
 		dirname.assign(cert_dir_name);
 		dirname.append(PATH_SEP);
 		dirname.append(domain_name);
-		DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
+		MAEMOSEC_DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
 	}
 }
 
@@ -269,11 +269,11 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 	serial = ASN1_INTEGER_get(X509_get_serialNumber(of_cert));
 
 	if (!name) {
-		ERROR("Cert has no name!!!");
+		MAEMOSEC_ERROR("Cert has no name!!!");
 		return;
 	}
 
-	DEBUG(1,"Making filename out of '%s'\n+ in dir '%s'", name, in_dir);
+	MAEMOSEC_DEBUG(1,"Making filename out of '%s'\n+ in dir '%s'", name, in_dir);
 
 	to_string.assign(in_dir);
 	to_string.append(PATH_SEP);
@@ -303,7 +303,7 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 			if (ENOENT == errno)
 				break;
 			else {
-				ERROR("cannot do stat on '%s' (%s)", nbuf, strerror(errno));
+				MAEMOSEC_ERROR("cannot do stat on '%s' (%s)", nbuf, strerror(errno));
 				return;
 			}
 		} else
@@ -312,7 +312,7 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 
   ok:
 	to_string.assign(nbuf);
-	DEBUG(1, "=> %s", to_string.c_str());
+	MAEMOSEC_DEBUG(1, "=> %s", to_string.c_str());
 	return;
 
   failed:
@@ -418,14 +418,14 @@ extern "C" {
 
 				for (int i = 0; i < pos; i++) {
 					if (store->verify_file(certs[i])) {
-						DEBUG(1, "Load '%s'", certs[i]);
+						MAEMOSEC_DEBUG(1, "Load '%s'", certs[i]);
 						x.push_back(certs[i]);
 					} else
-						ERROR("'%s' fails verification");
+						MAEMOSEC_ERROR("'%s' fails verification");
 				}
 				delete(store);
 			} else {
-				ERROR("'%s' does not exists", storagename.c_str());
+				MAEMOSEC_ERROR("'%s' does not exists", storagename.c_str());
 			}
 		} while (sep);
 
@@ -495,10 +495,10 @@ extern "C" {
 
 		mydomain = (struct local_domain*)the_domain;
 		pos = mydomain->index->get_files(files);
-		DEBUG(1, "domain contains %d certificates", pos);
+		MAEMOSEC_DEBUG(1, "domain contains %d certificates", pos);
 		for (i = 0; i < pos; i++) {
 			X509* cert = load_cert_from_file(files[i]);
-			DEBUG(1, "%d: %p", i, cert);
+			MAEMOSEC_DEBUG(1, "%d: %p", i, cert);
 			if (cert) {
 				res = cb_func(i, cert, ctx);
 				if (res != -1)
@@ -535,7 +535,7 @@ extern "C" {
 
 		pos = maemosec_certman_iterate_domain(to_domain, x509_equals, cert);
 		if (pos < maemosec_certman_nbrof_certs(to_domain)) {
-			DEBUG(0,"The certificate is already in the domain");
+			MAEMOSEC_DEBUG(0,"The certificate is already in the domain");
 			return(EEXIST);
 		}
 
@@ -544,9 +544,9 @@ extern "C" {
 		to_file = fopen(filename.c_str(), "w+");
 		if (to_file) {
 			if (PEM_write_X509(to_file, cert)) {
-				DEBUG(1, "written %s", filename.c_str());
+				MAEMOSEC_DEBUG(1, "written %s", filename.c_str());
 			} else {
-				DEBUG(1, "cannot write to %s (%s)", filename.c_str(), 
+				MAEMOSEC_DEBUG(1, "cannot write to %s (%s)", filename.c_str(), 
 					  strerror(errno));
 				rc = errno;
 			}

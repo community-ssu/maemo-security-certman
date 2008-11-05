@@ -106,12 +106,12 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 	m_prot = protection;
 
 	if (bb5_get_cert(0) == NULL) {
-		ERROR("Initialization error");
+		MAEMOSEC_ERROR("Initialization error");
 		return;
 	}
 	pubkey = X509_get_pubkey(bb5_get_cert(0));
 	if (NULL == pubkey) {
-		ERROR("Cannot get public key");
+		MAEMOSEC_ERROR("Cannot get public key");
 		return;
 	}
 
@@ -122,7 +122,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		m_filename.assign(sec_shared_root);
 		if (!directory_exists(m_filename.c_str())) {
 			if (0 != create_directory(m_filename.c_str(), 0755)) {
-				ERROR("cannot create '%s'", m_filename.c_str());
+				MAEMOSEC_ERROR("cannot create '%s'", m_filename.c_str());
 				return;
 			}
 		}
@@ -136,7 +136,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		m_filename.append(sec_private_root);
 		if (!directory_exists(m_filename.c_str())) {
 			if (0 != create_directory(m_filename.c_str(), 0700)) {
-				ERROR("cannot create '%s'", m_filename.c_str());
+				MAEMOSEC_ERROR("cannot create '%s'", m_filename.c_str());
 				return;
 			}
 		}
@@ -146,10 +146,10 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 
 	default:
 		// Not possible!
-		ERROR("what hell?");
+		MAEMOSEC_ERROR("what hell?");
 	}
 
-	DEBUG(1,"Storage name is '%s'", m_filename.c_str());
+	MAEMOSEC_DEBUG(1,"Storage name is '%s'", m_filename.c_str());
 	data = map_file(m_filename.c_str(), O_RDONLY, &fd, &len, &rlen);
 
 	if (MAP_FAILED == data) {
@@ -162,27 +162,27 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 				rsakey = EVP_PKEY_get1_RSA(pubkey);
 			
 			if (!rsakey) {
-				ERROR("No RSA public key available");
+				MAEMOSEC_ERROR("No RSA public key available");
 				goto end;
 			}
 
 			m_symkey_len = SYMKEYLEN;
 			m_symkey = (unsigned char*)malloc(RSA_size(rsakey));
 			if (!m_symkey) {
-				ERROR("allocation error");
+				MAEMOSEC_ERROR("allocation error");
 			}
 
 			// Seed RSA PRNG
 			rc = bb5_get_random(m_symkey, CIPKEYLEN);
 			if (rc != CIPKEYLEN) {
-				ERROR("out of random numbers");
+				MAEMOSEC_ERROR("out of random numbers");
 			}
 			RAND_seed(m_symkey, CIPKEYLEN);
 
 			// Generate random encryption key
 			rc = bb5_get_random(m_symkey, m_symkey_len);
 			if (rc != m_symkey_len) {
-				ERROR("cannot generate new encryption key");
+				MAEMOSEC_ERROR("cannot generate new encryption key");
 				goto end;
 
 			} else {
@@ -195,15 +195,15 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 											rsakey,
 											RSA_PKCS1_PADDING);
 
-				DEBUG(1,"encrypt %d => %d", m_symkey_len, ciplen);
+				MAEMOSEC_DEBUG(1,"encrypt %d => %d", m_symkey_len, ciplen);
 				RSA_free(rsakey);
 				if (RSA_size(rsakey) != ciplen) {
-					ERROR("RSA_public_encrypt failed (%d)", ciplen);
+					MAEMOSEC_ERROR("RSA_public_encrypt failed (%d)", ciplen);
 				}
 				memcpy(m_symkey, cipkey, ciplen);
 				m_symkey_len = ciplen;
 			}
-			DEBUG(1, "'%s' does not exist, created", m_filename.c_str());
+			MAEMOSEC_DEBUG(1, "'%s' does not exist, created", m_filename.c_str());
 		}
 		goto end;
 
@@ -214,7 +214,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 	// EVP_MD_CTX_init(&vfctx);
 	rc = EVP_VerifyInit(&vfctx, DIGESTTYP());
 	if (rc != EVPOK) {
-		ERROR("EVP_VerifyInit returns %d (%s)", rc, strerror(errno));
+		MAEMOSEC_ERROR("EVP_VerifyInit returns %d (%s)", rc, strerror(errno));
 		return;
 	}
 
@@ -232,22 +232,22 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 
 		sep = strchr(c, ' ');
 		if (!sep) {
-			ERROR("broken file '%s'", m_filename.c_str());
+			MAEMOSEC_ERROR("broken file '%s'", m_filename.c_str());
 			goto end;
 		}
 		str = strchr(sep + 1, '*');
 		if (!str) {
-			ERROR("broken file '%s'", m_filename.c_str());
+			MAEMOSEC_ERROR("broken file '%s'", m_filename.c_str());
 			goto end;
 		}
 		eol = strchr(str + 1, '\n');
 		if (!eol) {
-			ERROR("broken file '%s'", m_filename.c_str());
+			MAEMOSEC_ERROR("broken file '%s'", m_filename.c_str());
 			goto end;
 		}
 		aname.append(sep + 2, eol - str - 1);
 		digest.append(c, sep - c);
-		DEBUG(1, "%s => %s", aname.c_str(), digest.c_str());
+		MAEMOSEC_DEBUG(1, "%s => %s", aname.c_str(), digest.c_str());
 		c = eol + 1;
 		m_contents[aname] = digest;
 	}
@@ -261,10 +261,10 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		size_t mdlen = 0;
 		
 		// Compute the current digest
-		DEBUG(1, "checking %d bytes of data", c - (char*)data);
+		MAEMOSEC_DEBUG(1, "checking %d bytes of data", c - (char*)data);
 		rc = EVP_VerifyUpdate(&vfctx, data, c - (char*)data);
 		if (rc != EVPOK) {
-			ERROR("EVP_VerifyUpdate returns %d (%d)", rc, errno);
+			MAEMOSEC_ERROR("EVP_VerifyUpdate returns %d (%d)", rc, errno);
 			return;
 		}
 
@@ -282,20 +282,20 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 			}
 		}
 
-		DEBUG(1, "loaded %d bytes of signature", mdlen);
+		MAEMOSEC_DEBUG(1, "loaded %d bytes of signature", mdlen);
 
 		rc = EVP_VerifyFinal(&vfctx, mdref, mdlen, pubkey);
 		EVP_MD_CTX_cleanup(&vfctx);
 		if (rc != EVPOK) {
 			EVP_PKEY_free(pubkey);
-			ERROR("Storage integrity test failed");
+			MAEMOSEC_ERROR("Storage integrity test failed");
 			return;
 		} else {
-			DEBUG(1, "Storage integrity test OK");
+			MAEMOSEC_DEBUG(1, "Storage integrity test OK");
 		}
 
 	} else
-		ERROR("invalid signature");
+		MAEMOSEC_ERROR("invalid signature");
 
 	if (c < end && '\n' == *c)
 		c++;
@@ -305,7 +305,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		|| memcmp(c, key_mark, strlen(key_mark)) != 0)
 	{
 		if (prot_encrypted == m_prot) {
-			ERROR("missing encryption key");
+			MAEMOSEC_ERROR("missing encryption key");
 			goto end;
 		}
 	} else {
@@ -317,7 +317,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		if (!m_symkey) {
 			m_symkey = (unsigned char*)malloc(m_symkey_len);
 			if (!m_symkey) {
-				ERROR("allocation error");
+				MAEMOSEC_ERROR("allocation error");
 			}
 		}
 		c += strlen(key_mark);
@@ -333,7 +333,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 				c++;
 		}
 		if (keylen != m_symkey_len) {
-			ERROR("corrupt encryption key");
+			MAEMOSEC_ERROR("corrupt encryption key");
 			goto end;
 		}
 	}
@@ -421,14 +421,14 @@ storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len, ssize_t
 	
 	if (fstat(lfd, &fs) == -1) {
 		close(lfd);
-		ERROR("cannot stat '%s'", pathname);
+		MAEMOSEC_ERROR("cannot stat '%s'", pathname);
 		return((unsigned char*)MAP_FAILED);
 	}
 	*rlen = llen = fs.st_size;
-	DEBUG(1, "'%s' is %d bytes long", pathname, llen);
+	MAEMOSEC_DEBUG(1, "'%s' is %d bytes long", pathname, llen);
 	if (0 == llen) {
 		close(lfd);
-		ERROR("'%s' is empty", pathname);
+		MAEMOSEC_ERROR("'%s' is empty", pathname);
 		return((unsigned char*)MAP_FAILED);
 	}
 
@@ -448,7 +448,7 @@ storage::map_file(const char* pathname, int mode, int* fd, ssize_t* len, ssize_t
 
 	if (MAP_FAILED == res) {
 		close(lfd);
-		ERROR("cannot mmap '%s' of %d bytes", pathname, llen);
+		MAEMOSEC_ERROR("cannot mmap '%s' of %d bytes", pathname, llen);
 		return((unsigned char*)MAP_FAILED);
 	}
 	*len = llen;
@@ -479,27 +479,27 @@ storage::compute_digest(unsigned char* data, ssize_t bytes, string& digest)
 	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (EVPOK != rc) {
-		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
+		MAEMOSEC_ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
 		return(false);
 	}
 
-	DEBUG(1, "computing digest over %d bytes", bytes);
+	MAEMOSEC_DEBUG(1, "computing digest over %d bytes", bytes);
 
 	rc = EVP_DigestUpdate(&mdctx, data, bytes);
 	if (EVPOK != rc) {
-		ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
+		MAEMOSEC_ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
 		return(false);
 	}
 
 	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
 	if (rc != EVPOK) {
-		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
+		MAEMOSEC_ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
 		return(false);
 	}
 	EVP_MD_CTX_cleanup(&mdctx);
 
 	if ((int)mdlen != DIGESTLEN) {
-		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
+		MAEMOSEC_ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
 		return(false);
 	}
 
@@ -521,12 +521,12 @@ storage::compute_digest_of_file(const char* pathname, string& digest)
 	digest.clear();
 	data = map_file(pathname, O_RDONLY, &fd, &len, &rlen);
 	if (MAP_FAILED == data) {
-		ERROR("cannot map '%s'", pathname);
+		MAEMOSEC_ERROR("cannot map '%s'", pathname);
 		return;
 	}
 	compute_digest(data, len, digest);
 	unmap_file(data, fd, len);
-	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+	MAEMOSEC_DEBUG(1, "Computed digest is '%s'", digest.c_str());
 }
 
 
@@ -538,7 +538,7 @@ storage::add_file(const char* pathname)
 
 	absolute_pathname(pathname, truename);
 	if (contains_file(truename.c_str())) {
-		DEBUG(0, "'%s' already belongs to '%s'", 
+		MAEMOSEC_DEBUG(0, "'%s' already belongs to '%s'", 
 			  truename.c_str(), m_name.c_str());
 		return;
 	}
@@ -549,7 +549,7 @@ storage::add_file(const char* pathname)
 	} else
 		compute_digest_of_file(truename.c_str(), digest);
 	m_contents[truename] = digest;
-	DEBUG(1, "%s => %s", truename.c_str(), digest.c_str());
+	MAEMOSEC_DEBUG(1, "%s => %s", truename.c_str(), digest.c_str());
 }
 
 
@@ -560,7 +560,7 @@ storage::remove_file(const char* pathname)
 
 	absolute_pathname(pathname, truename);
 	if (!contains_file(truename.c_str())) {
-		DEBUG(0, "'%s' not found", truename.c_str());
+		MAEMOSEC_DEBUG(0, "'%s' not found", truename.c_str());
 		return;
 	}
 	m_contents.erase(m_contents.find(truename));
@@ -578,7 +578,7 @@ storage::verify_file(const char* pathname)
 	ii = m_contents.find(truename);
 
 	if (m_contents.end() == ii) {
-		DEBUG(0, "'%s' not found", truename.c_str());
+		MAEMOSEC_DEBUG(0, "'%s' not found", truename.c_str());
 		return(false);
 	}
 
@@ -601,7 +601,7 @@ checked_write(int to_fd, const char* str, EVP_MD_CTX* signature)
 	written = write(to_fd, str, len);
 	if (written < len) {
 		// TODO: Throw an exception
-		ERROR("failed to write %d bytes (written %d)", len, written);
+		MAEMOSEC_ERROR("failed to write %d bytes (written %d)", len, written);
 	} else if (signature)
 		EVP_SignUpdate(signature, str, len);
 }
@@ -624,7 +624,7 @@ storage::commit(void)
 
 	fd = creat(m_filename.c_str(), S_IRUSR | S_IWUSR);
 	if (fd < 0) {
-		ERROR("cannot create '%s'", m_filename.c_str());
+		MAEMOSEC_ERROR("cannot create '%s'", m_filename.c_str());
 		return;
 	}
 
@@ -639,14 +639,14 @@ storage::commit(void)
 		// Use sha1sum compatible output
 		const char* tmp = ii->second.c_str();
 		if (!tmp) {
-			ERROR("m_contents broken");
+			MAEMOSEC_ERROR("m_contents broken");
 			goto end;
 		}
 		checked_write(fd, tmp, &signctx);
 		checked_write(fd, " *", &signctx);
 		tmp = ii->first.c_str();
 		if (!tmp) {
-			ERROR("m_contents broken");
+			MAEMOSEC_ERROR("m_contents broken");
 			goto end;
 		}
 		checked_write(fd, tmp, &signctx);
@@ -710,16 +710,16 @@ storage::set_aes_key(int op, AES_KEY *ck)
 		else if (AES_DECRYPT == op)
 			rc = AES_set_decrypt_key(plakey, 8 * plainsize, ck);
 		else {
-			ERROR("unsupported cryptop %d", op);
+			MAEMOSEC_ERROR("unsupported cryptop %d", op);
 			res = false;
 		}
 		memset(plakey, '\0', plainsize);
 		if (rc != 0) {
-			ERROR("Cannot set AES key (%d)", rc);
+			MAEMOSEC_ERROR("Cannot set AES key (%d)", rc);
 			res = false;
 		}
 	} else {
-		ERROR("cannot decrypt (%d)", plainsize);
+		MAEMOSEC_ERROR("cannot decrypt (%d)", plainsize);
 	}
 	if (plakey)
 		free(plakey);
@@ -738,13 +738,13 @@ storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EV
 	unsigned char cnt = 0;
 
 	if (len % AES_BLOCK_SIZE != 0) {
-		ERROR("invalid length %d", len);
+		MAEMOSEC_ERROR("invalid length %d", len);
 		return(false);
 	}
 
 	// TODO: Decrypt the symkey
 	if (!set_aes_key(op, &ck)) {
-		ERROR("no cryptokey available");
+		MAEMOSEC_ERROR("no cryptokey available");
 		return(false);
 	}
 
@@ -754,7 +754,7 @@ storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EV
 			if (digest) {
 				rc = EVP_DigestUpdate(digest, from, AES_BLOCK_SIZE);
 				if (rc != EVPOK) {
-					ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
+					MAEMOSEC_ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
 				}
 			}
 			for (i = 0; i < AES_BLOCK_SIZE; i++)
@@ -776,7 +776,7 @@ storage::cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EV
 				else
 					rc = EVP_DigestUpdate(digest, obuf, AES_BLOCK_SIZE);
 				if (rc != EVPOK) {
-					ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
+					MAEMOSEC_ERROR("EVP_DigestUpdate returns %d (%d)", rc, errno);
 					abort();
 				}
 			}
@@ -816,7 +816,7 @@ storage::encrypt_file_in_place(const char* pathname, string& digest)
 	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (rc != EVPOK) {
-		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
+		MAEMOSEC_ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
 		return(false);
 	}
 
@@ -828,23 +828,23 @@ storage::encrypt_file_in_place(const char* pathname, string& digest)
 	// write the tail
 	tst = lseek(fd, rlen, SEEK_SET);
 	if (tst != rlen) {
-		ERROR("Seek error");
+		MAEMOSEC_ERROR("Seek error");
 	}
 	tst = write(fd, data + rlen, len - rlen);
 	if (tst <= 0) {
-		ERROR("Write error");
+		MAEMOSEC_ERROR("Write error");
 	}
 
 	unmap_file(data, fd, len);
 
 	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
 	if (rc != EVPOK) {
-		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
+		MAEMOSEC_ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
 		return(false);
 	}
 
 	if ((int)mdlen != DIGESTLEN) {
-		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
+		MAEMOSEC_ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
 		return(false);
 	}
 
@@ -854,7 +854,7 @@ storage::encrypt_file_in_place(const char* pathname, string& digest)
 	}
 
 	EVP_MD_CTX_cleanup(&mdctx);
-	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+	MAEMOSEC_DEBUG(1, "Computed digest is '%s'", digest.c_str());
 
 	return(res);
 }
@@ -876,7 +876,7 @@ storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len
 
 	locdata = (unsigned char*) malloc(rlen);
 	if (!locdata) {
-		ERROR("cannot allocate");
+		MAEMOSEC_ERROR("cannot allocate");
 		return(false);
 	}
 
@@ -887,7 +887,7 @@ storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len
 	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (rc != EVPOK) {
-		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
+		MAEMOSEC_ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
 		free(locdata);
 		return(false);
 	}
@@ -899,14 +899,14 @@ storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len
 
 	fd = open(pathname, O_CREAT | O_WRONLY | O_TRUNC, 0600);
 	if (fd < 0) {
-		ERROR("cannot create '%s' (%d)", pathname, errno);
+		MAEMOSEC_ERROR("cannot create '%s' (%d)", pathname, errno);
 		free(locdata);
 		return(false);
 	}
 
 	tst = write(fd, locdata, rlen);
 	if (tst != rlen) {
-		ERROR("cannot write %d bytes to '%s', written only %d (%d)", 
+		MAEMOSEC_ERROR("cannot write %d bytes to '%s', written only %d (%d)", 
 			  rlen, pathname, tst, errno);
 		free(locdata);
 		close(fd);
@@ -918,12 +918,12 @@ storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len
 
 	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
 	if (rc != EVPOK) {
-		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
+		MAEMOSEC_ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
 		return(false);
 	}
 
 	if ((int)mdlen != DIGESTLEN) {
-		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
+		MAEMOSEC_ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
 		return(false);
 	}
 
@@ -933,7 +933,7 @@ storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len
 	}
 
 	EVP_MD_CTX_cleanup(&mdctx);
-	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+	MAEMOSEC_DEBUG(1, "Computed digest is '%s'", digest.c_str());
 
 	return(res);
 }
@@ -953,15 +953,15 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 	digest.clear();
 	data = map_file(pathname, O_RDONLY, &fd, &llen, &rlen);
 	if (MAP_FAILED == data) {
-		ERROR("cannot map '%s'", pathname);
+		MAEMOSEC_ERROR("cannot map '%s'", pathname);
 		return(false);
 	}
 	rlen -= *(data + llen - 1);
-	DEBUG(1, "real len is %d bytes", rlen);
+	MAEMOSEC_DEBUG(1, "real len is %d bytes", rlen);
 	if (to_buf) {
 		*to_buf = locbuf = (unsigned char*) malloc (llen - 1);
 		if (!locbuf) {
-			ERROR("cannot allocate %d bytes", llen - 1);
+			MAEMOSEC_ERROR("cannot allocate %d bytes", llen - 1);
 			return(false);
 		}
 		memset(locbuf, '\0', rlen);
@@ -971,22 +971,22 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 	// EVP_MD_CTX_init(&mdctx);
 	rc = EVP_DigestInit(&mdctx, DIGESTTYP());
 	if (EVPOK != rc) {
-		ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
+		MAEMOSEC_ERROR("EVP_DigestInit returns %d (%s)", rc, strerror(errno));
 		return(false);
 	}
 
 	if (!cryptop(AES_DECRYPT, data, locbuf, llen - 1, &mdctx)) {
-		ERROR("Decryption failed");
+		MAEMOSEC_ERROR("Decryption failed");
 		return(false);
 	}
 
 	rc = EVP_DigestFinal(&mdctx, md, &mdlen);
 	if (rc != EVPOK) {
-		ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
+		MAEMOSEC_ERROR("EVP_DigestFinal returns %d (%d)", rc, errno);
 		return(false);
 	}
 	if ((int)mdlen != DIGESTLEN) {
-		ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
+		MAEMOSEC_ERROR("Digestlen mismatch (%d != %d)", mdlen, DIGESTLEN);
 		return(false);
 	}
 
@@ -998,7 +998,7 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 	if (len)
 		*len = rlen;
 	EVP_MD_CTX_cleanup(&mdctx);
-	DEBUG(1, "Computed digest is '%s'", digest.c_str());
+	MAEMOSEC_DEBUG(1, "Computed digest is '%s'", digest.c_str());
 	return(true);
 }
 
@@ -1020,7 +1020,7 @@ storage::get_file(const char* pathname, unsigned char** to_buf, ssize_t* bytes)
 
 	absolute_pathname(pathname, truename);
 	if (!contains_file(truename.c_str())) {
-		ERROR("'%s' not found", truename.c_str());
+		MAEMOSEC_ERROR("'%s' not found", truename.c_str());
 		return(EINVAL);
 	}
 
@@ -1029,11 +1029,11 @@ storage::get_file(const char* pathname, unsigned char** to_buf, ssize_t* bytes)
 			if (digest == m_contents[truename]) {
 				return(0);
 			} else {
-				ERROR("Digest does not match");
+				MAEMOSEC_ERROR("Digest does not match");
 				return(-1);
 			}
 		} else {
-			ERROR("Failed to decrypt");
+			MAEMOSEC_ERROR("Failed to decrypt");
 			return(-1);
 		}
 
@@ -1047,17 +1047,17 @@ storage::get_file(const char* pathname, unsigned char** to_buf, ssize_t* bytes)
 					memcpy(*to_buf, data, llen);
 					*bytes = llen;
 				} else {
-					ERROR("cannot allocate '%d' bytes", *bytes);
+					MAEMOSEC_ERROR("cannot allocate '%d' bytes", *bytes);
 					res = -1;
 					goto end;
 				}
 			} else {
-				ERROR("Digest does not match");
+				MAEMOSEC_ERROR("Digest does not match");
 				res = -1;
 				goto end;
 			}
 		} else {
-			ERROR("map failed");
+			MAEMOSEC_ERROR("map failed");
 			return(errno);
 		}
 	}
@@ -1088,13 +1088,13 @@ storage::put_file(const char* pathname, unsigned char* data, ssize_t bytes)
 	} else {
 		fd = open(pathname, O_CREAT | O_WRONLY | O_TRUNC, 0600);
 		if (-1 == fd) {
-			ERROR("cannot open '%s' (%d)", pathname, errno);
+			MAEMOSEC_ERROR("cannot open '%s' (%d)", pathname, errno);
 			return(errno);
 		}
 
 		rlen = write(fd, data, bytes);
 		if (rlen != bytes) {
-			ERROR("cannot write %d bytes to '%s', written only %d (%d)", 
+			MAEMOSEC_ERROR("cannot write %d bytes to '%s', written only %d (%d)", 
 				  bytes, pathname, rlen, errno);
 			close(fd);
 			return(errno);

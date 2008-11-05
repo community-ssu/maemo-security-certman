@@ -77,7 +77,7 @@ main(int argc, char* argv[])
 							break;
 
 						default:
-							ERROR("Invalid attribute '%c'", *flags);
+							MAEMOSEC_ERROR("Invalid attribute '%c'", *flags);
 						}
 					flags++;
 				}
@@ -86,21 +86,21 @@ main(int argc, char* argv[])
 
 			ss = new storage(storagename.c_str(), storvis, storprot);
 			if (!ss) {
-				ERROR("cannot create storage");
+				MAEMOSEC_ERROR("cannot create storage");
 				return(-1);
 			}
 			if (ss->nbrof_files() == 0) {
-				DEBUG(1, "Created new storage '%s' in %s.", 
+				MAEMOSEC_DEBUG(1, "Created new storage '%s' in %s.", 
 						ss->name(), ss->filename());
 			} else {
-				DEBUG(1, "Storage '%s' contains %d files.", 
+				MAEMOSEC_DEBUG(1, "Storage '%s' contains %d files.", 
 						ss->name(), ss->nbrof_files());
 			}
 			break;
 
 		case 'a':
 			if (!ss) {
-				ERROR("create storage first");
+				MAEMOSEC_ERROR("create storage first");
 				return(-1);
 			}
 			ss->add_file(optarg);
@@ -109,7 +109,7 @@ main(int argc, char* argv[])
 
 		case 'd':
 			if (!ss) {
-				ERROR("create storage first");
+				MAEMOSEC_ERROR("create storage first");
 				return(-1);
 			}
 			ss->remove_file(optarg);
@@ -118,7 +118,7 @@ main(int argc, char* argv[])
 
 		case 'v':
 			if (!ss) {
-				ERROR("create storage first");
+				MAEMOSEC_ERROR("create storage first");
 				return(-1);
 			}
 
@@ -144,7 +144,7 @@ main(int argc, char* argv[])
 
 		case 'p':
 			if (!ss) {
-				ERROR("create storage first");
+				MAEMOSEC_ERROR("create storage first");
 				return(-1);
 			}
 			{
@@ -158,7 +158,7 @@ main(int argc, char* argv[])
 						putchar(*(buf + i));
 					}
 				} else {
-					ERROR("failed to open file (%d)", rc);
+					MAEMOSEC_ERROR("failed to open file (%d)", rc);
 				}
 				ss->release_buffer(buf);
 			}
@@ -166,7 +166,7 @@ main(int argc, char* argv[])
 
 		case 'u':
 			if (!ss) {
-				ERROR("create storage first");
+				MAEMOSEC_ERROR("create storage first");
 				return(-1);
 			}
 			{
@@ -176,7 +176,7 @@ main(int argc, char* argv[])
 
 				buf = (unsigned char*)malloc(blen);
 				if (!buf) {
-					ERROR("cannot malloc");
+					MAEMOSEC_ERROR("cannot malloc");
 					return(-1);
 				}
 				do {
@@ -188,7 +188,7 @@ main(int argc, char* argv[])
 							blen *= 2;
 							swp = (unsigned char*)malloc(blen);
 							if (!swp) {
-								ERROR("cannot malloc %d", blen);
+								MAEMOSEC_ERROR("cannot malloc %d", blen);
 								return(-1);
 							}
 							memcpy(swp, buf, len);
@@ -202,7 +202,7 @@ main(int argc, char* argv[])
 
 				rc = ss->put_file(optarg, buf, len);
 				if (rc != 0) {
-					ERROR("cannot update '%s' (%d)", optarg, rc);
+					MAEMOSEC_ERROR("cannot update '%s' (%d)", optarg, rc);
 				} else {
 					was_changed = true;
 				}
@@ -222,7 +222,7 @@ main(int argc, char* argv[])
 					printf("\n");
 					free(rdata);
 				} else
-					ERROR("cannot malloc");
+					MAEMOSEC_ERROR("cannot malloc");
 			}
 			goto end;
 		   
@@ -233,7 +233,7 @@ main(int argc, char* argv[])
 	}
 
 	if (ss && was_changed) {
-		DEBUG(1, "Updating changes.");
+		MAEMOSEC_DEBUG(1, "Updating changes.");
 		ss->commit();
 		delete(ss);
 	} 

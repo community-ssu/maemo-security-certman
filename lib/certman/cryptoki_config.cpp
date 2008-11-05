@@ -50,7 +50,7 @@ extern "C" {
 		string appname;
 
 		process_name(appname);
-		DEBUG(1, "Init PKCS11 for '%s'", appname.c_str());
+		MAEMOSEC_DEBUG(1, "Init PKCS11 for '%s'", appname.c_str());
 		cfile.parse_file(config_file_name);
 		cnode = cfile.root();
 		if (!cnode) {
@@ -61,7 +61,7 @@ extern "C" {
 			if ("application" == string(cnode->child(i)->name())
 				&& appname == string(cnode->child(i)->attribute("path", true, ""))) 
 			{
-				DEBUG(1, "Found config for this application");
+				MAEMOSEC_DEBUG(1, "Found config for this application");
 				cnode = cnode->child(i);
 				for (int j = 0; j < cnode->nbrof_children(); j++) {
 					if ("slot" == string(cnode->child(j)->name())) {
@@ -77,12 +77,12 @@ extern "C" {
 						slots.push_back(islot);
 
 						if (slots.size() == max_slots) {
-							DEBUG(1, "All slots filled");
+							MAEMOSEC_DEBUG(1, "All slots filled");
 							goto done;
 						}
 					}
 				}
-				DEBUG(1, "found %d slots for this application", slots.size());
+				MAEMOSEC_DEBUG(1, "found %d slots for this application", slots.size());
 				break;
 			}
 		}
@@ -90,7 +90,7 @@ extern "C" {
 		*nrof_slots = slots.size();
 		for (int i = 0; i < slots.size(); i++) {
 			slot_list[i] = slots[i]->nr;
-			DEBUG(1, "Slot %d=%d", i, slot_list[i]);
+			MAEMOSEC_DEBUG(1, "Slot %d=%d", i, slot_list[i]);
 		}
 	end:
 		return(CKR_OK);
@@ -110,7 +110,7 @@ extern "C" {
 	{
 		I_SLOT_INFO sinfo = NULL;
 
-		DEBUG(1, "%d", slotID);
+		MAEMOSEC_DEBUG(1, "%d", slotID);
 		for (int i = 0; i < slots.size(); i++) {
 			if (slots[i]->nr == slotID) {
 				sinfo = slots[i];
@@ -139,7 +139,7 @@ extern "C" {
 	{
 		I_SLOT_INFO sinfo = NULL;
 
-		DEBUG(1, "%d", slotID);
+		MAEMOSEC_DEBUG(1, "%d", slotID);
 		for (int i = 0; i < slots.size(); i++) {
 			if (slots[i]->nr == slotID) {
 				sinfo = slots[i];
@@ -206,7 +206,7 @@ extern "C" {
 		if (!slot_info)
 			return(CKR_SLOT_ID_INVALID);
 
-		DEBUG(1, "open %s domain %s", 
+		MAEMOSEC_DEBUG(1, "open %s domain %s", 
 			  slot_info->is_shared
 			  ?"shared":"private",
 			  slot_info->domain.c_str());
@@ -252,7 +252,7 @@ extern "C" {
 	{
 		cstore* certs = (cstore*)sh;
 		certs->push_back(cert);
-		DEBUG(1, "Read certificate");
+		MAEMOSEC_DEBUG(1, "Read certificate");
 		return(-1);
 	}
 
@@ -273,7 +273,7 @@ extern "C" {
 		if (ord_nbr < certs->size()) {
 			return((*certs)[(size_t)ord_nbr]);
 		} else {
-			ERROR("invalid object nbr %d", ord_nbr);
+			MAEMOSEC_ERROR("invalid object nbr %d", ord_nbr);
 			return(NULL);
 		}
 	}
@@ -287,7 +287,7 @@ extern "C" {
 		if (   !sess
 			|| MAEMOSEC_CERTMAN_DOMAIN_NONE == sess->cmdomain) 
 		{
-			DEBUG(1, "sess %p, sess->cmdomain %p",
+			MAEMOSEC_DEBUG(1, "sess %p, sess->cmdomain %p",
 				  sess, sess->cmdomain);
 			return(CKR_SESSION_HANDLE_INVALID);
 		}
@@ -303,7 +303,7 @@ extern "C" {
 		*ord_nbr = certs->size() - 1;
 		rv = maemosec_certman_add_cert(sess->cmdomain, cert);
 		if (0 != rv) {
-			ERROR("maemosec_certman_add_cert ret %d", rv);
+			MAEMOSEC_ERROR("maemosec_certman_add_cert ret %d", rv);
 			return(CKR_FUNCTION_FAILED);
 		}
 		return(CKR_OK);
@@ -328,11 +328,11 @@ extern "C" {
 				if (sess->domain_name)
 					free((void*)sess->domain_name);
 				delete(sess);
-				DEBUG(1, "exit, closed session %d", sess_id);
+				MAEMOSEC_DEBUG(1, "exit, closed session %d", sess_id);
 				return(CKR_OK);
 			}
 		}
-		DEBUG(1, "exit, session_not_found");
+		MAEMOSEC_DEBUG(1, "exit, session_not_found");
 		return(CKR_SESSION_HANDLE_INVALID);
 	}
 
@@ -344,7 +344,7 @@ extern "C" {
 				close_session(sessions[i]->session_id);
 			}
 		}
-		DEBUG(1, "closed all sessions for slot %d", slot_id);
+		MAEMOSEC_DEBUG(1, "closed all sessions for slot %d", slot_id);
 		return(CKR_OK);
 	}
 } /* extern C */

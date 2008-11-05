@@ -30,10 +30,10 @@ _exp_element_start (void* user_data,
 		to_doc->xml_element_start((const char*)el, (const char**)attr);
 		return;
 	}
-	// DEBUG
-	DEBUG(2, "Element start %s\n", el);
+	// MAEMOSEC_DEBUG
+	MAEMOSEC_DEBUG(2, "Element start %s\n", el);
 	for (int i = 0; attr[i]; i += 2) 
-		DEBUG(2, "  Attribute %s=%s\n", attr[i], attr[i + 1]);
+		MAEMOSEC_DEBUG(2, "  Attribute %s=%s\n", attr[i], attr[i + 1]);
 }
 
 
@@ -48,8 +48,8 @@ _exp_element_end (void* user_data,
 		to_doc->xml_element_end ((char*) el);
 		return;
 	}
-	// DEBUG
-	DEBUG(2, "Element end %s\n", el);
+	// MAEMOSEC_DEBUG
+	MAEMOSEC_DEBUG(2, "Element end %s\n", el);
 }
 
 static void XMLCALL 
@@ -67,7 +67,7 @@ _exp_character_data (void* user_data,
 
 	if (data && len) {
 		string tmp(data, len);
-		DEBUG (2, "  Content '%s'", tmp.c_str());
+		MAEMOSEC_DEBUG (2, "  Content '%s'", tmp.c_str());
 	}
 }
 
@@ -165,7 +165,7 @@ c_xmldoc::xml_parsing_error()
 	// Add a pointer to the error point
 	errordesc.append(strlen(estring) + 3, "^ %s\n", estring);
 #endif
-	ERROR("XML Error '%s'", XML_ErrorString(XML_GetErrorCode(expat_parser)));
+	MAEMOSEC_ERROR("XML Error '%s'", XML_ErrorString(XML_GetErrorCode(expat_parser)));
 }
 
 
@@ -189,12 +189,12 @@ c_xmldoc::parse_file(const char* file_name)
 
 			void *buff = XML_GetBuffer(expat_parser, xml_parser_buffer_size);
 			if (buff == NULL) {
-				ERROR("cannot allocate XML parser buffer");
+				MAEMOSEC_ERROR("cannot allocate XML parser buffer");
 				goto end;
 			}
 			bytes_read = read(fd, buff, xml_parser_buffer_size);
 			if (bytes_read < 0) {
-				ERROR("cannot read '%s' (%d)", file_name, errno);
+				MAEMOSEC_ERROR("cannot read '%s' (%d)", file_name, errno);
 				goto end;
 
 			} else if (bytes_read > 0) {
@@ -281,7 +281,7 @@ c_xmldoc::save(const char* to_file)
 	string contents;
 
 	if (fd == -1) {
-		ERROR("cannot open file '%s' for writing (%d)", to_file, errno);
+		MAEMOSEC_ERROR("cannot open file '%s' for writing (%d)", to_file, errno);
 		return;
 	}
 
@@ -289,11 +289,11 @@ c_xmldoc::save(const char* to_file)
 	alen = write(fd, contents.c_str(), strlen(contents.c_str()));
 	close(fd);
 
-	DEBUG(1, "Write %d bytes of XML to file '%s'", alen, to_file);
+	MAEMOSEC_DEBUG(1, "Write %d bytes of XML to file '%s'", alen, to_file);
   
 	if (alen != (int)strlen(contents.c_str())) {
 		// This is odd, but lets just log it
-		ERROR("write to '%s' truncated, %d bytes omitted", 
+		MAEMOSEC_ERROR("write to '%s' truncated, %d bytes omitted", 
 			  to_file, strlen(contents.c_str()) - alen);
 	}
 	
@@ -326,11 +326,11 @@ c_xmldoc::xml_element_end(const char* element_name)
 {
 	// Sanity check
 	if (!cur_node) {
-		ERROR("document cannot start with element end");
+		MAEMOSEC_ERROR("document cannot start with element end");
 		return;
 	}
 	if (strcmp(element_name, cur_node->name())) {
-		ERROR("name mismatch '<%s>..</%s>", cur_node->name(), element_name);
+		MAEMOSEC_ERROR("name mismatch '<%s>..</%s>", cur_node->name(), element_name);
 		return;
 	}
 	
