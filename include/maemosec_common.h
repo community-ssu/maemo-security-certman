@@ -32,7 +32,8 @@
 #ifndef SEC_COMMON_H
 #define SEC_COMMON_H
 
-#define USE_SYSLOG 1
+#include <sys/types.h>
+#include <unistd.h>
 
 #ifdef	__cplusplus
 #include <string>
@@ -116,8 +117,8 @@ extern "C" {
  */
 #define MAEMOSEC_ERROR(format,args...) \
 	do {\
-		dlog_message("<0>%s(%d)[%s]: ERROR " format, __FILE__, __LINE__,__func__, \
-			   ##args);\
+		dlog_message("<0>%s(%d)[%d]: ERROR " format, __FILE__, __LINE__, \
+					 getpid() ,##args);\
 	} while (0)
 
 /**
@@ -131,9 +132,14 @@ extern "C" {
  */
 #define MAEMOSEC_DEBUG(level,format,args...)	\
 	do { \
-		dlog_message("<%d>%s(%d)[%s]: " format, level, __FILE__, __LINE__, \
-			   __func__ ,##args);\
+		dlog_message("<%d>%s(%d)[%d]: " format, level, __FILE__, __LINE__, \
+					 getpid() ,##args);							\
     } while (0)
+
+#ifdef ULOG_DEBUG
+#undef ULOG_DEBUG
+#define ULOG_DEBUG(args...) MAEMOSEC_DEBUG(2 ,##args)
+#endif
 
 /**
  * \def GETENV

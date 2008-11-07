@@ -134,10 +134,29 @@ extern "C" {
 	process_name(string& to_this)
 	{
 		pid_t my_pid = getpid();
-		char exe_name [256];
+		char exe_name [PATH_MAX];
 
 		sprintf(exe_name, "/proc/%ld/exe", my_pid);
 		absolute_pathname(exe_name, to_this);
+		/*
+		 * TODO: What follows is a somewhat ugly hack that should be 
+		 * replaced by a proper application id derived from integrity 
+		 * framework (i.e. package database and images hashes)
+		 */
+		if ("/usr/bin/maemo-launcher" == to_this) {
+			int fd;
+			char buf [PATH_MAX] = "";
+			sprintf(exe_name, "/proc/%ld/cmdline", my_pid);
+			fd = open(exe_name, O_RDONLY);
+			if (fd >= 0) {
+				ssize_t len = read(fd, buf, sizeof(buf));
+				if (len) {
+					MAEMOSEC_DEBUG(1, "'%s': %ld '%s'", exe_name, len, buf);
+					to_this = buf;
+				}
+				close(fd);
+			}
+		}
 		return(true);
 	}
 

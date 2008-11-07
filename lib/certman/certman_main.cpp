@@ -366,6 +366,17 @@ x509_equals(int pos, X509* cert, void* with_cert)
 #endif
 }
 
+static void
+maemosec_certman_int_init(void)
+{
+	string my_app_name;
+
+	if (process_name(my_app_name))
+		MAEMOSEC_DEBUG(1, "Init '%s'", my_app_name.c_str());
+	else
+		MAEMOSEC_ERROR("Could not access process name");
+}
+
 
 // Visible part
 extern "C" {
@@ -375,6 +386,7 @@ extern "C" {
 	{
 		X509* bb5cert;
 
+		maemosec_certman_int_init();
 		bb5_init();
 		*my_cert_store = X509_STORE_new();
 		bb5cert = bb5_get_cert(0);

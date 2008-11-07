@@ -48,6 +48,7 @@ extern "C" {
 		c_xmlnode* cnode;
 		string cfilename;
 		string appname;
+		string tagname;
 
 		process_name(appname);
 		MAEMOSEC_DEBUG(1, "Init PKCS11 for '%s'", appname.c_str());
@@ -57,11 +58,14 @@ extern "C" {
 			*nrof_slots = 0;
 			goto end;
 		}
+
 		for (int i = 0; i < cnode->nbrof_children(); i++) {
+			tagname = string(cnode->child(i)->attribute("path", true, ""));
 			if ("application" == string(cnode->child(i)->name())
-				&& appname == string(cnode->child(i)->attribute("path", true, ""))) 
+				&& (appname == tagname || "*" == tagname))
 			{
-				MAEMOSEC_DEBUG(1, "Found config for this application");
+				MAEMOSEC_DEBUG(1, "config '%s' applied to '%s'", 
+							   tagname.c_str(), appname.c_str());
 				cnode = cnode->child(i);
 				for (int j = 0; j < cnode->nbrof_children(); j++) {
 					if ("slot" == string(cnode->child(j)->name())) {
@@ -82,16 +86,17 @@ extern "C" {
 						}
 					}
 				}
-				MAEMOSEC_DEBUG(1, "found %d slots for this application", slots.size());
-				break;
 			}
 		}
+
 	done:		
+		MAEMOSEC_DEBUG(1, "found %d slots for this application", slots.size());
 		*nrof_slots = slots.size();
 		for (int i = 0; i < slots.size(); i++) {
 			slot_list[i] = slots[i]->nr;
 			MAEMOSEC_DEBUG(1, "Slot %d=%d", i, slot_list[i]);
 		}
+
 	end:
 		return(CKR_OK);
 	}

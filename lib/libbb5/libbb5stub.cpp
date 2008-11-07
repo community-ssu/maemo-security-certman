@@ -73,7 +73,8 @@ load_root_key(void)
 	
 	// TODO: there are many different formats for keys
 	if (BIO_read_filename(keyfile, root_key_name) <= 0) {
-		MAEMOSEC_ERROR("cannot load root CA key from '%s'", root_key_name);
+		MAEMOSEC_ERROR("cannot load root CA key from '%s' (%s)", 
+					   root_key_name, strerror(errno));
 		// print_openssl_errors();
 		return;
 	}
