@@ -44,8 +44,15 @@ using namespace maemosec;
 // file...
 
 static const char cert_storage_prefix [] = "maemosec-certman.";
-static const char cert_dir_name       [] = "/etc/certs";
-static const char priv_dir_name       [] = ".certs";
+static const char common_cert_dir     [] = "/etc/certs";
+static const char priv_cert_dir       [] = ".certs";
+static const char priv_keys_dir       [] = ".keys";
+
+// Directory access bits
+
+#define PUBLIC_DIR_MODE 0755
+#define PRIVATE_DIR_MODE 0700
+
 
 // TODO: should this really be a public
 EVP_PKEY *root_pkey = NULL;
@@ -186,27 +193,24 @@ load_certs(vector<string> &certnames,
 }
 
 
-// The local certificate repository is application specific, and created
-// in a directory that contains the command-line
-
 static void
-local_cert_dir(string& to_this, string& storename)
+local_storage_dir(string& to_this, const char* subarea)
 {
 	string curbinname;
 
 	to_this.assign(GETENV("HOME",""));
 	to_this.append(PATH_SEP);
-	to_this.append(priv_dir_name);
+	to_this.append(subarea);
 	to_this.append(PATH_SEP);
+#if 0
 	process_name(curbinname);
 	for (int i = 0; i < curbinname.length(); i++) {
 		if (curbinname[i] == *PATH_SEP)
 			curbinname[i] = '.';
 	}
 	to_this.append(curbinname);
-	storename.assign(curbinname);
-	MAEMOSEC_DEBUG(1, "\nlocal cert dir = '%s'\nprivate store name = '%s'", 
-		  to_this.c_str(), storename.c_str());
+#endif
+	MAEMOSEC_DEBUG(1, "\nlocal cert dir = '%s'", to_this.c_str());
 }
 
 
@@ -215,19 +219,18 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 {
 	if (MAEMOSEC_CERTMAN_DOMAIN_PRIVATE == flags) {
 		// Make private name
-		local_cert_dir(dirname, storename);
+		local_storage_dir(dirname, priv_cert_dir);
 		storename.insert(0, cert_storage_prefix);
 		if (domain_name) {
 			dirname.append(PATH_SEP);
 			dirname.append(domain_name);
-			storename.append(".");
 			storename.append(domain_name);
 		}
 		MAEMOSEC_DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
 	} else {
 		storename.assign(domain_name);
 		storename.insert(0, cert_storage_prefix);
-		dirname.assign(cert_dir_name);
+		dirname.assign(common_cert_dir);
 		dirname.append(PATH_SEP);
 		dirname.append(domain_name);
 		MAEMOSEC_DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
@@ -251,8 +254,7 @@ remove_spec_chars(char* in_string)
 
 
 /*
- * Form a filename out of certificate's subject name and serial number
- * TODO: This might not be the right thing to do, 
+ * Make a unique filename for each certificate
  */
 static void
 make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
@@ -265,6 +267,7 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 
 	to_string.assign("");
 
+#if 0
 	name = X509_NAME_oneline(X509_get_subject_name(of_cert), nbuf, sizeof(nbuf));
 	serial = ASN1_INTEGER_get(X509_get_serialNumber(of_cert));
 
@@ -309,9 +312,22 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 		} else
 			serial++;
 	} while (serial < LONG_MAX);
+	to_string.assign(nbuf);
+
+#else
+	to_string.assign(in_dir);
+	to_string.append(PATH_SEP);
+	maemosec_key_id key_id;
+	if (0 == maemosec_certman_get_key_id(of_cert, key_id)) {
+		append_hex(to_string, key_id, MAEMOSEC_KEY_ID_LEN);
+		to_string.append(".pem");
+	} else {
+		MAEMOSEC_ERROR("Cannot get key id out of certificate");
+		goto failed;
+	}
+#endif
 
   ok:
-	to_string.assign(nbuf);
 	MAEMOSEC_DEBUG(1, "=> %s", to_string.c_str());
 	return;
 
@@ -337,6 +353,35 @@ load_cert_from_file(const char* from_file)
 	}
 	fclose(fp);
 	return(cert);
+}
+
+
+static int
+store_key_to_file(maemosec_key_id key_id, EVP_PKEY* key, char* passwd)
+{
+	string storage_file_name;
+	FILE* outfile;
+	int rc;
+
+	local_storage_dir(storage_file_name, priv_keys_dir);
+	create_directory(storage_file_name.c_str(), PRIVATE_DIR_MODE);
+	append_hex(storage_file_name, key_id, MAEMOSEC_KEY_ID_LEN);
+	storage_file_name.append(".pem");
+
+	outfile = fopen(storage_file_name.c_str(), "w");
+	if (outfile) {
+		chmod(storage_file_name.c_str(), S_IRUSR | S_IWUSR);
+		rc = PEM_write_PKCS8PrivateKey(outfile, key, EVP_aes_256_ecb(), 
+									   passwd, strlen(passwd), NULL, NULL);
+		MAEMOSEC_DEBUG(1, "Stored key to '%s', rc = %d", 
+					   storage_file_name.c_str(), rc);
+		fclose(outfile);
+		return(0);
+	} else {
+		MAEMOSEC_ERROR("Cannot open '%s' (%s)", storage_file_name.c_str(),
+					   strerror(errno));
+		return(errno);
+	}
 }
 
 
@@ -454,9 +499,6 @@ extern "C" {
 		bb5_finish();
 		return(0);
 	}
-
-	#define PUBLIC_DIR_MODE 0755
-	#define PRIVATE_DIR_MODE 0700
 
 	int 
 	maemosec_certman_open_domain(const char* domain_name, 
@@ -602,4 +644,24 @@ extern "C" {
 		delete(mydomain->index);
 		delete(mydomain);
 	}
+
+	int 
+	maemosec_certman_get_key_id(X509* of_cert, maemosec_key_id to_this)
+	{
+		if (!of_cert && !to_this)
+			return(EINVAL);
+		if (X509_pubkey_digest(of_cert, EVP_sha1(), to_this, NULL))
+			return(0);
+		else
+			return(EINVAL);
+	}
+
+	int 
+	maemosec_certman_store_key(maemosec_key_id with_id, 
+							   EVP_PKEY* the_key, 
+							   char* with_passwd)
+	{
+		return(store_key_to_file(with_id, the_key, with_passwd));
+	}
+
 } // extern "C"

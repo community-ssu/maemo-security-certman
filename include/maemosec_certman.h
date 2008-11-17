@@ -157,6 +157,19 @@ int maemosec_certman_nbrof_certs(domain_handle in_domain);
  */
 int maemosec_certman_close_domain(domain_handle handle);
 
+	#define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
+	typedef unsigned char maemosec_key_id [MAEMOSEC_KEY_ID_LEN];
+
+	int maemosec_certman_get_key_id(X509* of_cert, maemosec_key_id to_this);
+
+	int maemosec_certman_store_key(maemosec_key_id with_id, 
+								   EVP_PKEY* the_key, 
+								   char* with_passwd);
+
+	int maemosec_certman_retrieve_key(maemosec_key_id with_id, 
+									  EVP_PKEY** the_key, 
+									  char* with_passwd);
+
 //@}
 
 #ifdef	__cplusplus

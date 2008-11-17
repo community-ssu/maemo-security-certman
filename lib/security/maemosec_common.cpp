@@ -160,6 +160,27 @@ extern "C" {
 		return(true);
 	}
 
+	void
+	append_hex(string& to_this, unsigned char* dta, unsigned len)
+	{
+		const unsigned locbuf_size = 128;
+		char locbuf [locbuf_size + 1], *to;
+		unsigned i, lim;
+
+		lim = locbuf_size/2;
+		while (len) {
+			to = locbuf;
+			if (lim > len)
+				lim = len;
+			for (i = 0; i < lim; i++) {
+				sprintf(to, "%02x", *dta++);
+				to += 2;
+			}
+			to_this.append(locbuf, i * 2);
+			len -= lim;
+		}
+	}
+
 	bool 
 	file_exists(const char* name)
 	{

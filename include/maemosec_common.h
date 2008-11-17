@@ -50,6 +50,7 @@ extern "C" {
 	 */
 	bool absolute_pathname(const char* name, string& to_this);
 	bool process_name(string& to_this);
+	void append_hex(string& to_this, unsigned char* dta, unsigned len);
 #else
 	/**
 	 * \def bool
