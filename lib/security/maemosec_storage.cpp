@@ -211,15 +211,24 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		m_symkey_len = CIPKEYLEN;
 	}
 
-	// EVP_MD_CTX_init(&vfctx);
 	rc = EVP_VerifyInit(&vfctx, DIGESTTYP());
 	if (rc != EVPOK) {
 		MAEMOSEC_ERROR("EVP_VerifyInit returns %d (%s)", rc, strerror(errno));
 		return;
 	}
 
-	// Read associations
+	/*
+	 * Absolute path name is part of the signature.
+	 */
+	rc = EVP_VerifyUpdate(&vfctx, m_filename.c_str(), strlen(m_filename.c_str()));
+	if (rc != EVPOK) {
+		MAEMOSEC_ERROR("EVP_VerifyUpdate returns %d (%d)", rc, errno);
+		return;
+	}
 
+	/*
+	 * Read associations
+	 */
 	c = (char*) data;
 	end = (char*) (data + len);
 
@@ -289,6 +298,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		if (rc != EVPOK) {
 			EVP_PKEY_free(pubkey);
 			MAEMOSEC_ERROR("Storage integrity test failed");
+			m_contents.clear();
 			return;
 		} else {
 			MAEMOSEC_DEBUG(1, "Storage integrity test OK");
@@ -628,8 +638,12 @@ storage::commit(void)
 		return;
 	}
 
-	// EVP_MD_CTX_init(&signctx);
-	rc = EVP_SignInit(&signctx, EVP_sha1());
+	rc = EVP_SignInit(&signctx, DIGESTTYP());
+	/*
+	 * Include absolute pathname in signature to
+	 * prevent renaming.
+	 */
+	EVP_SignUpdate(&signctx, m_filename.c_str(), strlen(m_filename.c_str()));
 
 	for (
 		map<string, string>::const_iterator ii = m_contents.begin();
