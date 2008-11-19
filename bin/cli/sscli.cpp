@@ -39,6 +39,11 @@ main(int argc, char* argv[])
 	storage::visibility_t storvis  = storage::vis_private;
 	storage::protection_t storprot = storage::prot_signed;
 
+	if (1 == argc) {
+		usage();
+		return(-1);
+	}
+
 	bb5_init();
 
     while (1) {
@@ -232,7 +237,7 @@ main(int argc, char* argv[])
 		}
 	}
 
-	if (ss && was_changed) {
+	if (was_changed) {
 		MAEMOSEC_DEBUG(1, "Updating changes.");
 		ss->commit();
 		delete(ss);

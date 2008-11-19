@@ -13,7 +13,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <fcntl.h>
-
+#include <regex.h>
 
 // STL headers
 #include <string>
@@ -39,16 +39,18 @@ using namespace maemosec;
 
 #include "x509_container.h"
 
-// Some initialization with hard-coded constants.
-// Some of these should maybe be moved to a config
-// file...
+/*
+ * Storage name prefix and directory names
+ */
 
-static const char cert_storage_prefix [] = "maemosec-certman.";
+static const char cert_storage_prefix [] = "certman.";
 static const char common_cert_dir     [] = "/etc/certs";
-static const char priv_cert_dir       [] = ".certs";
-static const char priv_keys_dir       [] = ".keys";
+static const char priv_cert_dir       [] = ".maemosec-certs";
+static const char priv_keys_dir       [] = ".maemosec-keys";
 
-// Directory access bits
+/*
+ * Directory access bits
+ */
 
 #define PUBLIC_DIR_MODE 0755
 #define PRIVATE_DIR_MODE 0700
@@ -222,7 +224,6 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 		local_storage_dir(dirname, priv_cert_dir);
 		storename.insert(0, cert_storage_prefix);
 		if (domain_name) {
-			dirname.append(PATH_SEP);
 			dirname.append(domain_name);
 			storename.append(domain_name);
 		}
@@ -333,6 +334,21 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 
   failed:
 	;
+}
+
+
+static void
+hex_to_key_id(const char* hstring, unsigned char* to_id)
+{
+	unsigned int val;
+
+	memset(to_id, '\0', MAEMOSEC_KEY_ID_LEN);
+	for (int i = 0; i < 2*MAEMOSEC_KEY_ID_LEN; i += 2) {
+		if (0 == sscanf(hstring + i, "%02x", &val)) {
+			MAEMOSEC_ERROR("invalid key file name '%s' at %d", hstring, i);
+		}
+		*to_id++ = (unsigned char) val;
+	}
 }
 
 
@@ -662,6 +678,74 @@ extern "C" {
 							   char* with_passwd)
 	{
 		return(store_key_to_file(with_id, the_key, with_passwd));
+	}
+
+	int
+	maemosec_certman_retrieve_key(maemosec_key_id with_id, 
+							   EVP_PKEY** the_key, 
+							   char* with_passwd)
+	{
+	}
+
+	int
+	maemosec_certman_iterate_keys(int cb_func(int,maemosec_key_id with_id,void*), 
+								  void* ctx)
+	{
+		DIR* keys_dir;
+		string keystore_name;
+		string name_expression;
+		struct dirent* entry;
+		regex_t name_pattern;
+		maemosec_key_id key_id;
+		size_t pos;
+		int rc, res, count = 0;
+		char ebuf[100];
+		
+		if (!cb_func)
+			return(-EINVAL);
+		
+		/*
+		 * The key file name is matched by a regular expression.
+		 * Remember to update this if the naming scheme is changed.
+		 */
+		name_expression = "^";
+		for (int i = 0; i < MAEMOSEC_KEY_ID_LEN; i++)
+			name_expression.append("[0-9a-f][0-9a-f]");
+		name_expression.append("\\.pem$");
+		rc = regcomp(&name_pattern, name_expression.c_str(), REG_NOSUB);
+		MAEMOSEC_DEBUG(2, "regcomp of '%s' returned %d", name_expression.c_str(), rc);
+		if (0 != rc) {
+			pos = regerror(rc, &name_pattern, ebuf, sizeof(ebuf));
+			MAEMOSEC_DEBUG(2, "regcomp error %s (%d)", ebuf, pos);
+			regfree(&name_pattern);
+			return(-1);
+		}
+
+		/*
+		 * Open ~/.keys directory
+		 */
+		local_storage_dir(keystore_name, priv_keys_dir);
+		keys_dir = opendir(keystore_name.c_str());
+		if (NULL == keys_dir) {
+			regfree(&name_pattern);
+			return(-1);
+		}
+
+		while (NULL != (entry = readdir(keys_dir))) {
+			rc = regexec(&name_pattern, entry->d_name, 0, NULL, 0);
+			MAEMOSEC_DEBUG(2, "regexec of '%s'(%hd) returned %d", 
+						   entry->d_name, entry->d_type, rc);
+			if (0 == rc) {
+				hex_to_key_id(entry->d_name, key_id);
+				res = cb_func(count, key_id, ctx);
+				if (res)
+					break;
+				count++;
+			}
+		}
+		closedir(keys_dir);
+		regfree(&name_pattern);
+		return(count);
 	}
 
 } // extern "C"

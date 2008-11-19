@@ -37,6 +37,11 @@
  */
 extern int debug_level;
 
+/*
+ * Global options
+ */
+static int force_opt = 0;
+
 static void
 usage(void)
 {
@@ -51,17 +56,32 @@ usage(void)
 		" -p to open/create a private domain for modifications\n"
 		" -a to add a certificate to the given domain\n"
 		" -r to remove the nth certificate from the given domain\n"
-		" -L to list all certificates\n"
+		" -L to list all certificates and keys\n"
 		" -D, -DD... to increase level of debug info shown\n"
 		" -f to force an operation despite warnings\n"
 		);
 }
 
 
+static void
+print_key_id(maemosec_key_id key_id, const char* to_buf, unsigned max_len)
+{
+	unsigned i;
+
+	if (max_len < 3*MAEMOSEC_KEY_ID_LEN)
+		return;
+	for (i = 0; i < MAEMOSEC_KEY_ID_LEN; i++) {
+		sprintf(to_buf, "%s%02X", i?":":"", key_id[i]);
+		to_buf += strlen(to_buf);
+	}
+}
+
+
 static int
 show_cert(int pos, X509* cert, void* x)
 {
-	char buf[255], *name;
+	char buf[255], keybuf[64], *name;
+	maemosec_key_id key_id;
 	int i;
 
 	if (!cert)
@@ -71,8 +91,13 @@ show_cert(int pos, X509* cert, void* x)
 							 buf, 
 							 sizeof(buf));
 
+	if (0 == maemosec_certman_get_key_id(cert, key_id))
+		print_key_id(key_id, keybuf, sizeof(keybuf));
+	else
+		strcpy(keybuf, "??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??");
+
 	if (pos >= 0) 
-		printf("%d: %s\n", pos, name);
+		printf("%3d: %s %s\n", pos, keybuf, name);
 	else {
 		if (pos < -1) {
 			if (pos < -2)
@@ -82,6 +107,16 @@ show_cert(int pos, X509* cert, void* x)
 		}
 		printf("%s\n", name);
 	}
+	return(0);
+}
+
+
+static int
+show_key(int pos, maemosec_key_id key_id, void* ctx)
+{
+	char keybuf[64];
+	print_key_id(key_id, keybuf, sizeof(keybuf));
+	printf("%3d: %s\n", pos, keybuf);
 	return(0);
 }
 
@@ -142,9 +177,7 @@ verify_cert(X509_STORE* store, X509* cert)
 			}
 		}
 	}
-
 	X509_STORE_CTX_free(csc);
-
 	return(retval);
 }
 
@@ -168,6 +201,46 @@ get_cert(const char* from_file)
 	return(cert);
 }
 
+
+static int
+add_cert_to_domain(domain_handle to_domain, X509* cert, X509_STORE* to_certs)
+{
+	X509* my_cert;
+	char buf[255], *name;
+	int rc;
+
+	name = X509_NAME_oneline(X509_get_subject_name(cert),
+							 buf, 
+							 sizeof(buf));
+
+	/* 
+	 * If the certificate is not self signed, try to
+	 * verify it. By default, do not allow adding it 
+	 * if the verification fails.
+	 */
+	if (!is_self_signed(cert) && !verify_cert(to_certs, cert)) { 
+		fprintf(stderr, 
+				"%s\nWARNING: certificate fails verification\n",
+				name);
+		if (!force_opt) 
+			return(0);
+		else
+			fprintf(stderr, 
+					"WARNING: adding unverifiable certificate\n%s\n",
+					name);
+	}
+	rc = maemosec_certman_add_cert(to_domain, cert);
+	if (0 == rc) {
+		printf("Added %s\n", name);
+		return(1);
+	} else {
+		fprintf(stderr, "ERROR: cannot add '%s' (%d)\n", name, rc);
+		return(0);
+	}
+}
+
+typedef enum {cmd_add, cmd_verify, cmd_none} multi_arg_cmd;
+
 /**
  * \brief The main program
  * Execute the command without any parameters to get the help
@@ -177,10 +250,15 @@ int
 main(int argc, char* argv[])
 {
 	int rc, i, a, pos, flags;
-	int force_opt = 0;
 	domain_handle my_domain = NULL;
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
+	multi_arg_cmd ma_cmd = cmd_none;
+
+	if (1 == argc) {
+		usage();
+		return(-1);
+	}
 
 	rc = maemosec_certman_open(&certs);
 	if (rc != 0) {
@@ -189,7 +267,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "t:T:c:p:a:v:r:DLfi:h");
+		a = getopt(argc, argv, "t:T:c:p:a:v:r:DLKfi:h");
 		if (a < 0) {
 			break;
 		}
@@ -218,20 +296,15 @@ main(int argc, char* argv[])
 					printf("Verification fails\n");
 				X509_free(my_cert);
 			}
+			ma_cmd = cmd_verify;
 			break;
 
 		case 'L':
-			printf("Trusted:\n");
 			for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
 				X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
 				if (obj->type == X509_LU_X509) {
 					show_cert(i, obj->data.x509, NULL);
 				}
-			}
-			// Also list domain contents, if one is opened
-			if (my_domain) {
-				printf("Private:\n");
-				maemosec_certman_iterate_domain(my_domain, show_cert, NULL);
 			}
 			break;
 
@@ -291,6 +364,7 @@ main(int argc, char* argv[])
 							name, rc);
 				X509_free(my_cert);
 			}
+			ma_cmd = cmd_add;
 			break;
 
 		case 'r':
@@ -313,6 +387,11 @@ main(int argc, char* argv[])
 			}
 			break;
 
+		case 'K':
+			printf("Private keys:\n");
+			maemosec_certman_iterate_keys(show_key, NULL);
+			break;
+
 		case 'f':
 			force_opt++;
 			break;
@@ -326,7 +405,39 @@ main(int argc, char* argv[])
 
 		default:
 			usage();
-			return(0);
+			return(-1);
+		}
+	}
+
+	if (optind < argc) {
+		for (i = optind; i < argc; i++) {
+			switch (ma_cmd) 
+				{
+				case cmd_add:
+					if (!my_domain) {
+						printf("ERROR: no domain defined\n");
+						goto end;
+					}
+					my_cert = get_cert(argv[i]);
+					if (my_cert) {
+						add_cert_to_domain(my_domain, my_cert, certs);
+						X509_free(my_cert);
+					}
+					break;
+				case cmd_verify:
+					my_cert = get_cert(argv[i]);
+					if (my_cert) {
+						if (verify_cert(certs, my_cert))
+							printf("Verified OK\n");
+						else 
+							printf("Verification fails\n");
+						X509_free(my_cert);
+					}
+					break;
+				default:
+					printf("Warning: %d extraneous parameter(s)\n", argc - optind);
+					usage();
+				}
 		}
 	}
 

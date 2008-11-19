@@ -62,7 +62,7 @@ using namespace maemosec;
 #define CIPKEYLEN 128
 
 static const char sec_shared_root[]  = "/etc/secure";
-static const char sec_private_root[] = ".secure";
+static const char sec_private_root[] = ".maemosec-secure";
 
 /**
  * \def signature_mark
