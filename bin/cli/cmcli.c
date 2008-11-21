@@ -42,6 +42,65 @@ extern int debug_level;
  */
 static int force_opt = 0;
 
+/*
+ * Utilities. Should be added to libmaemosec_certman0
+ */
+static int
+report_openssl_error(const char* str, size_t len, void* u)
+{
+	char* tmp = strrchr(str, '\n');
+	if (tmp && ((tmp - str) == strlen(str)))
+		*tmp = '\0';
+	MAEMOSEC_DEBUG(1, "OpenSSL error '%s'", str);
+	ERR_clear_error();
+	return(0);
+}
+
+
+static const char*
+determine_filetype(FILE* fp, void** idata)
+{
+	X509* cert;
+	PKCS12* cont;
+	X509_SIG* ekey;
+
+	rewind(fp);
+	cert = PEM_read_X509(fp, NULL, 0, NULL);
+	if (cert) {
+		*idata = (void*)cert;
+		return("X509-PEM");
+	} else
+		MAEMOSEC_DEBUG(1, "Not a PEM file");
+
+	rewind(fp);
+	cert = d2i_X509_fp(fp, NULL);
+	if (cert) {
+		*idata = (void*)cert;
+		return("X509-DER");
+	} else
+		MAEMOSEC_DEBUG(1, "Not a DER file");
+
+	rewind(fp);
+	cont = d2i_PKCS12_fp(fp, NULL);
+	if (cont) {
+		*idata = (void*)cont;
+		return("PKCS12");
+	} else
+		MAEMOSEC_DEBUG(1, "Not a PKCS12 file");
+
+	rewind(fp);
+
+	ekey = d2i_PKCS8_fp(fp, NULL);
+	if (cont) {
+		*idata = (void*)ekey;
+		return("PKCS8");
+	} else
+		MAEMOSEC_DEBUG(1, "Not a PKCS8 file");
+
+	return("Unknown");
+}
+
+
 static void
 usage(void)
 {
@@ -396,11 +455,8 @@ main(int argc, char* argv[])
 			force_opt++;
 			break;
 
-			/*
-			 * Certificate info
-			 */
 		case 'i':
-			is_self_signed(get_cert(optarg));
+			install_file(get_cert(optarg));
 			break;
 
 		default:

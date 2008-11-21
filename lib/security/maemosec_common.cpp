@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <dirent.h>
+#include <regex.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -12,25 +14,6 @@
 extern "C" {
 
 	int debug_level = 0;
-
-
-	void
-	print_openssl_errors(void)
-	{
-		unsigned long l;
-		const char* file;
-		const char* data;
-		int line, flags;
-		char buf[256];
-		
-		while ((l = ERR_get_error_line_data(&file,&line,&data,&flags)) != 0) 
-			{
-				ERR_error_string_n(l, buf, sizeof(buf));
-				fprintf(stderr, "%s(%d):%s:%s\n", file, line, buf,
-						(flags & ERR_TXT_STRING) ? data : "");
-			}
-	}
-
 
 	bool
 	absolute_pathname(const char* pathname, string& to_this)
@@ -284,4 +267,65 @@ extern "C" {
 		} else
 			return(0);
 	}
+
+	int
+	iterate_files(const char* in_directory,
+				  const char* matching_names,
+				  maemosec_callback* cb_func,
+				  void* ctx)
+	{
+		DIR* dh;
+		unsigned char dir_d_type = '\0';
+		struct dirent* entry;
+		int rc, res, count = 0;
+		regex_t name_pattern;
+		char ebuf[100];
+
+		if (!cb_func || !in_directory)
+			return(0 - EINVAL);
+
+		if (matching_names) {
+			rc = regcomp(&name_pattern, matching_names, REG_NOSUB);
+			if (0 != rc) {
+				res = regerror(rc, &name_pattern, ebuf, sizeof(ebuf));
+				MAEMOSEC_ERROR("'%s' invalid regex %s (%d)", matching_names, ebuf, res);
+				regfree(&name_pattern);
+				return(0 - EINVAL);
+			}
+		}
+
+		dh = opendir(in_directory);
+		if (NULL == dh)
+			return(0 - errno);
+	
+		while (NULL != (entry = readdir(dh))) {
+			/*
+			 * The first entry should always be the reference to
+			 * the directory itself. From that we get the d_type
+			 * value for directories. Don't want to fix it, as 
+			 * man readdir says that it varies.
+			 */
+			if (0 == strcmp(".", entry->d_name))
+				dir_d_type = entry->d_type;
+			else if (entry->d_type != dir_d_type) {
+				if (matching_names) {
+					rc = regexec(&name_pattern, entry->d_name, 0, NULL, 0);
+					MAEMOSEC_DEBUG(2, "regexec of '%s'(%hd) returned %d", 
+								   entry->d_name, entry->d_type, rc);
+				} else
+					rc = 0;
+				if (0 == rc) {
+					res = cb_func(count, entry->d_name, ctx);
+					if (res)
+						break;
+					count++;
+				}
+			}
+		}
+		closedir(dh);
+		if (matching_names)
+			regfree(&name_pattern);
+		return(res);
+	}
+
 }

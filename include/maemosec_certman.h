@@ -14,6 +14,7 @@
 
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+#include "maemosec_common.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -47,6 +48,9 @@ extern "C" {
 	 * opened.
 	 */
 #define MAEMOSEC_CERTMAN_DOMAIN_NONE (void*)(0)
+
+	#define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
+	typedef unsigned char maemosec_key_id [MAEMOSEC_KEY_ID_LEN];
 
 
 /// \name General certificate management functions
@@ -87,6 +91,23 @@ extern "C" {
 	//@{
 
 	/**
+	 * \brief Get a list of existing domains
+	 * \param flags (in) the type of domains to iterate (shared, private)
+	 * \param cb_func (in) a callback function called once for each
+	 *        domain. Parameters: order number, domain name, domain type 
+	 *        and userdata pointer.
+	 * \param ctx (in) a void pointer passed to the callback function
+	 * \return if >= 0, the index where iteration terminated,
+	 *         if < 0, an error code
+	 * \warning If you modify the domain inside the callback function
+	 *        with "add cert" or "rm cert", the results may be quite unpredictable.
+	 *        So don't.
+	 */
+	int maemosec_certman_iterate_domains(int flags,
+										 maemosec_callback* cb_func,
+										 void* ctx);
+
+	/**
 	 * \brief Open an existing domain or create a new one
 	 * \param domain_name (in) logical name of the domain
 	 * \param flags (in) type of domain to open/create (see MAEMOSEC_CD_* flags)
@@ -98,7 +119,7 @@ extern "C" {
 									 domain_handle* handle);
 
 	/**
-	 * \brief Iterate through a domain
+	 * \brief Iterate through all certificates in a domain
 	 * \param the_domain (in) a handle to the domain returned by 
 	 *        \ref maemosec_certman_open_domain
 	 * \param cb_func (in) a callback function called once for each
@@ -116,9 +137,14 @@ extern "C" {
 	 *        with "add cert" or "rm cert", the results may be quite unpredictable.
 	 *        So don't.
 	 */
-	int maemosec_certman_iterate_domain(domain_handle the_domain, 
-										int cb_func(int,X509*,void*), 
-										void* ctx);
+	int maemosec_certman_iterate_certs(domain_handle the_domain, 
+									   int cb_func(int, X509*, void*), 
+									   void* ctx);
+
+
+	int maemosec_certman_load_cert(domain_handle the_domain, 
+								   maemosec_key_id with_id, 
+								   X509** cert);
 
 	/**
 	 * \brief Add a certificate into the domain
@@ -161,9 +187,6 @@ extern "C" {
 	 * TODO: Documentation
 	 */
 
-	#define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
-	typedef unsigned char maemosec_key_id [MAEMOSEC_KEY_ID_LEN];
-
 	int maemosec_certman_get_key_id(X509* of_cert, maemosec_key_id to_this);
 
 	int maemosec_certman_store_key(maemosec_key_id with_id, 
@@ -174,8 +197,7 @@ extern "C" {
 									  EVP_PKEY** the_key, 
 									  char* with_passwd);
 
-	int maemosec_certman_iterate_keys(int cb_func(int,maemosec_key_id with_id,void*), 
-									  void* ctx);
+	int maemosec_certman_iterate_keys(maemosec_callback* cb_func, void* ctx);
 
 
 //@}

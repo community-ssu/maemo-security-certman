@@ -43,7 +43,7 @@ using namespace maemosec;
  * Storage name prefix and directory names
  */
 
-static const char cert_storage_prefix [] = "certman.";
+static const char cert_storage_prefix [] = "certman";
 static const char common_cert_dir     [] = "/etc/certs";
 static const char priv_cert_dir       [] = ".maemosec-certs";
 static const char priv_keys_dir       [] = ".maemosec-keys";
@@ -83,14 +83,12 @@ verify_cert(X509_STORE* ctx, X509* cert)
 	csc = X509_STORE_CTX_new();
 	if (csc == NULL) {
 		MAEMOSEC_ERROR("cannot create new context");
-		print_openssl_errors();
 		return(false);
 	}
 
 	rc = X509_STORE_CTX_init(csc, ctx, cert, NULL);
 	if (rc == 0) {
 		MAEMOSEC_ERROR("cannot initialize new context");
-		print_openssl_errors();
 		return(false);
 	}
 
@@ -201,6 +199,7 @@ local_storage_dir(string& to_this, const char* subarea)
 	string curbinname;
 
 	to_this.assign(GETENV("HOME",""));
+	
 	to_this.append(PATH_SEP);
 	to_this.append(subarea);
 	to_this.append(PATH_SEP);
@@ -222,6 +221,7 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 	if (MAEMOSEC_CERTMAN_DOMAIN_PRIVATE == flags) {
 		// Make private name
 		local_storage_dir(dirname, priv_cert_dir);
+		storename.insert(0, ".");
 		storename.insert(0, cert_storage_prefix);
 		if (domain_name) {
 			dirname.append(domain_name);
@@ -230,6 +230,7 @@ decide_storage_name(const char* domain_name, int flags, string& dirname, string&
 		MAEMOSEC_DEBUG(1, "\ndirname  = %s\nstorename = %s", dirname.c_str(), storename.c_str());
 	} else {
 		storename.assign(domain_name);
+		storename.insert(0, ".");
 		storename.insert(0, cert_storage_prefix);
 		dirname.assign(common_cert_dir);
 		dirname.append(PATH_SEP);
@@ -402,6 +403,51 @@ store_key_to_file(maemosec_key_id key_id, EVP_PKEY* key, char* passwd)
 
 
 static int
+return_pem_password(char* to_buf, int size, int rwflag, void* userdata)
+{
+	const char* password = (const char*) userdata;
+	if (!password)
+		return(-1);
+	if (strlen(password) > size)
+		return(-EINVAL);
+	strcpy(to_buf, password);
+	return(strlen(password));
+}
+
+
+static int
+read_key_from_file(maemosec_key_id key_id, EVP_PKEY** key, char* passwd)
+{
+	string storage_file_name;
+	FILE* infile;
+	int rc;
+
+	local_storage_dir(storage_file_name, priv_keys_dir);
+	create_directory(storage_file_name.c_str(), PRIVATE_DIR_MODE);
+	append_hex(storage_file_name, key_id, MAEMOSEC_KEY_ID_LEN);
+	storage_file_name.append(".pem");
+
+	infile = fopen(storage_file_name.c_str(), "r");
+	if (infile) {
+		chmod(storage_file_name.c_str(), S_IRUSR | S_IWUSR);
+		*key = d2i_PKCS8PrivateKey_fp(infile, NULL, return_pem_password, passwd);
+		if (*key) {
+			MAEMOSEC_DEBUG(1, "Retrieved key from '%s'", storage_file_name.c_str());
+		} else {
+			MAEMOSEC_ERROR("Cannot retrieve key from '%s'", 
+						   storage_file_name.c_str());
+		}
+		fclose(infile);
+		return(0);
+	} else {
+		MAEMOSEC_ERROR("Cannot open '%s' (%s)", storage_file_name.c_str(),
+					   strerror(errno));
+		return(errno);
+	}
+}
+
+
+static int
 x509_equals(int pos, X509* cert, void* with_cert)
 {
 #if 1
@@ -441,6 +487,11 @@ maemosec_certman_int_init(void)
 
 // Visible part
 extern "C" {
+
+	typedef struct cb_relay_par {
+		void* o_ctx;
+		maemosec_callback* cb_func;
+	};
 
 	int 
 	maemosec_certman_open(X509_STORE** my_cert_store)
@@ -551,7 +602,7 @@ extern "C" {
 	}
 
 	int 
-	maemosec_certman_iterate_domain(
+	maemosec_certman_iterate_certs(
 		domain_handle the_domain, 
 		int cb_func(int,X509*,void*), 
 		void* ctx)
@@ -603,7 +654,7 @@ extern "C" {
 		if (!to_domain || !cert)
 			return(EINVAL);
 
-		pos = maemosec_certman_iterate_domain(to_domain, x509_equals, cert);
+		pos = maemosec_certman_iterate_certs(to_domain, x509_equals, cert);
 		if (pos < maemosec_certman_nbrof_certs(to_domain)) {
 			MAEMOSEC_DEBUG(0,"The certificate is already in the domain");
 			return(EEXIST);
@@ -685,67 +736,58 @@ extern "C" {
 							   EVP_PKEY** the_key, 
 							   char* with_passwd)
 	{
+		return(read_key_from_file(with_id, the_key, with_passwd));
 	}
 
-	int
-	maemosec_certman_iterate_keys(int cb_func(int,maemosec_key_id with_id,void*), 
-								  void* ctx)
+	static int
+	cb_relay(int ord_nr, void* filename, void* ctx)
 	{
-		DIR* keys_dir;
+		maemosec_key_id key_id;
+		struct cb_relay_par *pars = (struct cb_relay_par*) ctx;
+		hex_to_key_id((const char*)filename, key_id);
+		return(pars->cb_func(ord_nr, key_id, pars->o_ctx));
+	}
+
+
+	int
+	maemosec_certman_iterate_keys(maemosec_callback* cb_func, void* ctx)
+	{
 		string keystore_name;
 		string name_expression;
-		struct dirent* entry;
-		regex_t name_pattern;
-		maemosec_key_id key_id;
-		size_t pos;
-		int rc, res, count = 0;
-		char ebuf[100];
-		
-		if (!cb_func)
-			return(-EINVAL);
-		
-		/*
-		 * The key file name is matched by a regular expression.
-		 * Remember to update this if the naming scheme is changed.
-		 */
+		struct cb_relay_par relay_pars;
+
 		name_expression = "^";
 		for (int i = 0; i < MAEMOSEC_KEY_ID_LEN; i++)
 			name_expression.append("[0-9a-f][0-9a-f]");
 		name_expression.append("\\.pem$");
-		rc = regcomp(&name_pattern, name_expression.c_str(), REG_NOSUB);
-		MAEMOSEC_DEBUG(2, "regcomp of '%s' returned %d", name_expression.c_str(), rc);
-		if (0 != rc) {
-			pos = regerror(rc, &name_pattern, ebuf, sizeof(ebuf));
-			MAEMOSEC_DEBUG(2, "regcomp error %s (%d)", ebuf, pos);
-			regfree(&name_pattern);
-			return(-1);
-		}
-
-		/*
-		 * Open ~/.keys directory
-		 */
 		local_storage_dir(keystore_name, priv_keys_dir);
-		keys_dir = opendir(keystore_name.c_str());
-		if (NULL == keys_dir) {
-			regfree(&name_pattern);
-			return(-1);
-		}
-
-		while (NULL != (entry = readdir(keys_dir))) {
-			rc = regexec(&name_pattern, entry->d_name, 0, NULL, 0);
-			MAEMOSEC_DEBUG(2, "regexec of '%s'(%hd) returned %d", 
-						   entry->d_name, entry->d_type, rc);
-			if (0 == rc) {
-				hex_to_key_id(entry->d_name, key_id);
-				res = cb_func(count, key_id, ctx);
-				if (res)
-					break;
-				count++;
-			}
-		}
-		closedir(keys_dir);
-		regfree(&name_pattern);
-		return(count);
+		relay_pars.o_ctx = ctx;
+		relay_pars.cb_func = cb_func;
+		return(iterate_files(keystore_name.c_str(), 
+							 name_expression.c_str(), 
+							 cb_relay, 
+							 &relay_pars));
 	}
+
+	int
+	maemosec_certman_iterate_domains(int flags,
+									 maemosec_callback* cb_func,
+									 void* ctx)
+	{
+		storage::visibility_t vis;
+		string storage_names = cert_storage_prefix;
+
+		storage_names.assign(cert_storage_prefix);
+		storage_names.append("\\..*");
+		if (MAEMOSEC_CERTMAN_DOMAIN_SHARED == flags)
+			vis = storage::vis_shared;
+		else if (MAEMOSEC_CERTMAN_DOMAIN_PRIVATE == flags)
+			vis = storage::vis_private;
+		else
+			return(0 - EINVAL);
+		return(iterate_storage_names(vis, storage::prot_signed, 
+									 storage_names.c_str(), cb_func, ctx));
+	}
+
 
 } // extern "C"

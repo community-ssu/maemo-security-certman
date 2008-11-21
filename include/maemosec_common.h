@@ -73,9 +73,6 @@ extern "C" {
 	 */
 	#define PATH_SEP "/"
 
-	void print_openssl_errors(void);
-
-
     /**
 	 * \brief Test if a file exists
 	 * \param name (in) filename
@@ -100,6 +97,13 @@ extern "C" {
 	 *          code otherwise
 	 */
 	int create_directory(const char* path, int mode);
+
+	typedef int maemosec_callback(int nbr, void* item, void* context);
+
+	int	iterate_files(const char* in_directory,
+					  const char* matching_names,
+					  maemosec_callback* cb_func,
+					  void* ctx);
 
 	/**
 	 * \brief Send a debug or error message to the dlog

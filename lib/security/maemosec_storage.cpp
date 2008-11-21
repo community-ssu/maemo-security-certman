@@ -89,6 +89,46 @@ hex2bin(char* hex2str)
 }
 
 
+static int
+get_storage_directory(storage::visibility_t visibility, 
+					  storage::protection_t protection, 
+					  string& dir_name) 
+{
+	int rc, access_mode;
+
+	if (visibility == storage::vis_shared) {
+		dir_name.assign(sec_shared_root);
+		access_mode = 0755;
+
+	} else if (visibility == storage::vis_private) {
+		dir_name.assign(GETENV("HOME",""));
+		if (dir_name.empty()) {
+			MAEMOSEC_ERROR("home not defined");
+			return(EINVAL);
+		}
+		dir_name.append(PATH_SEP);
+		dir_name.append(sec_private_root);
+		access_mode = 0700;
+	}
+
+	dir_name.append(PATH_SEP);
+	if (protection == storage::prot_signed) 
+		dir_name.append("s");
+	else if (protection == storage::prot_encrypted)
+		dir_name.append("e");
+
+	if (!directory_exists(dir_name.c_str())) {
+		rc = create_directory(dir_name.c_str(), access_mode);
+		if (0 != rc) {
+			MAEMOSEC_ERROR("cannot create directory '%s'", dir_name.c_str());
+			return(rc);
+		} else
+			MAEMOSEC_DEBUG(1, "Created directory '%s'", dir_name.c_str());
+	}
+
+	return(0);
+}
+
 
 void
 storage::init_storage(const char* name, visibility_t visibility, protection_t protection) 
@@ -99,6 +139,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 	ssize_t len, rlen;
 	EVP_MD_CTX vfctx;
 	EVP_PKEY* pubkey = NULL;
+	const char* type_prefix;
 
 	m_name = name;
 	m_symkey = NULL;
@@ -114,48 +155,23 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		MAEMOSEC_ERROR("Cannot get public key");
 		return;
 	}
-
-	// Decide the filename
-	switch (visibility)
-	{
-	case vis_shared:
-		m_filename.assign(sec_shared_root);
-		if (!directory_exists(m_filename.c_str())) {
-			if (0 != create_directory(m_filename.c_str(), 0755)) {
-				MAEMOSEC_ERROR("cannot create '%s'", m_filename.c_str());
-				return;
-			}
-		}
-		m_filename.append(PATH_SEP);
-		m_filename.append(name);
-		break;
-
-	case vis_private:
-		m_filename.assign(GETENV("HOME",""));
-		m_filename.append(PATH_SEP);
-		m_filename.append(sec_private_root);
-		if (!directory_exists(m_filename.c_str())) {
-			if (0 != create_directory(m_filename.c_str(), 0700)) {
-				MAEMOSEC_ERROR("cannot create '%s'", m_filename.c_str());
-				return;
-			}
-		}
-		m_filename.append(PATH_SEP);
-		m_filename.append(name);
-		break;
-
-	default:
-		// Not possible!
-		MAEMOSEC_ERROR("what hell?");
+	if (0 != get_storage_directory(visibility, protection, m_filename)) {
+		MAEMOSEC_ERROR("Cannot bind storage '%s' to file", m_filename.c_str());
+		return;
 	}
-
-	MAEMOSEC_DEBUG(1,"Storage name is '%s'", m_filename.c_str());
+	m_filename.append(PATH_SEP);
+	m_filename.append(name);
 	data = map_file(m_filename.c_str(), O_RDONLY, &fd, &len, &rlen);
 
 	if (MAP_FAILED == data) {
+		/*
+		 * File does not exist yet.
+		 */
 		if (prot_encrypted == m_prot) {
-			// Generate a new symmetric key and encrypt it by using
-			// the BB5 public key
+			/*
+			 * Generate a new symmetric key and encrypt it by using
+			 * the BB5 public key
+			 */
 			RSA *rsakey = NULL;
 
 			if (EVP_PKEY_RSA == EVP_PKEY_type(pubkey->type)) 
@@ -1141,4 +1157,19 @@ const char*
 storage::filename(void)
 {
 	return(m_filename.c_str());
+}
+
+
+int
+iterate_storages(storage::visibility_t of_visibility, 
+				 storage::protection_t of_protection, 
+				 const char* matching_names,
+				 maemosec_callback* cb_func,
+				 void* ctx)
+{
+	string directory_name;
+	
+	if (0 != get_storage_directory(of_visibility, of_protection, directory_name))
+		return(-ENOENT);
+	return (iterate_files(directory_name.c_str(), matching_names, cb_func, ctx));
 }

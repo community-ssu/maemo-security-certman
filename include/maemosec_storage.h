@@ -33,6 +33,8 @@
 #include <map>
 using namespace std;
 
+#include "maemosec_common.h"
+
 /**
  * \namespace maemosec_sec
  * \brief Namespace maemosec_sec means "NGSW Security"
@@ -53,19 +55,19 @@ namespace maemosec {
 	public:
 
 		/**
-		 * \brief The protection level of a storage. Defined
-		 * when a storage is created and cannot be changed
-		 * afterwards.
-		 */
-		typedef enum {prot_signed, prot_encrypted} protection_t;
-
-		/**
 		 * \brief The visibility of a storage. Defined
 		 * when a storage is created and cannot be changed
 		 * afterwards.
 		 */
 		typedef enum {vis_shared, vis_private} visibility_t;
 		
+		/**
+		 * \brief The protection level of a storage. Defined
+		 * when a storage is created and cannot be changed
+		 * afterwards.
+		 */
+		typedef enum {prot_signed, prot_encrypted} protection_t;
+
 		/**
 		 * \brief Create a new storage or open an existing one
 		 * \param name (in) The logical name of the storage
@@ -117,12 +119,12 @@ namespace maemosec {
 		 * \param to_buf (out) The buffer where the 
 		 * file contents are copied. Decryption is done
 		 * automatically if needed. The parameter
-		 * needs not to have any value at entry. Use 
-		 * \see release_buffer to release the returned
-		 * buffer after use.
-		 * \param bytes (out) The number of bytes available
-		 * in the buffer.
+		 * needs not to have any value at entry.
+		 * \param bytes (out) The number of bytes read,
+		 * equals the file size.
 		 * \returns 0 on success, otherwise an error code
+		 * Use \see release_buffer to release the returned
+		 * buffer after use.
 		 */
 		int get_file(const char* pathname, 
 					 unsigned char** to_buf, 
@@ -196,6 +198,12 @@ namespace maemosec {
 		ssize_t encrypted_length(ssize_t of_data);
 
 	};
+
+	int iterate_storage_names(storage::visibility_t of_visibility, 
+							  storage::protection_t of_protection, 
+							  const char* name_expression,
+							  maemosec_callback* cb_func,
+							  void* ctx);
 
 };
 
