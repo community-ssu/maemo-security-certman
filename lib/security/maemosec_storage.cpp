@@ -1161,11 +1161,11 @@ storage::filename(void)
 
 
 int
-iterate_storages(storage::visibility_t of_visibility, 
-				 storage::protection_t of_protection, 
-				 const char* matching_names,
-				 maemosec_callback* cb_func,
-				 void* ctx)
+storage::iterate_storage_names(storage::visibility_t of_visibility, 
+					  storage::protection_t of_protection, 
+					  const char* matching_names,
+					  maemosec_callback* cb_func,
+					  void* ctx)
 {
 	string directory_name;
 	

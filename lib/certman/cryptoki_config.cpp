@@ -269,9 +269,9 @@ extern "C" {
 		if (sess->certs == NULL) {
 			certs = new(cstore);
 			sess->certs = certs;
-			maemosec_certman_iterate_domain(sess->cmdomain, 
-										cb_copy_cert,
-										sess->certs);
+			maemosec_certman_iterate_certs(sess->cmdomain, 
+										   cb_copy_cert,
+										   sess->certs);
 		} else {
 			certs = (cstore*)sess->certs;
 		}

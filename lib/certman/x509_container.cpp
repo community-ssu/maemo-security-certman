@@ -3,8 +3,6 @@
 
 #include "x509_container.h"
 
-void print_openssl_errors(void);
-
 namespace maemosec {
 
 	x509_container::x509_container(const char* pathname)
@@ -21,7 +19,6 @@ namespace maemosec {
 				analyze_cert();
 			else {
 				MAEMOSEC_ERROR("cannot load certificate from '%s'", pathname);
-				print_openssl_errors();
 			}
 		} else
 			MAEMOSEC_ERROR("cannot find file '%s' (%d)", pathname, errno);

@@ -7,11 +7,12 @@
 #ifndef CRYPTOKI_CONFIG_H
 #define CRYPTOKI_CONFIG_H
 
+#include <maemosec_certman.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#include <maemosec_certman.h>
 #include "cryptoki_module.h"
 
 CK_RV read_config(CK_ULONG* nrof_slots, 

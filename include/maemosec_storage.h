@@ -175,6 +175,11 @@ namespace maemosec {
 		const char* filename();
 
 		  
+		static int iterate_storage_names(storage::visibility_t of_visibility, 
+							  storage::protection_t of_protection, 
+							  const char* matching_names,
+							  maemosec_callback* cb_func,
+							  void* ctx);
 
 	private:
 		protection_t m_prot;
@@ -199,11 +204,6 @@ namespace maemosec {
 
 	};
 
-	int iterate_storage_names(storage::visibility_t of_visibility, 
-							  storage::protection_t of_protection, 
-							  const char* name_expression,
-							  maemosec_callback* cb_func,
-							  void* ctx);
 
 };
 

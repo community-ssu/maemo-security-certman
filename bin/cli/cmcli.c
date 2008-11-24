@@ -13,10 +13,14 @@
 
 
 #include <stdio.h>
+#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 
 #include <openssl/pem.h>
+#include <openssl/pkcs12.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
 
 /**
  * \def sk_STORE_OBJECT_num(st)
@@ -43,7 +47,7 @@ extern int debug_level;
 static int force_opt = 0;
 
 /*
- * Utilities. Should be added to libmaemosec_certman0
+ * Utilities. Should maybe be added to libmaemosec_certman0
  */
 static int
 report_openssl_error(const char* str, size_t len, void* u)
@@ -56,19 +60,21 @@ report_openssl_error(const char* str, size_t len, void* u)
 	return(0);
 }
 
+typedef enum {ft_x509_pem, ft_x509_der, ft_x509_sig, ft_pkcs12, ft_unknown} ft_filetype;
 
-static const char*
+static ft_filetype
 determine_filetype(FILE* fp, void** idata)
 {
 	X509* cert;
 	PKCS12* cont;
 	X509_SIG* ekey;
 
+	*idata = NULL;
 	rewind(fp);
 	cert = PEM_read_X509(fp, NULL, 0, NULL);
 	if (cert) {
 		*idata = (void*)cert;
-		return("X509-PEM");
+		return(ft_x509_pem);
 	} else
 		MAEMOSEC_DEBUG(1, "Not a PEM file");
 
@@ -76,28 +82,27 @@ determine_filetype(FILE* fp, void** idata)
 	cert = d2i_X509_fp(fp, NULL);
 	if (cert) {
 		*idata = (void*)cert;
-		return("X509-DER");
+		return(ft_x509_der);
 	} else
 		MAEMOSEC_DEBUG(1, "Not a DER file");
+
+	rewind(fp);
+	ekey = d2i_PKCS8_fp(fp, NULL);
+	if (ekey) {
+		*idata = (void*)ekey;
+		return(ft_x509_sig);
+	} else
+		MAEMOSEC_DEBUG(1, "Not a PKCS8 file");
 
 	rewind(fp);
 	cont = d2i_PKCS12_fp(fp, NULL);
 	if (cont) {
 		*idata = (void*)cont;
-		return("PKCS12");
+		return(ft_pkcs12);
 	} else
 		MAEMOSEC_DEBUG(1, "Not a PKCS12 file");
 
-	rewind(fp);
-
-	ekey = d2i_PKCS8_fp(fp, NULL);
-	if (cont) {
-		*idata = (void*)ekey;
-		return("PKCS8");
-	} else
-		MAEMOSEC_DEBUG(1, "Not a PKCS8 file");
-
-	return("Unknown");
+	return(ft_unknown);
 }
 
 
@@ -107,13 +112,14 @@ usage(void)
 	printf(
 		"Usage:\n"
 		"cmcli [-t <domain>[:<domain>...]] [-<c|p> <domain>] -a <cert-file>\n"
-		"       -v <cert-file> -r <num> [-D*] [-L] [-f]\n"
+		"       -i <pkcs12-file> -v <cert-file> -r <num> [-D*] [-L] [-f]\n"
 		" -T to specify shared domains of trusted signing certificates\n"
-		" -t to specify private domains of trusted signing certificates\n"
 		" -v to verify a certificate against the trusted domains\n"
+		" -t to specify private domains of trusted signing certificates\n"
 		" -c to open/create a shared domain for modifications\n"
 		" -p to open/create a private domain for modifications\n"
 		" -a to add a certificate to the given domain\n"
+		" -i to install a PKCS12 container or a single private key\n"
 		" -r to remove the nth certificate from the given domain\n"
 		" -L to list all certificates and keys\n"
 		" -D, -DD... to increase level of debug info shown\n"
@@ -123,7 +129,7 @@ usage(void)
 
 
 static void
-print_key_id(maemosec_key_id key_id, const char* to_buf, unsigned max_len)
+print_key_id(maemosec_key_id key_id, char* to_buf, unsigned max_len)
 {
 	unsigned i;
 
@@ -171,7 +177,7 @@ show_cert(int pos, X509* cert, void* x)
 
 
 static int
-show_key(int pos, maemosec_key_id key_id, void* ctx)
+show_key(int pos, void* key_id, void* ctx)
 {
 	char keybuf[64];
 	print_key_id(key_id, keybuf, sizeof(keybuf));
@@ -264,7 +270,6 @@ get_cert(const char* from_file)
 static int
 add_cert_to_domain(domain_handle to_domain, X509* cert, X509_STORE* to_certs)
 {
-	X509* my_cert;
 	char buf[255], *name;
 	int rc;
 
@@ -298,6 +303,100 @@ add_cert_to_domain(domain_handle to_domain, X509* cert, X509_STORE* to_certs)
 	}
 }
 
+
+void
+ask_password(char* to_buf, size_t maxlen)
+{
+	int c;
+	size_t pos = 0;
+	printf("Give password: ");
+	do {
+		c = fgetc(stdin);
+		switch (c)
+			{
+			case '\n':
+			case '\r':
+			case -1:
+				*(to_buf + pos) = '\0';
+				return;
+			case '\b':
+				if (pos) {
+					pos--;
+				} else {
+					putchar('\a');
+				}
+				break;
+			default:
+				if (pos < maxlen) {
+					*(to_buf + pos) = c;
+					pos++;
+				} else {
+					putchar('\a');
+				}
+				break;
+			}
+	} while (1);
+	printf("\n");
+}
+
+
+static int
+install_private_key(X509_SIG* pkey)
+{
+	X509_SIG_free(pkey);
+	return(0);
+}
+
+
+static int
+install_pkcs12(PKCS12* cont)
+{
+	char password[20];
+
+	ask_password(password, sizeof(password));
+	MAEMOSEC_DEBUG(1, "Gave password '%s'", password);
+	PKCS12_free(cont);
+	return(0);
+}
+
+
+static int
+install_file(const char* filename)
+{
+	FILE* fp = fopen(filename, "r");
+	ft_filetype ft;
+	void* idata = NULL;
+	int rc = 0;
+
+	if (!fp) {
+		fprintf(stderr, "ERROR: cannot open file '%s' (%s)\n",
+				filename, strerror(errno));
+	}
+	ft = determine_filetype(fp, &idata);
+	switch (ft) 
+		{
+		case ft_x509_pem:
+		case ft_x509_der:
+			fprintf(stderr, "Use -a switch to add certificates\n");
+			X509_free((X509*)idata);
+			rc = EINVAL;
+			break;
+
+		case ft_x509_sig:
+			rc = install_private_key((X509_SIG*)idata);
+			break;
+			
+		case ft_pkcs12:
+			rc = install_pkcs12((PKCS12*)idata);
+			break;
+		default:
+			rc = EINVAL;
+		}
+	fclose(fp);
+	return(rc);
+}
+
+
 typedef enum {cmd_add, cmd_verify, cmd_none} multi_arg_cmd;
 
 /**
@@ -318,6 +417,8 @@ main(int argc, char* argv[])
 		usage();
 		return(-1);
 	}
+
+	ERR_print_errors_cb(report_openssl_error, NULL);
 
 	rc = maemosec_certman_open(&certs);
 	if (rc != 0) {
@@ -456,7 +557,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 'i':
-			install_file(get_cert(optarg));
+			install_file(optarg);
 			break;
 
 		default:

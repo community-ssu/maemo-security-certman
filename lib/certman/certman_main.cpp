@@ -485,6 +485,21 @@ maemosec_certman_int_init(void)
 }
 
 
+static int
+local_iterate_storage_names(storage::visibility_t of_visibility, 
+							storage::protection_t of_protection, 
+							const char* matching_names,
+							maemosec_callback* cb_func,
+							void* ctx)
+{
+	return(storage::iterate_storage_names(of_visibility, 
+								 of_protection, 
+								 matching_names,
+								 cb_func, 
+								 ctx));
+}
+
+
 // Visible part
 extern "C" {
 
@@ -769,6 +784,7 @@ extern "C" {
 							 &relay_pars));
 	}
 
+
 	int
 	maemosec_certman_iterate_domains(int flags,
 									 maemosec_callback* cb_func,
@@ -785,9 +801,11 @@ extern "C" {
 			vis = storage::vis_private;
 		else
 			return(0 - EINVAL);
-		return(iterate_storage_names(vis, storage::prot_signed, 
-									 storage_names.c_str(), cb_func, ctx));
+		return(local_iterate_storage_names(vis, 
+										   storage::prot_signed, 
+										   storage_names.c_str(), 
+										   cb_func, 
+										   ctx));
 	}
-
 
 } // extern "C"
