@@ -16,6 +16,8 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <termios.h>
+#include <sys/ioctl.h>
 
 #include <openssl/pem.h>
 #include <openssl/pkcs12.h>
@@ -305,20 +307,31 @@ add_cert_to_domain(domain_handle to_domain, X509* cert, X509_STORE* to_certs)
 
 
 void
-ask_password(char* to_buf, size_t maxlen)
+get_input(char* to_buf, size_t maxlen, int hidden)
 {
 	int c;
 	size_t pos = 0;
-	printf("Give password: ");
+	struct termios old_io, new_io;
+
+	/*
+	 * Turn off echo
+	 */
+	if (hidden) {
+		ioctl(0, TCGETS, &old_io);
+		new_io = old_io;
+		new_io.c_lflag &= ~ECHO;
+		ioctl(0, TCSETS, &new_io);
+	}
+
 	do {
 		c = fgetc(stdin);
 		switch (c)
 			{
 			case '\n':
 			case '\r':
-			case -1:
+			case EOF:
 				*(to_buf + pos) = '\0';
-				return;
+				goto done;
 			case '\b':
 				if (pos) {
 					pos--;
@@ -336,14 +349,26 @@ ask_password(char* to_buf, size_t maxlen)
 				break;
 			}
 	} while (1);
-	printf("\n");
+
+ done:
+	if (hidden)
+		ioctl(0, TCSETS, &old_io);
 }
 
 
 static int
 install_private_key(X509_SIG* pkey)
 {
+	printf("%s\n", "Not implemented yet.");
 	X509_SIG_free(pkey);
+	return(0);
+}
+
+
+static int
+show_storage_name(int ordnr, void* data, void* ctx)
+{
+	printf("\t%s\n", (char*)data);
 	return(0);
 }
 
@@ -351,10 +376,102 @@ install_private_key(X509_SIG* pkey)
 static int
 install_pkcs12(PKCS12* cont)
 {
-	char password[20];
+	char password[64] = "";
+	char storename[64] = "";
+	EVP_PKEY *pkey;
+	X509 *ucert;
+	STACK_OF(X509) *cas = NULL;
+	int success, rc;
+	domain_handle user_domain, cas_domain;
 
-	ask_password(password, sizeof(password));
-	MAEMOSEC_DEBUG(1, "Gave password '%s'", password);
+	success = PKCS12_verify_mac(cont, NULL, 0);
+	if (success)
+		success = PKCS12_parse(cont, NULL, &pkey, &ucert, &cas);
+	else {
+		printf("%s\n", "The file is encrypted.");
+		do {
+			success = PKCS12_verify_mac(cont, password, strlen(password));
+			if (0 == success) {
+				printf("%s: ", "Give password");
+				get_input(password, sizeof(password), 1);
+				printf("\n");
+			}
+		} while (0 == success);
+	}
+
+	success = PKCS12_parse(cont, password, &pkey, &ucert, &cas);
+	if (0 == success) {
+		printf("%s\n", "ERROR: could not parse container. Quit.");
+		goto done;
+	}
+
+	if (pkey && ucert) {
+		maemosec_key_id key_id;
+		printf("%s\n", "User certificate and private key detected");
+		if (0 == maemosec_certman_get_key_id(ucert, key_id)) {
+			printf("%s\n", "Writable certificate stores:");
+			maemosec_certman_iterate_domains(MAEMOSEC_CERTMAN_DOMAIN_PRIVATE, 
+											 show_storage_name,
+											 NULL);
+			printf("%s: ", "Give store name for user certificate");
+			get_input(storename, sizeof(storename), 0);
+
+			rc = maemosec_certman_open_domain(storename, 
+											  MAEMOSEC_CERTMAN_DOMAIN_PRIVATE, 
+											  &user_domain);
+
+			if (0 == rc) {
+				rc = maemosec_certman_add_cert(user_domain, ucert);
+				if (0 == rc)
+					printf("Added user certificate to '%s'\n", storename);
+				else
+					printf("ERROR: could not add user certificate to '%s' (%d)\n", 
+						   storename, rc);
+
+				maemosec_certman_close_domain(user_domain);
+
+				rc = maemosec_certman_store_key(key_id, pkey, password);
+				if (0 == rc)
+					printf("Saved private key\n");
+				else
+					printf("ERROR: could not save private key (%d)\n", rc);
+			}
+		}
+		X509_free(ucert);
+		EVP_PKEY_free(pkey);
+	}
+
+	if (cas) {
+		printf("%d CA certificates detected\n", sk_X509_num(cas));
+		printf("%s\n", "Writable certificate stores:");
+		maemosec_certman_iterate_domains(MAEMOSEC_CERTMAN_DOMAIN_PRIVATE, 
+										 show_storage_name,
+										 NULL);
+		printf("%s: ", "Give store name for CA certificates");
+
+		get_input(storename, sizeof(storename), 0);
+
+		rc = maemosec_certman_open_domain(storename, 
+										  MAEMOSEC_CERTMAN_DOMAIN_PRIVATE, 
+										  &cas_domain);
+
+		if (0 == rc) {
+			int i;
+			for (i = 0; i < sk_X509_num(cas); i++) {
+				X509* cacert = sk_X509_value(cas, i);
+				rc = maemosec_certman_add_cert(cas_domain, cacert);
+				if (0 == rc)
+					printf("Added CA certificate to '%s'\n", storename);
+				else
+					printf("ERROR: could not add CA certificate to '%s' (%d)\n", 
+						   storename, rc);
+			}
+			maemosec_certman_close_domain(cas_domain);
+		}
+		sk_X509_free(cas);
+	}
+	
+ done:						  
 	PKCS12_free(cont);
 	return(0);
 }

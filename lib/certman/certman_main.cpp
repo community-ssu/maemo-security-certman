@@ -473,6 +473,7 @@ x509_equals(int pos, X509* cert, void* with_cert)
 #endif
 }
 
+
 static void
 maemosec_certman_int_init(void)
 {
@@ -508,6 +509,7 @@ extern "C" {
 		maemosec_callback* cb_func;
 	};
 
+
 	int 
 	maemosec_certman_open(X509_STORE** my_cert_store)
 	{
@@ -517,10 +519,15 @@ extern "C" {
 		bb5_init();
 		*my_cert_store = X509_STORE_new();
 		bb5cert = bb5_get_cert(0);
+#if 0
+		// This is really a el-gamal key or something like that
+		// so don't store it
 		if (bb5cert)
 			X509_STORE_add_cert(*my_cert_store, bb5cert);
+#endif
 		return(0);
 	}
+
 
 	int maemosec_certman_collect(const char* domain, int shared, X509_STORE* my_cert_store)
 	{
@@ -574,6 +581,7 @@ extern "C" {
 		return(0);
 	}
 
+
 	int
 	maemosec_certman_close(X509_STORE* my_cert_store)
 	{
@@ -581,6 +589,7 @@ extern "C" {
 		bb5_finish();
 		return(0);
 	}
+
 
 	int 
 	maemosec_certman_open_domain(const char* domain_name, 
@@ -616,6 +625,7 @@ extern "C" {
 			return(-1);
 	}
 
+
 	int 
 	maemosec_certman_iterate_certs(
 		domain_handle the_domain, 
@@ -649,6 +659,7 @@ extern "C" {
 		return(i);
 	}
 
+
 	int
 	maemosec_certman_nbrof_certs(domain_handle in_domain)
 	{
@@ -657,6 +668,7 @@ extern "C" {
 		else
 			return(-1);
 	}
+
 
 	int 
 	maemosec_certman_add_cert(domain_handle to_domain, X509* cert)
@@ -715,6 +727,7 @@ extern "C" {
 		return(0);
 	}
 
+
 	int 
 	maemosec_certman_close_domain(domain_handle handle)
 	{
@@ -727,6 +740,7 @@ extern "C" {
 		delete(mydomain);
 	}
 
+
 	int 
 	maemosec_certman_get_key_id(X509* of_cert, maemosec_key_id to_this)
 	{
@@ -738,6 +752,7 @@ extern "C" {
 			return(EINVAL);
 	}
 
+
 	int 
 	maemosec_certman_store_key(maemosec_key_id with_id, 
 							   EVP_PKEY* the_key, 
@@ -745,6 +760,7 @@ extern "C" {
 	{
 		return(store_key_to_file(with_id, the_key, with_passwd));
 	}
+
 
 	int
 	maemosec_certman_retrieve_key(maemosec_key_id with_id, 
@@ -754,8 +770,9 @@ extern "C" {
 		return(read_key_from_file(with_id, the_key, with_passwd));
 	}
 
+
 	static int
-	cb_relay(int ord_nr, void* filename, void* ctx)
+	cb_relay_key(int ord_nr, void* filename, void* ctx)
 	{
 		maemosec_key_id key_id;
 		struct cb_relay_par *pars = (struct cb_relay_par*) ctx;
@@ -780,8 +797,20 @@ extern "C" {
 		relay_pars.cb_func = cb_func;
 		return(iterate_files(keystore_name.c_str(), 
 							 name_expression.c_str(), 
-							 cb_relay, 
+							 cb_relay_key, 
 							 &relay_pars));
+	}
+
+
+	static int
+	cb_relay_storename(int ord_nr, void* filename, void* ctx)
+	{
+		struct cb_relay_par *pars = (struct cb_relay_par*) ctx;
+		char* logical_name = (char*) filename;
+		
+		if (strlen(logical_name) > strlen(cert_storage_prefix))
+			logical_name += strlen(cert_storage_prefix) + 1;
+		return(pars->cb_func(ord_nr, logical_name, pars->o_ctx));
 	}
 
 
@@ -792,6 +821,7 @@ extern "C" {
 	{
 		storage::visibility_t vis;
 		string storage_names = cert_storage_prefix;
+		struct cb_relay_par relay_pars;
 
 		storage_names.assign(cert_storage_prefix);
 		storage_names.append("\\..*");
@@ -801,11 +831,13 @@ extern "C" {
 			vis = storage::vis_private;
 		else
 			return(0 - EINVAL);
+		relay_pars.o_ctx = ctx;
+		relay_pars.cb_func = cb_func;
 		return(local_iterate_storage_names(vis, 
 										   storage::prot_signed, 
 										   storage_names.c_str(), 
-										   cb_func, 
-										   ctx));
+										   cb_relay_storename, 
+										   &relay_pars));
 	}
 
 } // extern "C"

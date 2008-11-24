@@ -647,8 +647,13 @@ storage::commit(void)
 	unsigned char signmd[255];
 	char tmp[3];
 	int cols;
+	mode_t abits;
 
-	fd = creat(m_filename.c_str(), S_IRUSR | S_IWUSR);
+	abits = S_IRUSR | S_IWUSR;
+	if (0 == geteuid())
+		abits |= S_IRGRP | S_IROTH;
+
+	fd = creat(m_filename.c_str(), abits);
 	if (fd < 0) {
 		MAEMOSEC_ERROR("cannot create '%s'", m_filename.c_str());
 		return;
