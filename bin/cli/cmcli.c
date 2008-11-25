@@ -109,28 +109,6 @@ determine_filetype(FILE* fp, void** idata)
 
 
 static void
-usage(void)
-{
-	printf(
-		"Usage:\n"
-		"cmcli [-t <domain>[:<domain>...]] [-<c|p> <domain>] -a <cert-file>\n"
-		"       -i <pkcs12-file> -v <cert-file> -r <num> [-D*] [-L] [-f]\n"
-		" -T to specify shared domains of trusted signing certificates\n"
-		" -v to verify a certificate against the trusted domains\n"
-		" -t to specify private domains of trusted signing certificates\n"
-		" -c to open/create a shared domain for modifications\n"
-		" -p to open/create a private domain for modifications\n"
-		" -a to add a certificate to the given domain\n"
-		" -i to install a PKCS12 container or a single private key\n"
-		" -r to remove the nth certificate from the given domain\n"
-		" -L to list all certificates and keys\n"
-		" -D, -DD... to increase level of debug info shown\n"
-		" -f to force an operation despite warnings\n"
-		);
-}
-
-
-static void
 print_key_id(maemosec_key_id key_id, char* to_buf, unsigned max_len)
 {
 	unsigned i;
@@ -138,9 +116,36 @@ print_key_id(maemosec_key_id key_id, char* to_buf, unsigned max_len)
 	if (max_len < 3*MAEMOSEC_KEY_ID_LEN)
 		return;
 	for (i = 0; i < MAEMOSEC_KEY_ID_LEN; i++) {
-		sprintf(to_buf, "%s%02X", i?":":"", key_id[i]);
+		sprintf(to_buf, "%s%02hX", i?":":"", key_id[i]);
 		to_buf += strlen(to_buf);
 	}
+}
+
+
+static int
+decode_key_id(const char* from_buf, maemosec_key_id key_id)
+{
+	unsigned i = 0;
+	unsigned short b;
+	const char* f = from_buf;
+
+	if (!from_buf)
+		return(0);
+
+	while (*f && sscanf(f, "%02hX", &b)) {
+		f += 2;
+		if (*f == ':')
+			f++;
+		key_id[i++] = (unsigned char)b;
+		if (i == MAEMOSEC_KEY_ID_LEN)
+			break;
+	}
+
+	if (i < MAEMOSEC_KEY_ID_LEN) {
+		fprintf(stderr, "ERROR: invalid key id '%s'\n", from_buf);
+		return(0);
+	} else
+		return(1);
 }
 
 
@@ -514,6 +519,31 @@ install_file(const char* filename)
 }
 
 
+static void
+usage(void)
+{
+	printf(
+		"Usage:\n"
+		"cmcli [-<T|t> <domain>[:<domain>...]] [-<c|p> <domain>]\n"
+		       "-a <cert-file> -i <pkcs12-file> -v <cert-file>\n"
+		       "-k <fingerprint> -r <num>\n" 
+		       "[-DL] -d{d}* [-f]\n"
+		" -T to load CA certificates from one or more shared domains\n"
+		" -t to load CA certificates from one or more private domains\n"
+		" -c to open/create a shared domain for modifications\n"
+		" -p to open/create a private domain for modifications\n"
+		" -a to add a certificate to the given domain\n"
+		" -i to install a PKCS#12 container or a single private key\n"
+		" -v to verify a certificate against the trusted domains\n"
+		" -k to display a private key specified by its fingerprint\n"
+		" -r to remove the nth certificate from the given domain\n"
+		" -D to list certificate domains\n"
+		" -L to list certificates in the specified domains and all private keys\n"
+		" -d, -dd... to increase level of debug info shown\n"
+		" -f to force an operation despite warnings\n"
+		);
+}
+
 typedef enum {cmd_add, cmd_verify, cmd_none} multi_arg_cmd;
 
 /**
@@ -544,16 +574,12 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "t:T:c:p:a:v:r:DLKfi:h");
+		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLdfh?");
 		if (a < 0) {
 			break;
 		}
 		switch(a) 
 		{
-		case 'D':
-			debug_level++;
-			break;
-
 		case 'T':
 		case 't':
 			rc = maemosec_certman_collect(optarg, ('T' == a), certs);
@@ -576,13 +602,27 @@ main(int argc, char* argv[])
 			ma_cmd = cmd_verify;
 			break;
 
+		case 'D':
+			printf("Shared domains%s:\n", geteuid()?" (read only)":"");
+			maemosec_certman_iterate_domains(MAEMOSEC_CERTMAN_DOMAIN_SHARED, 
+											 show_storage_name,
+											 NULL);
+			printf("Private domains:\n");
+			maemosec_certman_iterate_domains(MAEMOSEC_CERTMAN_DOMAIN_PRIVATE, 
+											 show_storage_name,
+											 NULL);
+			break;
+
 		case 'L':
+			printf("Certificates:\n");
 			for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
 				X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
 				if (obj->type == X509_LU_X509) {
 					show_cert(i, obj->data.x509, NULL);
 				}
 			}
+			printf("Private keys:\n");
+			maemosec_certman_iterate_keys(show_key, NULL);
 			break;
 
 		case 'c':
@@ -644,6 +684,48 @@ main(int argc, char* argv[])
 			ma_cmd = cmd_add;
 			break;
 
+		case 'i':
+			install_file(optarg);
+			break;
+
+		case 'k':
+			{
+				maemosec_key_id my_key_id;
+
+				if (decode_key_id(optarg, my_key_id)) {
+					EVP_PKEY* my_key = NULL;
+					char password[64];
+
+					show_key(0, my_key_id, NULL);
+					printf("Give password: ");
+					get_input(password, sizeof(password), 1);
+					printf("\n");
+					rc = maemosec_certman_retrieve_key(my_key_id,
+													   &my_key,
+													   password);
+					if (0 == rc) {
+						BIO* outfile = BIO_new_fp(stdout, BIO_NOCLOSE);
+						if (outfile) {
+							rc = PEM_write_bio_PrivateKey(outfile,
+														  my_key,
+														  NULL,
+														  NULL,
+														  0,
+														  NULL,
+														  NULL);
+							BIO_free(outfile);
+						}
+					} else {
+						fprintf(stderr, 
+								"ERROR: cannot read private key (%d)\n",
+								rc);
+					}
+					if (my_key)
+						EVP_PKEY_free(my_key);
+				}
+			}
+			break;
+
 		case 'r':
 			if (my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
@@ -664,17 +746,12 @@ main(int argc, char* argv[])
 			}
 			break;
 
-		case 'K':
-			printf("Private keys:\n");
-			maemosec_certman_iterate_keys(show_key, NULL);
+		case 'd':
+			debug_level++;
 			break;
 
 		case 'f':
 			force_opt++;
-			break;
-
-		case 'i':
-			install_file(optarg);
 			break;
 
 		default:

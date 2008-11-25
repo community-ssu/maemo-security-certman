@@ -30,6 +30,7 @@ using namespace std;
 #include <openssl/x509v3.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
+#include <openssl/pkcs12.h>
 
 // #include <libbb5.h>
 #include <libbb5stub.h>
@@ -411,6 +412,7 @@ return_pem_password(char* to_buf, int size, int rwflag, void* userdata)
 	if (strlen(password) > size)
 		return(-EINVAL);
 	strcpy(to_buf, password);
+	MAEMOSEC_DEBUG(1, "Returned password '%s'", password);
 	return(strlen(password));
 }
 
@@ -419,28 +421,50 @@ static int
 read_key_from_file(maemosec_key_id key_id, EVP_PKEY** key, char* passwd)
 {
 	string storage_file_name;
-	FILE* infile;
-	int rc;
+	BIO* infile;
+	X509_SIG *p8 = NULL;
+	PKCS8_PRIV_KEY_INFO *p8inf = NULL;
+	int rc = 0;
 
 	local_storage_dir(storage_file_name, priv_keys_dir);
 	create_directory(storage_file_name.c_str(), PRIVATE_DIR_MODE);
 	append_hex(storage_file_name, key_id, MAEMOSEC_KEY_ID_LEN);
 	storage_file_name.append(".pem");
 
-	infile = fopen(storage_file_name.c_str(), "r");
+	infile = BIO_new_file(storage_file_name.c_str(), "rb");
 	if (infile) {
-		chmod(storage_file_name.c_str(), S_IRUSR | S_IWUSR);
-		*key = d2i_PKCS8PrivateKey_fp(infile, NULL, return_pem_password, passwd);
-		if (*key) {
-			MAEMOSEC_DEBUG(1, "Retrieved key from '%s'", storage_file_name.c_str());
-		} else {
-			MAEMOSEC_ERROR("Cannot retrieve key from '%s'", 
-						   storage_file_name.c_str());
+		p8 = PEM_read_bio_PKCS8(infile, NULL, NULL, NULL);
+		MAEMOSEC_DEBUG(1, "PEM_read_bio_PKCS8 ret %p", p8);
+		if (p8) {
+			p8inf = (PKCS8_PRIV_KEY_INFO*)
+				PKCS12_item_decrypt_d2i(p8->algor, 
+										ASN1_ITEM_rptr(PKCS8_PRIV_KEY_INFO),
+										passwd, 
+										strlen(passwd),
+										p8->digest,
+										1);
+			MAEMOSEC_DEBUG(1, "PKCS8_decrypt ret %p", p8inf);
+			X509_SIG_free(p8);
+			if (p8inf) {
+				*key = EVP_PKCS82PKEY(p8inf);
+				if (*key) {
+					MAEMOSEC_DEBUG(1, "Retrieved key from '%s'", 
+								   storage_file_name.c_str());
+					rc = 0;
+				} else {
+					MAEMOSEC_ERROR("Cannot retrieve key from '%s'", 
+								   storage_file_name.c_str());
+					rc = EINVAL;
+				}
+				PKCS8_PRIV_KEY_INFO_free(p8inf);
+			} else 
+				rc = EACCES;
 		}
-		fclose(infile);
-		return(0);
+		BIO_free(infile);
+		return(rc);
 	} else {
-		MAEMOSEC_ERROR("Cannot open '%s' (%s)", storage_file_name.c_str(),
+		MAEMOSEC_ERROR("Cannot open '%s' (%s)", 
+					   storage_file_name.c_str(),
 					   strerror(errno));
 		return(errno);
 	}
