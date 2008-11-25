@@ -4,6 +4,7 @@
 #include <maemosec_storage.h>
 #include <libbb5stub.h>
 
+using namespace std;
 using namespace maemosec;
 
 extern int debug_level;

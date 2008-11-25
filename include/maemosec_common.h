@@ -37,7 +37,6 @@
 
 #ifdef	__cplusplus
 #include <string>
-using namespace std;
 
 extern "C" {
 
@@ -48,9 +47,9 @@ extern "C" {
 	 * \returns true if the file or directory was found and was accessible,
 	 * otherwise false
 	 */
-	bool absolute_pathname(const char* name, string& to_this);
-	bool process_name(string& to_this);
-	void append_hex(string& to_this, unsigned char* dta, unsigned len);
+	bool absolute_pathname(const char* name, std::string& to_this);
+	bool process_name(std::string& to_this);
+	void append_hex(std::string& to_this, unsigned char* dta, unsigned len);
 #else
 	/**
 	 * \def bool

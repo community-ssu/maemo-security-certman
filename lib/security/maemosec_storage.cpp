@@ -8,6 +8,7 @@
 */
 
 #include "maemosec_storage.h"
+using namespace std;
 using namespace maemosec;
 
 #include <string.h>
@@ -1141,6 +1142,14 @@ storage::put_file(const char* pathname, unsigned char* data, ssize_t bytes)
 
 	absolute_pathname(pathname, truename);
 	m_contents[truename] = digest;
+}
+
+
+void
+storage::release_buffer(unsigned char* buf)
+{
+	if (buf) 
+		free(buf);
 }
 
 

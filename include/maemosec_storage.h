@@ -31,7 +31,6 @@
 #include <string>
 #include <vector>
 #include <map>
-using namespace std;
 
 #include "maemosec_common.h"
 
@@ -84,7 +83,7 @@ namespace maemosec {
 		/**
 		 * \brief A list of strings
 		 */
-		typedef vector<const char*> stringlist;
+		typedef std::vector<const char*> stringlist;
 
 		/**
 		 * \brief Get a list of the files in the storage
@@ -135,7 +134,7 @@ namespace maemosec {
 		 * \param buf The buffer to be released, returned 
 		 * by \see get_file
 		 */
-		void release_buffer(unsigned char* buf) {if (buf) free(buf);}
+		void release_buffer(unsigned char* buf);
 	
 		/**
 		 * \brief Write a file to the filesystem. Encrypt if needed.
@@ -183,23 +182,46 @@ namespace maemosec {
 
 	private:
 		protection_t m_prot;
-		map<string, string> m_contents;
-		string m_name;
-		string m_filename;
+		std::map<std::string, std::string> m_contents;
+		std::string m_name;
+		std::string m_filename;
 		unsigned char* m_symkey;
 		int m_symkey_len;
 
-		void init_storage(const char* name, visibility_t visibility, protection_t protect);
+		void init_storage(const char* name, 
+						  visibility_t visibility, 
+						  protection_t protect);
 		bool contains_file(const char* pathname);
-		bool compute_digest(unsigned char* data, ssize_t bytes, string& digest);
-		void compute_digest_of_file(const char* pathname, string& digest);
-		unsigned char* map_file(const char* pathname, int prot, int* fd, ssize_t* len, ssize_t* rlen);
-		void unmap_file(unsigned char* data, int fd, ssize_t len);
-		bool decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest);
-		bool encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len, string& digest);
-		bool encrypt_file_in_place(const char* pathname, string& digest);
-		bool cryptop(int op, unsigned char* data, unsigned char* to, ssize_t len, EVP_MD_CTX* digest);
-		bool set_aes_key(int op, AES_KEY *ck);
+		bool compute_digest(unsigned char* data, 
+							ssize_t bytes, 
+							std::string& digest);
+		void compute_digest_of_file(const char* pathname, 
+									std::string& digest);
+		unsigned char* map_file(const char* pathname, 
+								int prot, 
+								int* fd, 
+								ssize_t* len, 
+								ssize_t* rlen);
+		void unmap_file(unsigned char* data, 
+						int fd, 
+						ssize_t len);
+		bool decrypt_file(const char* pathname, 
+						  unsigned char** to_buf, 
+						  ssize_t* len, 
+						  std::string& digest);
+		bool encrypt_file(const char* pathname, 
+						  unsigned char* from_buf, 
+						  ssize_t len, 
+						  std::string& digest);
+		bool encrypt_file_in_place(const char* pathname, 
+								   std::string& digest);
+		bool cryptop(int op, 
+					 unsigned char* data, 
+					 unsigned char* to, 
+					 ssize_t len, 
+					 EVP_MD_CTX* digest);
+		bool set_aes_key(int op, 
+						 AES_KEY *ck);
 		ssize_t encrypted_length(ssize_t of_data);
 
 	};

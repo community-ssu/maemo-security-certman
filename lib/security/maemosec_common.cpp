@@ -11,6 +11,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+using namespace std;
+
 extern "C" {
 
 	int debug_level = 0;
