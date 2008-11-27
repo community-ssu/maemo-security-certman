@@ -312,8 +312,10 @@ extern "C" {
 			else if (entry->d_type != dir_d_type) {
 				if (matching_names) {
 					rc = regexec(&name_pattern, entry->d_name, 0, NULL, 0);
-					MAEMOSEC_DEBUG(2, "regexec of '%s'(%hd) returned %d", 
-								   entry->d_name, entry->d_type, rc);
+					MAEMOSEC_DEBUG(2, "'%s' %s '%s'", 
+								   entry->d_name,  
+								   rc?"!~":"~",
+								   matching_names);
 				} else
 					rc = 0;
 				if (0 == rc) {

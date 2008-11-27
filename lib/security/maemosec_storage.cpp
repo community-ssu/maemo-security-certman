@@ -327,10 +327,11 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 	if (c < end && '\n' == *c)
 		c++;
 
-	// Check if this is an encrypted storage
+	MAEMOSEC_DEBUG(1, "Checking encryption key");
 	if (c + strlen(key_mark) >= end
 		|| memcmp(c, key_mark, strlen(key_mark)) != 0)
 	{
+		MAEMOSEC_DEBUG(1, "No encryption key");
 		if (prot_encrypted == m_prot) {
 			MAEMOSEC_ERROR("missing encryption key");
 			goto end;
@@ -370,6 +371,7 @@ storage::init_storage(const char* name, visibility_t visibility, protection_t pr
 		unmap_file(data, fd, len);
 	if (pubkey)
 		EVP_PKEY_free(pubkey);
+	MAEMOSEC_DEBUG(1, "Return");
 }
 
 

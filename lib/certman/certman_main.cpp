@@ -483,7 +483,7 @@ x509_equals(int pos, X509* cert, void* with_cert)
 	int res = 0;
 
 	if (!cert || !with_cert)
-		return(EINVAL);
+		return(-EINVAL);
 	lk = X509_get_pubkey(cert);
 	rk = X509_get_pubkey((X509*)with_cert);
 	if (lk && rk) {
@@ -493,7 +493,11 @@ x509_equals(int pos, X509* cert, void* with_cert)
 		EVP_PKEY_free(lk);
 	if (lk)
 		EVP_PKEY_free(rk);
-	return(res);
+	if (res)
+		// equals, terminate iteration
+		return(pos);
+	else
+		return(0);
 #endif
 }
 
@@ -580,12 +584,14 @@ extern "C" {
 			}
 
 			if (directory_exists(dirname.c_str())) {
-				storage* store = new storage(storagename.c_str(), 
+				storage* store = new storage(storagename.c_str(),
 											 storvis, 
 											 storage::prot_signed);
 				storage::stringlist certs;
-				int pos = store->get_files(certs);
-
+				int pos;
+				
+				MAEMOSEC_DEBUG(1, "New store %p", store);
+				pos = store->get_files(certs);
 				MAEMOSEC_DEBUG(1, "Check %d certificates", pos);
 				for (int i = 0; i < pos; i++) {
 					if (store->verify_file(certs[i])) {
@@ -681,7 +687,7 @@ extern "C" {
 			} else
 				return(-ENOENT);
 		}
-		return(i);
+		return(res);
 	}
 
 
@@ -707,8 +713,10 @@ extern "C" {
 			return(EINVAL);
 
 		pos = maemosec_certman_iterate_certs(to_domain, x509_equals, cert);
-		if (pos < maemosec_certman_nbrof_certs(to_domain)) {
-			MAEMOSEC_DEBUG(0,"The certificate is already in the domain");
+		if (0 != pos) {
+			MAEMOSEC_DEBUG(0, 
+						   "The certificate is already in the domain at %d", 
+						   pos);
 			return(EEXIST);
 		}
 
