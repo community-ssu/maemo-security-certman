@@ -586,6 +586,7 @@ extern "C" {
 				storage::stringlist certs;
 				int pos = store->get_files(certs);
 
+				MAEMOSEC_DEBUG(1, "Check %d certificates", pos);
 				for (int i = 0; i < pos; i++) {
 					if (store->verify_file(certs[i])) {
 						MAEMOSEC_DEBUG(1, "Load '%s'", certs[i]);
