@@ -50,20 +50,13 @@ extern "C" {
 	bool absolute_pathname(const char* name, std::string& to_this);
 	bool process_name(std::string& to_this);
 	void append_hex(std::string& to_this, unsigned char* dta, unsigned len);
+
 #else
 	/**
 	 * \def bool
 	 * \brief In C-environment, define 'bool' as 'int'
 	 */
 	 #define bool int
-#endif
-
-#if 0
-    /**
-    * \var debug_level
-	* \brief Set this value non-zero to produce debug output
-	*/
-	extern int debug_level;
 #endif
 
 	/**
@@ -108,6 +101,11 @@ extern "C" {
 	 * \brief Send a debug or error message to the dlog
 	 */
 	void dlog_message(const char* format, ...);
+
+	/**
+	 * \brief Return a hex string describing given data
+	 */
+	const char* dynhex(const unsigned char* d, unsigned len);
 
 #ifdef	__cplusplus
 } // extern "C"

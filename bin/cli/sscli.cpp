@@ -7,8 +7,6 @@
 using namespace std;
 using namespace maemosec;
 
-extern int debug_level;
-
 static void 
 usage(void)
 {
@@ -54,10 +52,6 @@ main(int argc, char* argv[])
 		}
 		switch(a) 
 		{
-		case 'D':
-			debug_level++;
-			break;
-
 		case 's':
 			flags = strchr(optarg, ':');
 			if (flags) {

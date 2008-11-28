@@ -691,6 +691,28 @@ extern "C" {
 	}
 
 
+	int maemosec_certman_load_cert(domain_handle the_domain, 
+								   maemosec_key_id with_id, 
+								   X509** cert)
+	{
+		
+		string filename;
+		struct local_domain *my_domain = (struct local_domain*)the_domain;
+
+		filename = my_domain->dirname;
+		filename.append(PATH_SEP);
+		append_hex(filename, with_id, MAEMOSEC_KEY_ID_LEN);
+		filename.append(".pem");
+		MAEMOSEC_DEBUG(1, "Retrieve cert from '%s'", filename.c_str());
+		// TODO: check integrity
+		*cert = load_cert_from_file(filename.c_str());
+		if (*cert)
+			return(0);
+		else
+			return(ENOENT);
+	}
+
+
 	int
 	maemosec_certman_nbrof_certs(domain_handle in_domain)
 	{

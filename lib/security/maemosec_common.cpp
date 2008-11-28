@@ -15,7 +15,45 @@ using namespace std;
 
 extern "C" {
 
-	int debug_level = 0;
+	#define DYNHEX_STRINGS 10
+	int eh_registered = 0;
+	int dynhexpos = 0;
+	char* dynhexring[DYNHEX_STRINGS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+	static void clean_dynhexring(void)
+	{
+		int i;
+		for (i = 0; i < DYNHEX_STRINGS; i++) {
+			if (dynhexring[i])
+				free(dynhexring[i]);
+		}
+		MAEMOSEC_DEBUG(1, "Exit application");
+	}
+
+	const char* dynhex(const unsigned char* d, unsigned len)
+	{
+		int i;
+		char *t, *s = (char*)malloc(2*len + 1);
+
+		if (NULL == s) {
+			abort();
+		}
+		strcpy(s, "");
+		for (t = s, i = 0; i < len; i++, t += 2) {
+			sprintf(t, "%02x", *d++);
+		}
+		dynhexring[dynhexpos] = s;
+		dynhexpos = (dynhexpos + 1) % DYNHEX_STRINGS;
+		if (dynhexring[dynhexpos]) {
+			free(dynhexring[dynhexpos]);
+			dynhexring[dynhexpos] = NULL;
+		}
+		if (!eh_registered) {
+			atexit(clean_dynhexring);
+			eh_registered = 1;
+		}
+		return(s);
+	}
 
 	bool
 	absolute_pathname(const char* pathname, string& to_this)

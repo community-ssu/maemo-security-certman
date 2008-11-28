@@ -37,12 +37,6 @@
 #include <maemosec_certman.h>
 #include <maemosec_common.h>
 
-/**
- * \var debug_level
- * \brief Increment this variable to produce more debug output to stdout
- */
-extern int debug_level;
-
 /*
  * Global options
  */
@@ -744,10 +738,6 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: cannot remove certificate #%d (%d)\n",
 							pos, rc);
 			}
-			break;
-
-		case 'd':
-			debug_level++;
 			break;
 
 		case 'f':
