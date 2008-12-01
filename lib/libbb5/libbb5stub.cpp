@@ -1,5 +1,6 @@
 /* -*- mode:c; tab-width:4; c-basic-offset:4; -*- */
 
+#include <string.h>
 #include <sys/time.h>
 #include <sys/fcntl.h>
 

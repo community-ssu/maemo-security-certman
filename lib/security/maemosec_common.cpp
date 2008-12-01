@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <linux/limits.h>
 #include <dirent.h>
 #include <regex.h>
 
