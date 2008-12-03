@@ -1,3 +1,9 @@
+maemo-security-certman (0.0.3) unstable; urgency=low
+
+  * Added dlog debugging 
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Tue, 02 Dec 2008 19:22:35 +0200
+
 maemo-security-certman (0.0.2) unstable; urgency=low
 	
   * Renamed all functions and constants not to refer to NG or NGSW
