@@ -8,6 +8,7 @@
 #include <maemosec_common.h>
 #include "c_xmldoc.h"
 
+#include <cstring>
 #include <string>
 #include <vector>
 
