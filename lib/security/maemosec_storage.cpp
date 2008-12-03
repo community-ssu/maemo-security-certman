@@ -844,7 +844,7 @@ storage::encrypt_file_in_place(const char* pathname, string& digest)
 	unsigned char md[DIGESTLEN];
 
 	data = map_file(pathname, O_RDWR, &fd, &len, &rlen);
-	if (!data) {
+	if (MAP_FAILED == data) {
 		return(false);
 	}
 
