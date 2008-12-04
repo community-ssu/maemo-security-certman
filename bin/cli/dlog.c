@@ -10,8 +10,6 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define DLOG_PORT htons(2300)
-
 #define INET4A(a,b,c,d) (in_addr_t)htonl(a << 24 | b << 16 | c << 8 | d)
 
 static char recbuf [1024];
@@ -19,19 +17,28 @@ static char recbuf [1024];
 int 
 main(int argc, char* argv[])
 {
+	int i1 = 127, i2 = 0, i3 = 0, i4 = 1, port = 2300;
 	int sd, rc, level = 9;
 	size_t rlen;
 	char arg;
 	char* msg = NULL;
 	struct sockaddr_in i_mad, i_rad;
 
-	while ((arg = getopt(argc, argv, "l:s:")) >= 0) {
+	while ((arg = getopt(argc, argv, "l:s:a:")) >= 0) {
 		switch (arg) {
 		case 'l':
 			level = atoi(optarg);
 			break;
 		case 's':
 			msg = optarg;
+			break;
+		case 'a':
+			rc = sscanf(optarg, "%d.%d.%d.%d:%d", &i1, &i2, &i3, &i4, &port);
+			if (rc < 4) {
+				fprintf(stderr, "Invalid IPv4 address '%s'\n",
+						optarg);
+				return(-1);
+			}
 			break;
 		default:
 			fprintf(stderr, "Usage: dlog [-l level] [-s message]\n");
@@ -50,13 +57,13 @@ main(int argc, char* argv[])
 	if (msg) {
 		// Send
 		i_mad.sin_addr.s_addr = INADDR_ANY;
-		i_rad.sin_addr.s_addr = INET4A(192,168,2,1);
-		i_rad.sin_port = DLOG_PORT;
+		i_rad.sin_addr.s_addr = INET4A(i1, i2, i3, i4);
+		i_rad.sin_port = htons(port);
 	} else {
 		// Receive
 		i_rad.sin_addr.s_addr = INADDR_ANY;
-		i_mad.sin_addr.s_addr = INET4A(192,168,2,1);
-		i_mad.sin_port = DLOG_PORT;
+		i_mad.sin_addr.s_addr = INET4A(i1, i2, i3, i4);
+		i_mad.sin_port = htons(port);
 	}
 	
 	rc = bind(sd, (struct sockaddr*)&i_mad, sizeof(struct sockaddr_in));
@@ -78,6 +85,8 @@ main(int argc, char* argv[])
 		struct timeval prev_stamp = {0, 0};
 		int dlevel;
 		char* c;
+
+		printf("Listening %d.%d.%d.%d:%d...", i1, i2, i3, i4, port);
 
 		while (1) {
 			rlen = sizeof(struct sockaddr_in);

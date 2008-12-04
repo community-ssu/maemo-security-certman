@@ -1,4 +1,4 @@
-INCLUDES = -I../../include -I../../lib/security
+INCLUDES = -I../../include -I../../lib/security $(OSSO_CFLAGS) $(GLIB_CLAGS)
 
 bin_PROGRAMS = sscli cmcli xmlpp dlog
 
@@ -8,7 +8,7 @@ sscli_LDADD =  -L../../lib/libbb5/.libs -lbb5 \
 
 cmcli_SOURCES = cmcli.c
 cmcli_LDADD =  -L../../lib/security/.libs -lmaemosec \
- -L../../lib/certman/.libs -lmaemosec_certman
+ -L../../lib/certman/.libs -lmaemosec_certman $(OSSO_LIBS) $(GLIB_LIBS)
 
 xmlpp_SOURCES = xmlpp.cpp
 xmlpp_LDADD =  -L../../lib/security/.libs -lmaemosec

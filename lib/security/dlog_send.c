@@ -23,8 +23,9 @@ dlog_message(const char* format, ...)
 	static struct sockaddr_in i_mad, i_rad;
 	static int dlog_socket = -1;
 	static char sndbuf [1024];
+	static unsigned long s_addr = (unsigned long)-1;
 	va_list p_arg;
-	int rc;
+	int rc, port;
 	size_t printed;
 
 	if (dlog_socket == -1) {
@@ -54,9 +55,21 @@ dlog_message(const char* format, ...)
 	/*
 	 * TODO: Obviously...
 	 */
+	if ((unsigned long)-1 == s_addr) {
+		int i1, i2, i3, i4, p, rc;
+		char* addr = GETENV("DLOG_TARGET","127.0.0.1");
+		rc = sscanf(addr, "%d.%d.%d.%d:%d", &i1, &i2, &i3, &i4, &p);
+		if (rc >= 4) {
+			s_addr = INET4A(192,168,2,1);
+			if (rc == 5)
+				port = p;
+			else
+				port = 2300;
+		}
+	}
 	i_rad.sin_family = AF_INET;
 	i_rad.sin_addr.s_addr = INET4A(192,168,2,1);
-	i_rad.sin_port = DLOG_PORT;
+	i_rad.sin_port = htons(port);
 	va_start(p_arg, format);
 	printed = vsnprintf(sndbuf, sizeof(sndbuf) - 1, format, p_arg);
 	va_end(p_arg);
