@@ -523,6 +523,8 @@ send_to_certman_ui(const char* filename)
 	osso_rpc_t retval;
 	gchar fileuri [PATH_MAX];
 
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+
 	if ('/' != *filename) {
 		fprintf(stderr, "Filename must be absolute path");
 		return;

@@ -24,9 +24,10 @@ dlog_message(const char* format, ...)
 	static struct sockaddr_in i_mad, i_rad;
 	static int dlog_socket = -1;
 	static char sndbuf [1024];
+	static int port;
 	static unsigned long s_addr = (unsigned long)-1;
 	va_list p_arg;
-	int rc, port;
+	int rc;
 	size_t printed;
 
 	if (dlog_socket == -1) {
