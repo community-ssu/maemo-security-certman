@@ -86,7 +86,7 @@ main(int argc, char* argv[])
 		int dlevel;
 		char* c;
 
-		printf("Listening %d.%d.%d.%d:%d...", i1, i2, i3, i4, port);
+		printf("Listening %d.%d.%d.%d:%d...\n", i1, i2, i3, i4, port);
 
 		while (1) {
 			rlen = sizeof(struct sockaddr_in);

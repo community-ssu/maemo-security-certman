@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <errno.h>
+#include <maemosec_common.h>
 
 #define DLOG_PORT htons(2300)
 #define INET4A(a,b,c,d) (in_addr_t)htonl(a << 24 | b << 16 | c << 8 | d)
@@ -60,7 +61,7 @@ dlog_message(const char* format, ...)
 		char* addr = GETENV("DLOG_TARGET","127.0.0.1");
 		rc = sscanf(addr, "%d.%d.%d.%d:%d", &i1, &i2, &i3, &i4, &p);
 		if (rc >= 4) {
-			s_addr = INET4A(192,168,2,1);
+			s_addr = INET4A(i1,i2,i3,i4);
 			if (rc == 5)
 				port = p;
 			else
@@ -68,7 +69,7 @@ dlog_message(const char* format, ...)
 		}
 	}
 	i_rad.sin_family = AF_INET;
-	i_rad.sin_addr.s_addr = INET4A(192,168,2,1);
+	i_rad.sin_addr.s_addr = s_addr;
 	i_rad.sin_port = htons(port);
 	va_start(p_arg, format);
 	printed = vsnprintf(sndbuf, sizeof(sndbuf) - 1, format, p_arg);
