@@ -336,8 +336,10 @@ extern "C" {
 		}
 
 		dh = opendir(in_directory);
-		if (NULL == dh)
+		if (NULL == dh) {
+			MAEMOSEC_ERROR("cannot open '%s'", in_directory);
 			return(0 - errno);
+		}
 	
 		while (NULL != (entry = readdir(dh))) {
 			/*
@@ -346,9 +348,20 @@ extern "C" {
 			 * value for directories. Don't want to fix it, as 
 			 * man readdir says that it varies.
 			 */
-			if (0 == strcmp(".", entry->d_name))
+			MAEMOSEC_DEBUG(2, "%s:%s", __func__, entry->d_name);
+
+			if (0 == strcmp(".", entry->d_name)
+				|| 0 == strcmp("..", entry->d_name)) 
+			{
 				dir_d_type = entry->d_type;
-			else if (entry->d_type != dir_d_type) {
+				MAEMOSEC_DEBUG(2, "Directory type is '%hd'", dir_d_type);
+
+			} else
+#if 0
+				if (entry->d_type != dir_d_type) {
+#else
+			{
+#endif
 				if (matching_names) {
 					rc = regexec(&name_pattern, entry->d_name, 0, NULL, 0);
 					MAEMOSEC_DEBUG(2, "'%s' %s '%s'", 
@@ -364,6 +377,11 @@ extern "C" {
 					count++;
 				}
 			}
+#if 0
+			else {
+				MAEMOSEC_DEBUG(2, "%s is directory (%hd)", entry->d_name, entry->d_type);
+			}
+#endif
 		}
 		closedir(dh);
 		if (matching_names)

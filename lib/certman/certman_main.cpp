@@ -888,6 +888,7 @@ extern "C" {
 			return(0 - EINVAL);
 		relay_pars.o_ctx = ctx;
 		relay_pars.cb_func = cb_func;
+		MAEMOSEC_DEBUG(1, "Iterating storages '%s'", storage_names.c_str());
 		return(local_iterate_storage_names(vis, 
 										   storage::prot_signed, 
 										   storage_names.c_str(), 

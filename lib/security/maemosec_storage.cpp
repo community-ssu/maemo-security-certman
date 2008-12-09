@@ -1185,7 +1185,10 @@ storage::iterate_storage_names(storage::visibility_t of_visibility,
 {
 	string directory_name;
 	
-	if (0 != get_storage_directory(of_visibility, of_protection, directory_name))
+	if (0 != get_storage_directory(of_visibility, of_protection, directory_name)) {
+		MAEMOSEC_ERROR("Cannot get storage name");
 		return(-ENOENT);
+	}
+	MAEMOSEC_DEBUG(1, "Iterating '%s' in '%s'", matching_names, directory_name.c_str());
 	return (iterate_files(directory_name.c_str(), matching_names, cb_func, ctx));
 }
