@@ -25,6 +25,8 @@ Description: Maemo certificate manager shared library
 
 Package: libmaemosec-certman-dev
 Architecture: any
+Conflicts: libcst-dev
+Replaces: libcst-dev
 Depends: libmaemosec-certman0 (=${binary:Version})
 Description: Maemo certificate manager shared library
  Development files for the maemo certificate manager.
