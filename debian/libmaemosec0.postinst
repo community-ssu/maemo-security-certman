@@ -1,4 +1,6 @@
 #!/bin/sh
-chmod 400 /etc/certs/trusted/root.key
+# Do not set this yet, until user-signing
+# keys have been added too.
+# chmod 400 /etc/certs/trusted/root.key
 ldconfig
 #DEBHELPER#
