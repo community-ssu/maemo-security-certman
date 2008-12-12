@@ -1,8 +1,8 @@
 maemo-security-certman (0.0.3) unstable; urgency=low
 
-  * Added dlog debugging 
+  * This version works together with the GUI.
 
- -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Tue, 02 Dec 2008 19:22:35 +0200
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Tue, 12 Dec 2008 16:08:35 +0200
 
 maemo-security-certman (0.0.2) unstable; urgency=low
 	
