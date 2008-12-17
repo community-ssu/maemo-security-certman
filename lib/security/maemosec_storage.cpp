@@ -978,11 +978,14 @@ storage::encrypt_file(const char* pathname, unsigned char* from_buf, ssize_t len
 
 
 bool
-storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len, string& digest)
+storage::decrypt_file(const char* pathname, 
+					  unsigned char** to_buf, 
+					  ssize_t* len, 
+					  string& digest)
 {
 	int fd, rc;
 	unsigned char* data, *locbuf;
-	ssize_t llen, rlen;
+	ssize_t llen, rlen, len_difference;
 	unsigned int mdlen;
 	char hlp [3];
 	EVP_MD_CTX mdctx;
@@ -994,7 +997,17 @@ storage::decrypt_file(const char* pathname, unsigned char** to_buf, ssize_t* len
 		MAEMOSEC_ERROR("cannot map '%s'", pathname);
 		return(false);
 	}
-	rlen -= *(data + llen - 1);
+	/*
+	 * The last byte encodes the amount of padding that
+	 * were needed to make file size to align with crypto
+	 * block size. Check sanity.
+	 */
+	len_difference = *(data + llen - 1);
+	if (AES_BLOCK_SIZE < len_difference	|| rlen < len_difference) {
+		MAEMOSEC_ERROR("'%s' is corrupted", pathname);
+		return(false);
+	}
+	rlen -= len_difference;
 	MAEMOSEC_DEBUG(1, "real len is %d bytes", rlen);
 	if (to_buf) {
 		*to_buf = locbuf = (unsigned char*) malloc (llen - 1);

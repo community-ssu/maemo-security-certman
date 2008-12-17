@@ -21,7 +21,7 @@
 void
 dlog_message(const char* format, ...)
 {
-	static struct sockaddr_in i_mad, i_rad;
+	static struct sockaddr_in i_rad;
 	static int dlog_socket = -1;
 	static char sndbuf [1024];
 	static int port;

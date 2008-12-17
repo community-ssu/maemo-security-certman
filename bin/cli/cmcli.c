@@ -24,8 +24,6 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 
-#include <libosso.h>
-
 /**
  * \def sk_STORE_OBJECT_num(st)
  * \brief This macro is normally defined in openssl/safestack.h, 
@@ -516,51 +514,6 @@ install_file(const char* filename)
 
 
 static void
-send_to_certman_ui(const char* filename)
-{
-	osso_return_t rc;
-	osso_context_t* oc;
-	osso_rpc_t retval;
-	gchar fileuri [PATH_MAX];
-
-	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
-
-	if ('/' != *filename) {
-		fprintf(stderr, "Filename must be absolute path");
-		return;
-	}
-	strcpy(fileuri, "file://");
-	strncat(fileuri, filename, sizeof(fileuri) - 1);
-
-	MAEMOSEC_DEBUG(1, "Sending %s", fileuri);
-
-	oc = osso_initialize("cmcli", "0.0.1", FALSE, NULL);
-
-	if (!oc) {
-		MAEMOSEC_ERROR("osso_initialize failed");
-		return;
-	}
-
-	rc = osso_rpc_run(oc, 
-					  "com.nokia.certman", 
-					  "/com/nokia/certman", 
-					  "com.nokia.certman",
-					  "mime_open",
-					  &retval,
-					  DBUS_TYPE_STRING,
-					  fileuri,
-					  DBUS_TYPE_INVALID);
-
-	if (OSSO_OK != rc) {
-		MAEMOSEC_ERROR("osso_rpc_run returned %d", rc);
-	}
-	
-	osso_rpc_free_val(&retval);
-	osso_deinitialize(oc);
-}
-
-
-static void
 usage(void)
 {
 	printf(
@@ -578,7 +531,6 @@ usage(void)
 		" -v to verify a certificate against the trusted domains\n"
 		" -k to display a private key specified by its fingerprint\n"
 		" -r to remove the nth certificate from the given domain\n"
-		" -b to send the file for certman UI for handling\n"
 		" -D to list certificate domains\n"
 		" -L to list certificates in the specified domains and all private keys\n"
 		" -d, -dd... to increase level of debug info shown\n"
@@ -616,7 +568,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:b:DLdfh?");
+		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLdfh?");
 		if (a < 0) {
 			break;
 		}
@@ -630,10 +582,6 @@ main(int argc, char* argv[])
 						optarg, rc);
 				return(-1);
 			}
-			break;
-
-		case 'b':
-			send_to_certman_ui(optarg);
 			break;
 
 		case 'v':

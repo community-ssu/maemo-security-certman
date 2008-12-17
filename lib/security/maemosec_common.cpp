@@ -120,8 +120,10 @@ extern "C" {
 		}
 
 		// Get the absolute pathname
-		getcwd(cdirname, sizeof(cdirname));
-		MAEMOSEC_DEBUG(1, "current dir is '%s'", cdirname);
+		if (getcwd(cdirname, sizeof(cdirname)))
+			MAEMOSEC_DEBUG(1, "current dir is '%s'", cdirname);
+		else
+			MAEMOSEC_ERROR("getcwd returned NULL (%s)", strerror(errno));
 	
 		to_this = cdirname;
 		if (is_local) {
@@ -146,7 +148,8 @@ extern "C" {
 
 	  fail:
 		if (curdirh != -1) {
-			fchdir(curdirh);
+			if (-1 == fchdir(curdirh))
+				MAEMOSEC_ERROR("Cannot cd back to original directory (%s)", strerror(errno));
 			close(curdirh);
 		}
 		if (tgtname)
@@ -160,7 +163,7 @@ extern "C" {
 		pid_t my_pid = getpid();
 		char exe_name [PATH_MAX];
 
-		sprintf(exe_name, "/proc/%ld/exe", my_pid);
+		sprintf(exe_name, "/proc/%ld/exe", (long)my_pid);
 		absolute_pathname(exe_name, to_this);
 		/*
 		 * TODO: What follows is a somewhat ugly hack that should be 
@@ -170,7 +173,7 @@ extern "C" {
 		if ("/usr/bin/maemo-launcher" == to_this) {
 			int fd;
 			char buf [PATH_MAX] = "";
-			sprintf(exe_name, "/proc/%ld/cmdline", my_pid);
+			sprintf(exe_name, "/proc/%ld/cmdline", (long)my_pid);
 			fd = open(exe_name, O_RDONLY);
 			if (fd >= 0) {
 				ssize_t len = read(fd, buf, sizeof(buf));

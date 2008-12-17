@@ -66,7 +66,7 @@ namespace maemosec
     /**
 	 * \brief A secure certificate container
 	 */
-	typedef struct local_domain
+	struct local_domain
 	{
 		storage* index;    ///< The secure storage containing the files
 		string   dirname;  ///< The directory in which the actual files are
@@ -532,7 +532,7 @@ local_iterate_storage_names(storage::visibility_t of_visibility,
 // Visible part
 extern "C" {
 
-	typedef struct cb_relay_par {
+	struct cb_relay_par {
 		void* o_ctx;
 		maemosec_callback* cb_func;
 	};
@@ -598,7 +598,7 @@ extern "C" {
 						MAEMOSEC_DEBUG(1, "Load '%s'", certs[i]);
 						x.push_back(certs[i]);
 					} else
-						MAEMOSEC_ERROR("'%s' fails verification");
+						MAEMOSEC_ERROR("'%s' fails verification", certs[i]);
 				}
 				delete(store);
 			} else {
