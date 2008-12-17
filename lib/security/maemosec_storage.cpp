@@ -1144,6 +1144,7 @@ storage::put_file(const char* pathname, unsigned char* data, ssize_t bytes)
 
 	absolute_pathname(pathname, truename);
 	m_contents[truename] = digest;
+	return(0);
 }
 
 
