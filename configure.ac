@@ -12,6 +12,10 @@ PKG_CHECK_MODULES(OPENSSL, [ openssl >= 0.9.8 ])
 AC_SUBST(OPENSSL_CFLAGS)
 AC_SUBST(OPENSSL_LIBS)
 
+PKG_CHECK_MODULES(MICROB, [ microb-engine-nss >= 1.0.1 ])
+AC_SUBST(MICROB_CFLAGS)
+AC_SUBST(MICROB_LIBS)
+
 AC_CHECK_HEADER(unistd.h)
 AC_CHECK_HEADERS(openssl/conf.h)
 AC_CONFIG_FILES(pkgconfig/maemosec.pc:pkgconfig/maemosec.pc.in)
