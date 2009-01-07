@@ -13,8 +13,8 @@ AC_SUBST(OPENSSL_CFLAGS)
 AC_SUBST(OPENSSL_LIBS)
 
 dnl In nss in stead of microb-engine-nss
-PKG_CHECK_MODULES(MICROB, [ nss >= 1.0.1 ])
-dnl PKG_CHECK_MODULES(MICROB, [ microb-engine-nss >= 1.0.1 ])
+dnl PKG_CHECK_MODULES(MICROB, [ nss >= 1.0.1 ])
+PKG_CHECK_MODULES(MICROB, [ microb-engine-nss >= 1.0.1 ])
 AC_SUBST(MICROB_CFLAGS)
 AC_SUBST(MICROB_LIBS)
 
