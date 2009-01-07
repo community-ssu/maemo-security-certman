@@ -1,0 +1,6 @@
+#!/bin/sh
+echo Setting up NSS
+nsscfg -c /home/user/.mozilla/microb -n "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
+nsscfg -c /home/user/.modest/cache   -n "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
+echo Done
+#DEBHELPER#
