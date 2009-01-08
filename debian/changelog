@@ -1,3 +1,9 @@
+maemo-security-certman (0.0.4) unstable; urgency=low
+
+  * Added the autoconfiguration of microb and modest to use certman
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Thu, 08 Jan 2009 17:18:35 +0200
+
 maemo-security-certman (0.0.3) unstable; urgency=low
 
   * This version works together with the GUI.
