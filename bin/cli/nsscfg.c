@@ -27,7 +27,7 @@ main(int argc, char* argv[])
 {
 	SECStatus rv;
 	SECMODModule* mod = NULL;
-	char a;
+	signed char a;
 	int rc;
 
 	MAEMOSEC_DEBUG(1, "started");
@@ -48,6 +48,7 @@ main(int argc, char* argv[])
 				strncpy(dll_name, optarg, sizeof(dll_name));
 				break;
 			default:
+				MAEMOSEC_DEBUG(1, "Invalid option '%hd'", a);
 				usage();
 				return(-1);
 			}
