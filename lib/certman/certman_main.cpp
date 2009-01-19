@@ -471,6 +471,25 @@ read_key_from_file(maemosec_key_id key_id, EVP_PKEY** key, char* passwd)
 }
 
 
+static void
+remove_key_file(maemosec_key_id key_id)
+{
+	string storage_file_name;
+	int rc = 0;
+
+	local_storage_dir(storage_file_name, priv_keys_dir);
+	create_directory(storage_file_name.c_str(), PRIVATE_DIR_MODE);
+	append_hex(storage_file_name, key_id, MAEMOSEC_KEY_ID_LEN);
+	storage_file_name.append(".pem");
+
+	if (file_exists(storage_file_name.c_str())) {
+		rc = unlink(storage_file_name.c_str());
+		MAEMOSEC_DEBUG(1, "Removed private key file '%s'", 
+					   storage_file_name.c_str());
+	}
+}
+
+
 static int
 x509_equals(int pos, X509* cert, void* with_cert)
 {
@@ -766,20 +785,28 @@ extern "C" {
 
 
 	int
-	maemosec_certman_rm_cert(domain_handle to_domain, int pos)
+	maemosec_certman_rm_cert(domain_handle from_domain, maemosec_key_id key_id)
 	{
-		int count, rc;
+		int pos, rc;
 		storage::stringlist certs;
-		struct local_domain* mydomain = (struct local_domain*)to_domain;
+		string filename;
+		struct local_domain* mydomain = (struct local_domain*)from_domain;
 
-		if (!to_domain)
+		if (!mydomain)
 			return(EINVAL);
-		count = mydomain->index->get_files(certs);
-		if (pos < 0 || pos >= count)
-			return(EINVAL);
-		mydomain->index->remove_file(certs[pos]);
-		mydomain->index->commit();
-		return(0);
+
+		filename = mydomain->dirname;
+		filename.append(PATH_SEP);
+		append_hex(filename, key_id, MAEMOSEC_KEY_ID_LEN);
+		filename.append(".pem");
+		if (mydomain->index->contains_file(filename.c_str())) {
+			MAEMOSEC_DEBUG(1, "Remove cert file '%s'", filename.c_str());
+			mydomain->index->remove_file(filename.c_str());
+			remove_key_file(key_id);
+			mydomain->index->commit();
+			return(0);
+		} else
+			return(ENOENT);
 	}
 
 

@@ -159,12 +159,12 @@ extern "C" {
 	/**
 	 * \brief Remove a certificate from the domain
 	 * \param from_domain (in) 
-	 * \param pos (in) the order number of the certificate to be removed
+	 * \param key_id (in) The public key id of the certificate
 	 * \return 0 on success, otherwise an error code. EACCESS
 	 * if the application does not have the power to modify
 	 * the domain.
 	 */
-	int maemosec_certman_rm_cert(domain_handle from_domain, int pos);
+	int maemosec_certman_rm_cert(domain_handle from_domain, maemosec_key_id key_id);
 
 	/**
 	 * \brief Return the number of certificates in a domain

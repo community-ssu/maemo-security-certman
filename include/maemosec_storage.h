@@ -91,6 +91,11 @@ namespace maemosec {
 		size_t get_files(stringlist &names);
 
 		/**
+		 * \brief Check if the storage contains the given file
+		 */
+		bool contains_file(const char* pathname);
+
+		/**
 		 * \brief Add an existing file into the storage
 		 * \param pathname (in) The name of the file. Relative pathnames
 		 * are automatically converted to absolute.
@@ -191,7 +196,6 @@ namespace maemosec {
 		void init_storage(const char* name, 
 						  visibility_t visibility, 
 						  protection_t protect);
-		bool contains_file(const char* pathname);
 		bool compute_digest(unsigned char* data, 
 							ssize_t bytes, 
 							std::string& digest);

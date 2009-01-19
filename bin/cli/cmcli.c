@@ -163,7 +163,7 @@ show_cert(int pos, X509* cert, void* x)
 		strcpy(keybuf, "??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??");
 
 	if (pos >= 0) 
-		printf("%3d: %s %s\n", pos, keybuf, name);
+		printf("%s %s\n", keybuf, name);
 	else {
 		if (pos < -1) {
 			if (pos < -2)
@@ -520,7 +520,7 @@ usage(void)
 		"Usage:\n"
 		"cmcli [-<T|t> <domain>[:<domain>...]] [-<c|p> <domain>]\n"
 		       "-a <cert-file> -i <pkcs12-file> -v <cert-file>\n"
-		       "-k <fingerprint> -r <num> -b <file>\n" 
+		       "-k <fingerprint> -r <key-id> -b <file>\n" 
 		       "[-DL] -d{d}* [-f]\n"
 		" -T to load CA certificates from one or more shared domains\n"
 		" -t to load CA certificates from one or more private domains\n"
@@ -530,7 +530,7 @@ usage(void)
 		" -i to install a PKCS#12 container or a single private key\n"
 		" -v to verify a certificate against the trusted domains\n"
 		" -k to display a private key specified by its fingerprint\n"
-		" -r to remove the nth certificate from the given domain\n"
+		" -r to remove the certificate identified by key id from domain\n"
 		" -D to list certificate domains\n"
 		" -L to list certificates in the specified domains and all private keys\n"
 		" -d, -dd... to increase level of debug info shown\n"
@@ -553,6 +553,7 @@ main(int argc, char* argv[])
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
 	multi_arg_cmd ma_cmd = cmd_none;
+	maemosec_key_id my_key_id;
 
 	if (1 == argc) {
 		usage();
@@ -683,40 +684,36 @@ main(int argc, char* argv[])
 			break;
 
 		case 'k':
-			{
-				maemosec_key_id my_key_id;
+			if (decode_key_id(optarg, my_key_id)) {
+				EVP_PKEY* my_key = NULL;
+				char password[64];
 
-				if (decode_key_id(optarg, my_key_id)) {
-					EVP_PKEY* my_key = NULL;
-					char password[64];
-
-					show_key(0, my_key_id, NULL);
-					printf("Give password: ");
-					get_input(password, sizeof(password), 1);
-					printf("\n");
-					rc = maemosec_certman_retrieve_key(my_key_id,
-													   &my_key,
-													   password);
-					if (0 == rc) {
-						BIO* outfile = BIO_new_fp(stdout, BIO_NOCLOSE);
-						if (outfile) {
-							rc = PEM_write_bio_PrivateKey(outfile,
-														  my_key,
-														  NULL,
-														  NULL,
-														  0,
-														  NULL,
-														  NULL);
-							BIO_free(outfile);
-						}
-					} else {
-						fprintf(stderr, 
-								"ERROR: cannot read private key (%d)\n",
-								rc);
+				show_key(0, my_key_id, NULL);
+				printf("Give password: ");
+				get_input(password, sizeof(password), 1);
+				printf("\n");
+				rc = maemosec_certman_retrieve_key(my_key_id,
+												   &my_key,
+												   password);
+				if (0 == rc) {
+					BIO* outfile = BIO_new_fp(stdout, BIO_NOCLOSE);
+					if (outfile) {
+						rc = PEM_write_bio_PrivateKey(outfile,
+													  my_key,
+													  NULL,
+													  NULL,
+													  0,
+													  NULL,
+													  NULL);
+						BIO_free(outfile);
 					}
-					if (my_key)
-						EVP_PKEY_free(my_key);
+				} else {
+					fprintf(stderr, 
+							"ERROR: cannot read private key (%d)\n",
+							rc);
 				}
+				if (my_key)
+					EVP_PKEY_free(my_key);
 			}
 			break;
 
@@ -725,19 +722,13 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
-			pos = atoi(optarg);
-			if (pos < 0 || pos >= maemosec_certman_nbrof_certs(my_domain)) {
-				fprintf(stderr, 
-						"ERROR: domain does not contain certificate #%d\n",
-						pos);
-				goto end;
-				
-			}
-			rc = maemosec_certman_rm_cert(my_domain, pos);
-			if (0 != rc) {
-				fprintf(stderr, "ERROR: cannot remove certificate #%d (%d)\n",
-							pos, rc);
-			}
+			if (decode_key_id(optarg, my_key_id)) {
+				rc = maemosec_certman_rm_cert(my_domain, my_key_id);
+				if (0 != rc) {
+					fprintf(stderr, "ERROR: cannot remove certificate (%d)\n", rc);
+				}
+			} else
+				printf("Removed certificate");
 			break;
 
 		case 'f':
