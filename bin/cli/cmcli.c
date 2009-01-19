@@ -721,7 +721,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 'r':
-			if (my_domain) {
+			if (!my_domain) {
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
