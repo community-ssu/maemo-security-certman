@@ -585,8 +585,11 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
-			rc = maemosec_certman_add_certs(my_domain, &argv[optind + 1], argc - optind - 1);
-			printf("Added %d certficates\n", rc);
+			MAEMOSEC_DEBUG(1, "Adding %d certificates\n", argc - optind + 1);
+			for (i = optind - 1; i < argc; i++)
+				MAEMOSEC_DEBUG(1, "Add %s\n", argv[i]);
+			rc = maemosec_certman_add_certs(my_domain, argv + optind - 1, argc - optind + 1);
+			printf("Added %d certificates\n", rc);
 			goto end;
 			break;
 
