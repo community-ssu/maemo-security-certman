@@ -126,7 +126,7 @@ load_certs(vector<string> &certnames,
 			X509_STORE_add_cert(certs, cert->cert());
 			delete(cert);
 
-		} else if (strlen(cert->key_id()) && strlen(cert->issuer_key_id())) {
+		} else if (strlen(cert->key_id())) {
 			cert_map[cert->key_id()] = cert;
 			MAEMOSEC_DEBUG(1, "%s\n\tkey    %s\n\tissuer %s", 
 				  cert->subject_name(),
@@ -139,12 +139,13 @@ load_certs(vector<string> &certnames,
 		}
 	}
 
-	// Load and verify the rest of the certificates in the proper order
-	for (
-		map<string, x509_container*>::const_iterator ii = cert_map.begin();
+	/*
+	 * Load and verify the rest of the certificates in the proper order
+	 */
+	for (map<string, x509_container*>::const_iterator ii = cert_map.begin();
 		ii != cert_map.end();
-		ii++
-	) {
+		ii++) 
+	{
 		x509_container* cert = ii->second;
 		x509_container* issuer;
 
@@ -155,8 +156,36 @@ load_certs(vector<string> &certnames,
 			continue;
 		}
 
+		/*
+		 * Find possible issuer for those stupid certificates
+		 * that didn't specify it by a x509v3 extension. If none
+		 * is found, never mind as then the issuer must already
+		 * be in the certs-store.
+		 */
+		if (0 == strlen(cert->issuer_key_id())) {
+
+			MAEMOSEC_DEBUG(1, "Searching issuer for '%s'", cert->subject_name());
+			
+			for (map<string, x509_container*>::const_iterator jj = cert_map.begin();
+				 jj != cert_map.end();
+				 jj++) 
+			{
+				if (0 == strcmp(cert->issuer_name(), jj->second->subject_name())) {
+					if (cert->is_issued_by(jj->second->cert())) {
+						MAEMOSEC_DEBUG(1, "Found issuer");
+						cert->set_issuer(jj->second);
+						break;
+					}
+				}
+			}
+		}
+
 		if (!cert->m_verified) {
 			temp.push(cert);
+
+			/* 
+			 * Verify issuers first, if any exist
+			 */
 			while (cert_map.count(cert->issuer_key_id())) {
 				issuer = cert_map[cert->issuer_key_id()];
 				if (issuer) {

@@ -10,6 +10,8 @@ namespace maemosec {
 	{
 		FILE* fp = fopen(pathname, "r");
 
+		MAEMOSEC_DEBUG(2, "Loading %s", pathname);
+
 		m_handled = false;
 		m_verified = false;
 		m_cert = NULL;
@@ -25,13 +27,11 @@ namespace maemosec {
 		} else
 			MAEMOSEC_ERROR("cannot find file '%s' (%d)", pathname, errno);
 
-		MAEMOSEC_DEBUG(2, "created new %p(%p)", this, m_cert);
 	}
 
 
 	x509_container::~x509_container()
 	{
-		MAEMOSEC_DEBUG(2, "erasing %p(%p)", this, m_cert);
 		if (m_cert)
 			X509_free(m_cert);
 		if (m_bio)
@@ -47,14 +47,14 @@ namespace maemosec {
 		int pos, len;
 
 		pos = X509_get_ext_by_NID(m_cert, nid, -1);
-		if (NID_undef == nid) {
-			MAEMOSEC_ERROR("NID %d not found", nid);
+		if (-1 == pos) {
+			MAEMOSEC_DEBUG(2, "NID %d does not exist in this certificate", nid);
 			return(false);
 		}
 
 		ext = sk_X509_EXTENSION_value(m_cert->cert_info->extensions, pos);
 		if (NULL == ext) {
-			MAEMOSEC_ERROR("Extensions broken");
+			MAEMOSEC_ERROR("Attribute %d not found", pos);
 			return(false);
 		}
 
@@ -93,10 +93,14 @@ namespace maemosec {
 		m_subject_name = X509_NAME_oneline(X509_get_subject_name(m_cert), 
 										   name_buf, sizeof(name_buf));
 
+		MAEMOSEC_DEBUG(1, "Analyzing '%s'", m_subject_name.c_str());
+
+		m_issuer_name = X509_NAME_oneline(X509_get_issuer_name(m_cert), 
+										  name_buf, sizeof(name_buf));
+
 		if (!get_extension(NID_subject_key_identifier, m_key_id)) {
 
-			MAEMOSEC_DEBUG(1, "Subject key id not defined in (%s)", 
-						   m_subject_name.c_str());
+			MAEMOSEC_DEBUG(1, "Subject key id not defined!");
 
 			maemosec_key_id key_id;
 			if (0 == maemosec_certman_get_key_id(m_cert, key_id)) {
@@ -121,7 +125,7 @@ namespace maemosec {
 			else
 				m_issuer_key_id = "";
 		}
-		MAEMOSEC_DEBUG(2, "\nkey_id       =%s\nissuer_key_id=%s\n%s self signed", 
+		MAEMOSEC_DEBUG(2, "\nkey_id       = %s\nissuer_key_id= %s\n%s self signed", 
 					   m_key_id.c_str(), m_issuer_key_id.c_str(),
 					   is_self_signed()?"is":"is not");
 		BIO_free(m_bio);
@@ -144,6 +148,9 @@ namespace maemosec {
 		rc = X509_STORE_CTX_init(csc, tmp_store, m_cert, NULL);
 
 		retval = (X509_verify_cert(csc) > 0);
+		if (!retval) {
+			MAEMOSEC_DEBUG(1, "Verification files because of %d", csc->error);
+		}
 		X509_STORE_CTX_free(csc);
 		X509_STORE_free(tmp_store);
 
@@ -165,7 +172,18 @@ namespace maemosec {
 					   m_subject_name.c_str(), 
 					   retval?"is":"is not");
 
+		if (retval && "" == m_issuer_key_id)
+			m_issuer_key_id = m_key_id;
+
 		return(retval);
+	}
+
+
+	void
+	x509_container::set_issuer(x509_container* to_this)
+	{
+		m_issuer_name = to_this->m_subject_name;
+		m_issuer_key_id = to_this->m_key_id;
 	}
 
 

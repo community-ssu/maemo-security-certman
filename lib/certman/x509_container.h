@@ -44,10 +44,10 @@ namespace maemosec {
         //  Don't make doxygen documentation 
 	private:
 		X509* m_cert;
-		x509_container* m_issuer;
 		void analyze_cert();
 		bool get_extension(int nid, string& to_buf);
 		string m_subject_name;
+		string m_issuer_name;
 		string m_key_id;
 		string m_issuer_key_id;
 		BIO* m_bio;
@@ -58,8 +58,8 @@ namespace maemosec {
 		x509_container(const char* pathname);
 		~x509_container();
 		X509* cert() {return(m_cert);};
-		x509_container* issuer() {return(m_issuer);};
 		const char* subject_name() {return(m_subject_name.c_str());};
+		const char* issuer_name() {return(m_issuer_name.c_str());};
 		const char* key_id() {return(m_key_id.c_str());};
 		const char* issuer_key_id() {return(m_issuer_key_id.c_str());};
 		bool is_self_signed();
