@@ -133,7 +133,8 @@ namespace maemosec {
 			MAEMOSEC_DEBUG(2, "\nkey_id       = %s\nissuer_key_id= %s\nis self signed", 
 						   m_key_id.c_str(), m_issuer_key_id.c_str());
 
-		} else if (X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT == error)
+		} else if (   X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT == error
+				   || X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY == error)
 			MAEMOSEC_DEBUG(2, "\nkey_id       = %s\nissuer_key_id= %s\nnot self signed", 
 						   m_key_id.c_str(), m_issuer_key_id.c_str());
 

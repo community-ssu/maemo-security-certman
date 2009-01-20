@@ -157,6 +157,17 @@ extern "C" {
 	int maemosec_certman_add_cert(domain_handle to_domain, X509* cert);
 
 	/**
+	 * \brief Add a certificate into the domain
+	 * \param to_domain (in) a handle to the domain
+	 * \param cert_files (in) files from which the certificate are to be added
+	 * \param count (in) how many file names there are in the list. A NULL also
+	 *        terminates the list
+	 * \return The number of certificates successfully added.
+	 */
+	int maemosec_certman_add_certs(domain_handle to_domain, char* cert_files[], unsigned count);
+
+
+	/**
 	 * \brief Remove a certificate from the domain
 	 * \param from_domain (in) 
 	 * \param key_id (in) The public key id of the certificate

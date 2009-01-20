@@ -189,31 +189,6 @@ show_key(int pos, void* key_id, void* ctx)
 }
 
 
-static int 
-is_self_signed(X509* cert)
-{
-	char buf1[255];
-	char buf2[255];
-
-	if (!cert)
-		return(0);
-	/*
-	 * How exactly this should be done...
-	 */
-	MAEMOSEC_DEBUG(1, "name = %s\nissuer = %s\ncert type = %x", 
-				   X509_NAME_oneline(X509_get_subject_name(cert), buf1, sizeof(buf1)),
-				   X509_NAME_oneline(X509_get_issuer_name(cert), buf2, sizeof(buf2)),
-				   X509_certificate_type(cert, NULL));
-	if (X509_NAME_cmp(X509_get_subject_name(cert), X509_get_issuer_name(cert)) == 0) {
-		MAEMOSEC_DEBUG(1, "is self signed");
-		return(1);
-	} else {
-		MAEMOSEC_DEBUG(1, "is not self signed");
-		return(0);
-	}
-}
-
-
 static int
 verify_cert(X509_STORE* store, X509* cert)
 {
@@ -267,43 +242,6 @@ get_cert(const char* from_file)
 	}
 	fclose(fp);
 	return(cert);
-}
-
-
-static int
-add_cert_to_domain(domain_handle to_domain, X509* cert, X509_STORE* to_certs)
-{
-	char buf[255], *name;
-	int rc;
-
-	name = X509_NAME_oneline(X509_get_subject_name(cert),
-							 buf, 
-							 sizeof(buf));
-
-	/* 
-	 * If the certificate is not self signed, try to
-	 * verify it. By default, do not allow adding it 
-	 * if the verification fails.
-	 */
-	if (!is_self_signed(cert) && !verify_cert(to_certs, cert)) { 
-		fprintf(stderr, 
-				"%s\nWARNING: certificate fails verification\n",
-				name);
-		if (!force_opt) 
-			return(0);
-		else
-			fprintf(stderr, 
-					"WARNING: adding unverifiable certificate\n%s\n",
-					name);
-	}
-	rc = maemosec_certman_add_cert(to_domain, cert);
-	if (0 == rc) {
-		printf("Added %s\n", name);
-		return(1);
-	} else {
-		fprintf(stderr, "ERROR: cannot add '%s' (%d)\n", name, rc);
-		return(0);
-	}
 }
 
 
@@ -550,7 +488,7 @@ typedef enum {cmd_add, cmd_verify, cmd_none} multi_arg_cmd;
 int
 main(int argc, char* argv[])
 {
-	int rc, i, a, pos, flags;
+	int rc, i, a, flags;
 	domain_handle my_domain = NULL;
 	X509_STORE* certs = NULL;
 	X509* my_cert = NULL;
@@ -647,42 +585,9 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
-			my_cert = get_cert(optarg);
-			if (my_cert) {
-				char buf[255], *name;
-
-				name = X509_NAME_oneline(X509_get_subject_name(my_cert),
-										 buf, 
-										 sizeof(buf));
-
-				/* 
-				 * If the certificate is not self signed, try to
-				 * verify it. By default, do not allow adding it 
-				 * if the verification fails.
-				 */
-				if (   !is_self_signed(my_cert) 
-					&& !verify_cert(certs, my_cert)) 
-				{
-					fprintf(stderr, 
-							"%s\nWARNING: certificate fails verification\n",
-							name);
-					if (!force_opt) {
-						X509_free(my_cert);
-						return(-1);
-					} else
-						fprintf(stderr, 
-								"WARNING: adding unverifiable certificate\n%s\n",
-								name);
-				}
-				rc = maemosec_certman_add_cert(my_domain, my_cert);
-				if (0 == rc)
-					printf("Added %s\n", name);
-				else
-					fprintf(stderr, "ERROR: cannot add '%s' (%d)\n",
-							name, rc);
-				X509_free(my_cert);
-			}
-			ma_cmd = cmd_add;
+			rc = maemosec_certman_add_certs(my_domain, &argv[optind + 1], argc - optind - 1);
+			printf("Added %d certficates\n", rc);
+			goto end;
 			break;
 
 		case 'i':
@@ -751,17 +656,6 @@ main(int argc, char* argv[])
 		for (i = optind; i < argc; i++) {
 			switch (ma_cmd) 
 				{
-				case cmd_add:
-					if (!my_domain) {
-						printf("ERROR: no domain defined\n");
-						goto end;
-					}
-					my_cert = get_cert(argv[i]);
-					if (my_cert) {
-						add_cert_to_domain(my_domain, my_cert, certs);
-						X509_free(my_cert);
-					}
-					break;
 				case cmd_verify:
 					my_cert = get_cert(argv[i]);
 					if (my_cert) {

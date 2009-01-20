@@ -825,12 +825,53 @@ extern "C" {
 		return(rc);
 	}
 
+	int
+	maemosec_certman_add_certs(domain_handle to_domain, char* cert_files[], unsigned count)
+	{
+		vector<string> certs;
+		X509_STORE* tmp_store;
+		X509_OBJECT* obj;
+		int i, rc, added = 0;
+
+		for (i = 0; i < count; i++) {
+			if (cert_files[i]) {
+				if (file_exists(cert_files[i])) {
+					certs.push_back(cert_files[i]);
+				} else
+					MAEMOSEC_DEBUG(1, "Invalid certificate file '%s'",
+								   cert_files[i]);
+			} else
+				break;
+		}
+		tmp_store = X509_STORE_new();
+		if (tmp_store) {
+			if (load_certs(certs, tmp_store)) {
+				for (i = 0; i < sk_X509_num(tmp_store->objs); i++) {
+					obj = sk_X509_OBJECT_value(tmp_store->objs, i);
+					if (X509_LU_X509 == obj->type) {
+						rc = maemosec_certman_add_cert
+							(to_domain, obj->data.x509);
+						if (0 == rc)
+							added++;
+						else
+							MAEMOSEC_ERROR("Failed to add a certificate");
+					}
+				}
+			} else {
+				MAEMOSEC_ERROR("Loading certificates failed");
+			}
+			X509_STORE_free(tmp_store);
+		} else {
+			MAEMOSEC_ERROR("Cannot create X509_STORE");
+		}
+		return(added);
+	}
+
 
 	int
 	maemosec_certman_rm_cert(domain_handle from_domain, maemosec_key_id key_id)
 	{
 		int pos, rc;
-		storage::stringlist certs;
 		string filename;
 		struct local_domain* mydomain = (struct local_domain*)from_domain;
 
