@@ -37,6 +37,8 @@
 #include <maemosec_certman.h>
 #include <maemosec_common.h>
 
+extern int inspect_certificate(const char* pathname);
+
 /*
  * Global options
  */
@@ -569,7 +571,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLdfh?");
+		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLdfh?A:");
 		if (a < 0) {
 			break;
 		}
@@ -634,6 +636,10 @@ main(int argc, char* argv[])
 			} else if (0 < maemosec_certman_nbrof_certs(my_domain)) {
 				maemosec_certman_collect(optarg, flags, certs);
 			}
+			break;
+
+		case 'A':
+			inspect_certificate(optarg);
 			break;
 
 		case 'a':

@@ -20,7 +20,7 @@ main(int argc, char* argv[])
 	int i1 = 127, i2 = 0, i3 = 0, i4 = 1, port = 2300;
 	int sd, rc, level = 9;
 	size_t rlen;
-	char arg;
+	signed char arg;
 	char* msg = NULL;
 	struct sockaddr_in i_mad, i_rad;
 

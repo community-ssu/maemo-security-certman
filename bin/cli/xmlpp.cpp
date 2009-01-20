@@ -105,7 +105,7 @@ main(int argc, char* argv[])
 	char* xpath = NULL;
 	string fpath;
 	c_xmldoc xdoc;
-	char opt;
+	signed char opt;
 	bool pretty_print = true;
 	bool include_header = true;
 	int indent_width = 4;

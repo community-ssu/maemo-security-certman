@@ -106,6 +106,7 @@ load_certs(vector<string> &certnames,
 ) {
 	map<string, x509_container*> cert_map;
 	stack<x509_container*> temp;
+	int i = 0;
 
 	// TODO: Is this logic necessary at all now that the 
 	// certificates have been divided to domains? After all,
@@ -118,19 +119,23 @@ load_certs(vector<string> &certnames,
 	for (size_t i = 0; i < certnames.size(); i++) {
 		x509_container* cert = new x509_container(certnames[i].c_str());
 
-		if (strcmp(cert->key_id(), cert->issuer_key_id()) == 0
-			|| strlen(cert->issuer_key_id()) == 0) 
+		if (cert->is_self_signed()) 
 		{
 			MAEMOSEC_DEBUG(1, "self signed: %s", cert->subject_name());
 			cert->m_verified = true;
 			X509_STORE_add_cert(certs, cert->cert());
 			delete(cert);
-		} else {
+
+		} else if (strlen(cert->key_id()) && strlen(cert->issuer_key_id())) {
 			cert_map[cert->key_id()] = cert;
 			MAEMOSEC_DEBUG(1, "%s\n\tkey    %s\n\tissuer %s", 
 				  cert->subject_name(),
 				  cert->key_id(), 
 				  cert->issuer_key_id());
+
+		} else {
+			MAEMOSEC_ERROR("Invalid certificate '%s'", cert->subject_name());
+			delete(cert);
 		}
 	}
 
@@ -143,7 +148,7 @@ load_certs(vector<string> &certnames,
 		x509_container* cert = ii->second;
 		x509_container* issuer;
 
-		MAEMOSEC_DEBUG(2, "iterate next (%p,%d)", cert, cert->m_verified);
+		MAEMOSEC_DEBUG(2, "iterate next (%d,%p,%d)", ++i, cert, cert->m_verified);
 
 		if (!cert) {
 			MAEMOSEC_DEBUG(0, "What hell? (%s)", ii->first.c_str());
@@ -155,14 +160,19 @@ load_certs(vector<string> &certnames,
 			while (cert_map.count(cert->issuer_key_id())) {
 				issuer = cert_map[cert->issuer_key_id()];
 				if (issuer) {
-					if (!issuer->m_verified)
+					if (!issuer->m_verified) {
+						MAEMOSEC_DEBUG(1, "push %s", issuer->issuer_key_id());
 						temp.push(issuer);
-					else
+					} else {
+						MAEMOSEC_DEBUG(1, "issuer already verified");
 						break;
-				} else
+					}
+				} else {
 					MAEMOSEC_ERROR("cannot find issuer %s for %s", 
 						  cert->issuer_key_id(),
 						  cert->subject_name()); 
+					return(false);
+				}
 				cert = issuer;
 			}
 
@@ -178,7 +188,8 @@ load_certs(vector<string> &certnames,
 					MAEMOSEC_ERROR("%s verification fails", cert->subject_name());
 				}
 			}
-		}
+		} else
+			MAEMOSEC_DEBUG(0, "Already verified");
 	}
 	MAEMOSEC_DEBUG(2, "erasing map");
 	for (
@@ -694,7 +705,6 @@ extern "C" {
 		MAEMOSEC_DEBUG(1, "domain contains %d certificates", pos);
 		for (i = 0; i < pos; i++) {
 			X509* cert = load_cert_from_file(files[i]);
-			MAEMOSEC_DEBUG(1, "%d: %p", i, cert);
 			if (cert) {
 				res = cb_func(i, cert, ctx);
 				if (res != -1)
@@ -921,6 +931,15 @@ extern "C" {
 										   storage_names.c_str(), 
 										   cb_relay_storename, 
 										   &relay_pars));
+	}
+
+	/*
+	 * Debug
+	 */
+	int
+	inspect_certificate(const char* pathname)
+	{
+		x509_container xc(pathname);
 	}
 
 } // extern "C"
