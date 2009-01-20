@@ -106,7 +106,7 @@ load_certs(vector<string> &certnames,
 ) {
 	map<string, x509_container*> cert_map;
 	stack<x509_container*> temp;
-	int i = 0;
+	int error, i = 0;
 
 	// TODO: Is this logic necessary at all now that the 
 	// certificates have been divided to domains? After all,
@@ -117,21 +117,24 @@ load_certs(vector<string> &certnames,
 	// and put the rest into a map for quick access
 
 	for (size_t i = 0; i < certnames.size(); i++) {
+
 		x509_container* cert = new x509_container(certnames[i].c_str());
 
-		if (cert->is_self_signed()) 
-		{
-			MAEMOSEC_DEBUG(1, "self signed: %s", cert->subject_name());
-			cert->m_verified = true;
-			X509_STORE_add_cert(certs, cert->cert());
-			delete(cert);
+		if (0 < strlen(cert->key_id())) {
+	        if (cert->is_self_signed()) 
+			{
+				MAEMOSEC_DEBUG(1, "self signed: %s", cert->subject_name());
+				cert->m_verified = true;
+				X509_STORE_add_cert(certs, cert->cert());
+				delete(cert);
 
-		} else if (strlen(cert->key_id())) {
-			cert_map[cert->key_id()] = cert;
-			MAEMOSEC_DEBUG(1, "%s\n\tkey    %s\n\tissuer %s", 
-				  cert->subject_name(),
-				  cert->key_id(), 
-				  cert->issuer_key_id());
+			} else {
+				cert_map[cert->key_id()] = cert;
+				MAEMOSEC_DEBUG(1, "%s\n\tkey    %s\n\tissuer %s", 
+							   cert->subject_name(),
+							   cert->key_id(), 
+							   cert->issuer_key_id());
+			}
 
 		} else {
 			MAEMOSEC_ERROR("Invalid certificate '%s'", cert->subject_name());
@@ -171,7 +174,7 @@ load_certs(vector<string> &certnames,
 				 jj++) 
 			{
 				if (0 == strcmp(cert->issuer_name(), jj->second->subject_name())) {
-					if (cert->is_issued_by(jj->second->cert())) {
+					if (cert->is_issued_by(jj->second->cert(), &error)) {
 						MAEMOSEC_DEBUG(1, "Found issuer");
 						cert->set_issuer(jj->second);
 						break;

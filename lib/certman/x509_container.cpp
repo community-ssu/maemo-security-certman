@@ -89,6 +89,8 @@ namespace maemosec {
 	x509_container::analyze_cert()
 	{
 		char name_buf[1024];
+		bool self_signed;
+		int error;
 
 		m_subject_name = X509_NAME_oneline(X509_get_subject_name(m_cert), 
 										   name_buf, sizeof(name_buf));
@@ -125,16 +127,28 @@ namespace maemosec {
 			else
 				m_issuer_key_id = "";
 		}
-		MAEMOSEC_DEBUG(2, "\nkey_id       = %s\nissuer_key_id= %s\n%s self signed", 
-					   m_key_id.c_str(), m_issuer_key_id.c_str(),
-					   is_self_signed()?"is":"is not");
+		self_signed = is_issued_by(m_cert, &error);
+		if (self_signed) {
+			m_issuer_key_id = m_key_id;
+			MAEMOSEC_DEBUG(2, "\nkey_id       = %s\nissuer_key_id= %s\nis self signed", 
+						   m_key_id.c_str(), m_issuer_key_id.c_str());
+
+		} else if (X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT == error)
+			MAEMOSEC_DEBUG(2, "\nkey_id       = %s\nissuer_key_id= %s\nnot self signed", 
+						   m_key_id.c_str(), m_issuer_key_id.c_str());
+
+		else {
+			m_key_id = "";
+			MAEMOSEC_DEBUG(2, "\nkey_id       = %s\nissuer_key_id= %s\nInvalid (%d)", 
+						   m_key_id.c_str(), m_issuer_key_id.c_str(), error);
+		}
 		BIO_free(m_bio);
 		m_bio = NULL;
 	}
 
 
 	bool 
-	x509_container::is_issued_by(X509* cert)
+	x509_container::is_issued_by(X509* cert, int* error)
 	{
 		X509_STORE* tmp_store;
 		X509_STORE_CTX *csc;
@@ -148,6 +162,7 @@ namespace maemosec {
 		rc = X509_STORE_CTX_init(csc, tmp_store, m_cert, NULL);
 
 		retval = (X509_verify_cert(csc) > 0);
+		*error = csc->error;
 		if (!retval) {
 			MAEMOSEC_DEBUG(1, "Verification files because of %d", csc->error);
 		}
@@ -162,11 +177,12 @@ namespace maemosec {
 	x509_container::is_self_signed()
 	{
 		bool retval;
+		int error;
 
 		MAEMOSEC_DEBUG(1, "Check if '%s' is self signed", 
 					   m_subject_name.c_str());
 
-		retval = is_issued_by(m_cert);
+		retval = is_issued_by(m_cert, &error);
 
 		MAEMOSEC_DEBUG(1, "'%s' %s self signed", 
 					   m_subject_name.c_str(), 

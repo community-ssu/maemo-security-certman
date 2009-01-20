@@ -63,7 +63,7 @@ namespace maemosec {
 		const char* key_id() {return(m_key_id.c_str());};
 		const char* issuer_key_id() {return(m_issuer_key_id.c_str());};
 		bool is_self_signed();
-		bool is_issued_by(X509* cert);
+		bool is_issued_by(X509* cert, int* error);
 		void set_issuer(x509_container* to_this);
 		void print();
 		/// \endcond
