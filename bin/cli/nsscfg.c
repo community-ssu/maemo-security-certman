@@ -7,9 +7,23 @@
 #include <linux/limits.h>
 #include <cert.h>
 #include <secmod.h>
+#include <pk11pub.h>
 #include <p12.h>
 #include <certdb.h>
 #include <maemosec_common.h>
+
+/*
+ * PK11_ListCertsInSlot uses this?
+ */
+typedef struct {
+	enum {
+		PW_NONE = 0,
+		PW_FROMFILE = 1,
+		PW_PLAINTEXT = 2,
+		PW_EXTERNAL = 3
+	} source;
+	char* data;
+} secuPWData;
 
 #define DEFAULT_CFG_DIR  "/home/user/.netscape"
 #define DEFAULT_DLL_NAME "/usr/lib/libmaemosec_certman.so.0.0.0"
@@ -20,6 +34,7 @@
 static char cfg_dir  [PATH_MAX] = DEFAULT_CFG_DIR;
 static char mod_name [PATH_MAX] = DEFAULT_MOD_NAME;
 static char dll_name [PATH_MAX] = DEFAULT_DLL_NAME;
+static char tgt_dir  [PATH_MAX] = "";
 
 enum {
 	mode_update, 
@@ -29,7 +44,6 @@ enum {
 	mode_export
 } op_mode = mode_update;
 
-static int ccount = 0;
 
 static void
 usage(void)
@@ -37,12 +51,6 @@ usage(void)
 	printf("%s\n", "Usage: nsscfg -c config-dir [-m module] [-l library]");
 }
 
-static SECStatus
-count_certs(CERTCertificate* cert, SECItem *k, void *pdata)
-{
-	ccount++;
-	return(SECSuccess);
-}
 
 int
 main(int argc, char* argv[])
@@ -55,7 +63,7 @@ main(int argc, char* argv[])
 	MAEMOSEC_DEBUG(1, "started");
 
 	while (1) {
-		a = getopt(argc, argv, "c:m:l:ir:Re");
+		a = getopt(argc, argv, "c:m:l:ir:Re:");
 		if (0 > a)
 			break;
 		switch (a) 
@@ -81,6 +89,7 @@ main(int argc, char* argv[])
 				break;
 			case 'e':
 				op_mode = mode_export;
+				strncpy(tgt_dir, optarg, sizeof(tgt_dir));
 				break;
 			default:
 				MAEMOSEC_DEBUG(1, "Invalid option '%hd'", a);
@@ -171,22 +180,45 @@ main(int argc, char* argv[])
 			fprintf(stderr, "ERROR: Cannot delete internal module (no permission)\n");
 
 	} else if (mode_export == op_mode) {
-		CERTCertDBHandle *dbh;
-		rv = SEC_OpenPermCertDB(&dbh, 1, NULL, NULL);
-		if (SECSuccess != rv) {
-			fprintf(stderr, "ERROR: cannot open cert db (%d)\n", rv);
+
+		CERTCertDBHandle *dbh = CERT_GetDefaultCertDB();
+		CERTCertList *certs;
+		CERTCertListNode *node;
+		secuPWData  pwdata = { PW_NONE, 0 };
+		int ccount = 0;
+
+		printf("Exporting certificates...");
+
+		if (!directory_exists(tgt_dir))
+			create_directory(tgt_dir, 0755);
+
+		if (!dbh) {
+			fprintf(stderr, "CERT_GetDefaultCertDB returned NULL");
 			goto shutdown;
 		}
 
-		rv = PCERT_TraversePermCerts(dbh, count_certs, NULL);
-		if (SECSuccess != rv) {
-			fprintf(stderr, "ERROR: failed to traverse database (%d)\n", rv);
+		certs = PK11_ListCerts(PK11CertListAll, &pwdata);
+		if (certs) {
+			for (node = CERT_LIST_HEAD(certs); 
+				 !CERT_LIST_END(node,certs);
+				 node = CERT_LIST_NEXT(node)) 
+			{
+				char file_name[PATH_MAX];
+				int fh;
+
+				ccount++;
+				sprintf(file_name, "%s/%d.der", tgt_dir, ccount);
+				printf("%d bytes to %s\n", node->cert->derCert.len, file_name);
+
+				fh = creat(file_name, 0644);
+				if (fh) {
+					write(fh, node->cert->derCert.data, node->cert->derCert.len);
+					close(fh);
+				}
+			}
+			CERT_DestroyCertList(certs);
 		}
-
-		/*
-		 * TODO: Close the handle. Do not know which function?
-		 */
-
+		printf("There are %d certs in the database\n", ccount);
 	}
 		
  shutdown:
