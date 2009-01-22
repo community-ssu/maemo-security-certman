@@ -20,6 +20,8 @@ DISTCLEANFILES = \
 	configure \
 	autom4te.cache/* \
 	config.sub \
+	config.log \
+	config.status \
 	config.guess \
 	ltmain.sh \
 	libtool \

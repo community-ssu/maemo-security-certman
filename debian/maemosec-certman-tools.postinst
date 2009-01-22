@@ -1,6 +1,8 @@
 #!/bin/sh
-echo Setting up NSS
-nsscfg -c /home/user/.mozilla/microb -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
-nsscfg -c /home/user/.modest/cache   -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
+# NOTE! This is not needed, as the library is installed by overwriting
+# /usr/lib/microb-engine/libnssckbi.so by the libmaemosec_certman0-package
+# echo Setting up NSS
+# nsscfg -c /home/user/.mozilla/microb -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
+# nsscfg -c /home/user/.modest/cache   -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
 echo Done
 #DEBHELPER#
