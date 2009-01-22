@@ -1,7 +1,6 @@
 #ifndef LIBBB5_H
 #define LIBBB5_H
 
-
 #include <stdlib.h>
 
 /*
