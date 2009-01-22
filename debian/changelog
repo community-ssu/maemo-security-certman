@@ -1,3 +1,10 @@
+maemo-security-certman (0.0.5) unstable; urgency=low
+
+  * Added support for NSS trust flags. This version should work with the browser
+    and email.
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Thu, 21 Jan 2009 14:21:24 +0200
+
 maemo-security-certman (0.0.4) unstable; urgency=low
 
   * Added the autoconfiguration of microb and modest to use certman
