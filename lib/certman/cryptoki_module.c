@@ -19,7 +19,7 @@
  */
 #define INCL_NETSCAPE_VDE 1
 
-#ifdef INCL_NETSCAPE_VDE
+#if INCL_NETSCAPE_VDE
 #define PR_CALLBACK
 #include "pkcs11n.h"
 #endif
@@ -27,6 +27,7 @@
 static X509_STORE* root_certs;
 
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
+static const char* attr_value(CK_ATTRIBUTE_TYPE of_a, void* val, unsigned val_len);
 
 
 static const CK_INFO library_info = {
@@ -97,7 +98,9 @@ copy_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 
 	if (p->pValue) {
 		if (p->ulValueLen >= size) {
-			MAEMOSEC_DEBUG(2, "%s", attr_name(p->type));
+			MAEMOSEC_DEBUG(2, "%s=%s", 
+						   attr_name(p->type),
+						   attr_value(p->type, value, size));
 			memcpy(p->pValue, value, size);
 		} else {
 			MAEMOSEC_DEBUG(1, "buf %ld cannot take %ld", p->ulValueLen, size);
@@ -119,15 +122,17 @@ match_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
     {
 		rv = CKR_OK;
 	} else {
-#ifdef INCL_NETSCAPE_VDE
-		long val = *(long*)p->pValue;
-		MAEMOSEC_DEBUG(2, "%s(%ld,%ld) %lx(%lx) != %lx", attr_name(p->type),
-			  p->ulValueLen, size, 
-			  val, 
-			  val >= CKO_NSS ? val - CKO_NSS : -1,
-			  *(long*)value);
-#endif
 		rv = CKR_CANCEL;
+
+#if INCL_NETSCAPE_VDE
+		if (CKA_CLASS == p->type) {
+			CK_OBJECT_CLASS objtype = *(CK_OBJECT_CLASS*)p->pValue;
+			if (CKO_NSS_TRUST == objtype) {
+				rv = CKR_OK;
+			}
+		}
+#endif
+
 	}
 	return(rv);
 }
@@ -195,12 +200,12 @@ access_attribute(SESSION sess,
 		break;
 	case CKA_TRUSTED:
 	case CKA_TOKEN:
-	case CKA_PRIVATE:
 		{
 			CK_BBOOL avalue = CK_TRUE;
 			rv = callback(&avalue, sizeof(avalue), attr);
 		}
 		break;
+	case CKA_PRIVATE:
 	case CKA_MODIFIABLE:
 		{
 			CK_BBOOL avalue = CK_FALSE;
@@ -342,6 +347,36 @@ access_attribute(SESSION sess,
 			rv = callback(&cert_id, sizeof(cert_id), attr);
 		}
 		break;
+
+#if INCL_NETSCAPE_VDE
+
+	case CKA_TRUST_SERVER_AUTH:
+	case CKA_TRUST_EMAIL_PROTECTION:
+	case CKA_TRUST_CLIENT_AUTH:
+	case CKA_TRUST_CODE_SIGNING:
+		{
+			CK_TRUST trust = CKT_NSS_TRUSTED;
+			rv = callback(&trust, sizeof(trust), attr);
+		}
+		break;
+
+	case CKA_TRUST_IPSEC_END_SYSTEM:
+	case CKA_TRUST_IPSEC_TUNNEL:
+	case CKA_TRUST_IPSEC_USER:
+	case CKA_TRUST_TIME_STAMPING:
+		{
+			CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
+			rv = callback(&trust, sizeof(trust), attr);
+		}
+		break;
+
+	case CKA_TRUST_STEP_UP_APPROVED:
+		{
+			CK_BBOOL avalue = CK_TRUE;
+			rv = callback(&avalue, sizeof(avalue), attr);
+		}
+		break;
+#endif		
 
 	default:
 		MAEMOSEC_DEBUG(1, "unsupported attribute id %x", (int)attr->type);
@@ -490,46 +525,50 @@ CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
 	CK_RV rv = CKR_OK;
 
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	rv = read_config(&nrof_slots, slot_lst, sizeof(slot_lst)/sizeof(CK_SLOT_ID));
 	if (rv == CKR_OK) {
 		if (0 != maemosec_certman_open(&root_certs))
 			rv = CKR_DEVICE_ERROR;
 	}
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return rv;
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	release_config();
 	maemosec_certman_close(root_certs);
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return(rv);
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	memcpy(pInfo, &library_info, sizeof(*pInfo));
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return(rv);
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetFunctionList)(
 	CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 {
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	if (!ppFunctionList)
 		return(CKR_ARGUMENTS_BAD);
 
 	*ppFunctionList = (CK_FUNCTION_LIST_PTR)&function_list;
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount)
@@ -537,7 +576,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	CK_RV rv = CKR_OK;
 	CK_ULONG i;
 
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 
 	/*
 	 * The token is always present, so we can ignore the tokenPresent
@@ -566,51 +605,54 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSlotList)(CK_BBOOL tokenPresent,
 	for (i = 0; i < nrof_slots; i++)
 		pSlotList[i] = slot_lst[i];
 
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
 
   out:
 	return rv;
 }
 
+
 CK_DECLARE_FUNCTION(CK_RV, C_GetSlotInfo)(CK_SLOT_ID slotID,
 	CK_SLOT_INFO_PTR pInfo)
 {
 	CK_RV rv = CKR_OK;
 
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	if (!pInfo) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
 	rv = get_slot_info(slotID, pInfo);
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 out:
 	return rv;
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetTokenInfo)(CK_SLOT_ID slotID,
 	CK_TOKEN_INFO_PTR pInfo)
 {
 	CK_RV rv = CKR_OK;
 
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	if (!pInfo) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
 	rv = get_token_info(slotID, pInfo);
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 out:
 	return rv;
 }
+
 	
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 	CK_MECHANISM_TYPE_PTR pMechanismList, CK_ULONG_PTR pulCount)
 {
 	CK_RV rv = CKR_OK;
 
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	if (!pulCount) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
@@ -623,21 +665,24 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismList)(CK_SLOT_ID slotID,
 	return(rv);
 }
 
+
 CK_DECLARE_FUNCTION(CK_RV, C_GetMechanismInfo)(CK_SLOT_ID slotID,
 	CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo)
 {
-	MAEMOSEC_DEBUG(1, "enter");
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_InitToken)(CK_SLOT_ID slotID,
 	CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen, CK_UTF8CHAR_PTR pLabel)
 {
-	MAEMOSEC_DEBUG(1, "enter");
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 	CK_VOID_PTR pApplication, CK_NOTIFY Notify,
@@ -645,36 +690,39 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 {
 	CK_RV rv = CKR_OK;
 
-	MAEMOSEC_DEBUG(1, "enter app=%p, notify=%p", pApplication, Notify);
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	if (!phSession) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
 	MAEMOSEC_DEBUG(1, "Opened session for slot %d", (int)slotID);
 	*phSession = open_session(slotID);
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
  out:
 	return(rv);
 }
 
+
 CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	rv = close_session(hSession);
 	MAEMOSEC_DEBUG(1, "exit %ld", rv);
 	return(rv);
 }
 
+
 CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	rv = close_all_sessions(slotID);
 	MAEMOSEC_DEBUG(1, "exit %ld", rv);
 	return(rv);
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 	CK_SESSION_INFO_PTR pInfo)
@@ -682,7 +730,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 	CK_RV rv = CKR_OK;
 	SESSION sess;
 
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	GET_SESSION(hSession, sess);
 
 	if (pInfo) {
@@ -712,11 +760,10 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 	int cert_nbr;
 	SESSION sess;
 
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	*phObject = -1;
 	GET_SESSION(hSession, sess);
 
-	MAEMOSEC_DEBUG(1, "enter");
 	for (i = 0; i < ulCount; i++) {
 		MAEMOSEC_DEBUG(1, "set %s", attr_name(pTemplate[i].type));
 		rv = set_attribute(sess, &cert, &pTemplate[i]);
@@ -728,32 +775,35 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 		if (CKR_OK == rv)
 			*phObject = (CK_OBJECT_HANDLE)cert_nbr;
 	}
-	MAEMOSEC_DEBUG(1, "exit %lx", rv);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return(rv);
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_CopyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phNewObject)
 {
-	MAEMOSEC_DEBUG(1, "enter");
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_DestroyObject)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject)
 {
-	MAEMOSEC_DEBUG(1, "enter");
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetObjectSize)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE  hObject, CK_ULONG_PTR pulSize)
 {
-	MAEMOSEC_DEBUG(1, "enter");
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return(CKR_FUNCTION_NOT_SUPPORTED);
 }
 
@@ -769,6 +819,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 
 	MAEMOSEC_DEBUG(1, "get %ld attributes of object %d", ulCount, (int)hObject);
 	GET_SESSION(hSession, sess);
+
 	cert = get_cert(sess, hObject);
 	if (cert) {
 		for (i = 0; i < ulCount; i++) {
@@ -781,16 +832,18 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 		}
 	} else
 		rv = CKR_ARGUMENTS_BAD;
+ out:
 	MAEMOSEC_DEBUG(1, "exit %lx", rv);
 	return(rv);
 }
+
 
 CK_DECLARE_FUNCTION(CK_RV, C_SetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount)
 {
-	MAEMOSEC_DEBUG(1, "enter");
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return(CKR_FUNCTION_NOT_SUPPORTED);
 }
 
@@ -799,29 +852,23 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
 	SESSION sess;
-	CK_ULONG i, val;
-	MAEMOSEC_DEBUG(1, "enter %d %p %d", (int)hSession, pTemplate, (int)ulCount);
+	CK_ULONG i;
+
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+
 	GET_SESSION(hSession, sess);
 	for (i = 0; i < ulCount; i++) {
-		val = *(CK_ULONG*)pTemplate[i].pValue;
-#ifdef INCL_NETSCAPE_VDE
-		MAEMOSEC_DEBUG(2, "search for %s == %ld:%lx(%lx)", 
-			  attr_name(pTemplate[i].type),
-			  pTemplate[i].ulValueLen,
-			  val,
-			  val >= CKO_NSS ? val - CKO_NSS : -1);
-#else
-		MAEMOSEC_DEBUG(2, "search for %s == %ld:%lx", 
-			  attr_name(pTemplate[i].type),
-			  pTemplate[i].ulValueLen,
-			  val);
-#endif
+		MAEMOSEC_DEBUG(2, "  cond %s=%s", 
+					   attr_name(pTemplate[i].type),
+					   attr_value(pTemplate[i].type, 
+								  pTemplate[i].pValue, 
+								  pTemplate[i].ulValueLen));
 	}
 	sess->find_template = pTemplate;
 	sess->find_count = ulCount;
 	sess->find_point = 0;
 	sess->state = sstat_search;
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
 }
 
@@ -834,7 +881,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	CK_ULONG i, j;
 	int found = 0, nbrof_certs = 0;
 
-	MAEMOSEC_DEBUG(1, "enter, find at most %d objects", (int)ulMaxObjectCount);
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	GET_SESSION(hSession, sess);
 	if (sess->state != sstat_search) {
 		rv = CKR_OPERATION_NOT_INITIALIZED;
@@ -869,27 +916,33 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			MAEMOSEC_DEBUG(2, "cert %ld matches", i);
 			if (found < ulMaxObjectCount) {
 				phObject[found++] = i;
-				sess->find_point++;
-			} else
+			} else {
+				/*
+				 * No more objects fit in the answer.
+				 * Remember where to Continue the search 
+				 * in the next call.
+				 */
+				sess->find_point = i;
 				break;
+			}
 		}
 	}
 	*pulObjectCount = found;
 	MAEMOSEC_DEBUG(1, "found %d of %d", found, nbrof_certs);
 
   out:
-	MAEMOSEC_DEBUG(1, "exit %lx", rv);
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 {
 	SESSION sess;
-	MAEMOSEC_DEBUG(1, "enter");
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	GET_SESSION(hSession, sess);
 	sess->find_template = NULL;
 	sess->state = sstat_base;
-	MAEMOSEC_DEBUG(1, "exit");
+	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
 }
 
@@ -1210,11 +1263,150 @@ attr_name(CK_ATTRIBUTE_TYPE of_a)
 		RETATTR(CKA_SERIAL_NUMBER,"CKA_SERIAL_NUMBER");
 		RETATTR(CKA_LABEL,"CKA_LABEL");
 		RETATTR(CKA_ID,"CKA_ID");
+#if INCL_NETSCAPE_VDE
+		RETATTR(CKA_TRUST_SERVER_AUTH,"CKA_TRUST_SERVER_AUTH");
+		RETATTR(CKA_TRUST_CLIENT_AUTH,"CKA_TRUST_CLIENT_AUTH");
+		RETATTR(CKA_TRUST_EMAIL_PROTECTION,"CKA_TRUST_EMAIL_PROTECTION");
+		RETATTR(CKA_TRUST_CODE_SIGNING,"CKA_TRUST_CODE_SIGNING");
+		RETATTR(CKA_TRUST_IPSEC_END_SYSTEM,"CKA_TRUST_IPSEC_END_SYSTEM");
+		RETATTR(CKA_TRUST_IPSEC_TUNNEL,"CKA_TRUST_IPSEC_TUNNEL");
+		RETATTR(CKA_TRUST_IPSEC_USER,"CKA_TRUST_IPSEC_USER");
+		RETATTR(CKA_TRUST_TIME_STAMPING,"CKA_TRUST_TIME_STAMPING");
+		RETATTR(CKA_TRUST_STEP_UP_APPROVED,"CKA_TRUST_STEP_UP_APPROVED");
+#endif
 	default:
 		{
-			static char dbg_buf[128];
-			sprintf(dbg_buf, "UNKNOWN(%lx)", of_a);
-			return(dbg_buf);
+			return(dynhex((unsigned char*)of_a, sizeof(of_a)));
 		}
 	}
+}
+
+static const char*
+attr_value(CK_ATTRIBUTE_TYPE of_a, void* val, unsigned len)
+{
+	const char* dhbuf = dynhex((unsigned char*)val, len);
+	size_t dhlen = 2*len + 1;
+
+	switch(of_a) 
+		{
+		case CKA_CLASS:
+			switch (*(CK_ULONG*)val)
+				{
+				case CKO_DATA:
+					return("CKO_DATA");
+				case CKO_CERTIFICATE:
+					return("CKO_CERTIFICATE");
+				case CKO_PUBLIC_KEY:
+					return("CKO_PUBLIC_KEY");
+				case CKO_PRIVATE_KEY:
+					return("CKO_PRIVATE_KEY");
+				case CKO_SECRET_KEY:
+					return("CKO_SECRET_KEY");
+				case CKO_HW_FEATURE:
+					return("CKO_HW_FEATURE");
+				case CKO_DOMAIN_PARAMETERS:
+					return("CKO_DOMAIN_PARAMETERS");
+				case CKO_MECHANISM:
+					return("CKO_MECHANISM");
+#if INCL_NETSCAPE_VDE 
+				case CKO_NSS_CRL:
+					return("CKO_NSS_CRL");
+				case CKO_NSS_SMIME:
+					return("CKO_NSS_SMIME");
+				case CKO_NSS_TRUST:
+					return("CKO_NSS_TRUST");
+				case CKO_NSS_BUILTIN_ROOT_LIST:
+					return("CKO_NSS_BUILTIN_ROOT_LIST");
+				case CKO_NSS_NEWSLOT:
+					return("CKO_NSS_NEWSLOT");
+				case CKO_NSS_DELSLOT:
+					return("CKO_NSS_NEWSLOT");
+#endif
+				}
+			/* Fall through */
+
+		case CKA_CERTIFICATE_TYPE:
+		case CKA_CERTIFICATE_CATEGORY:
+			snprintf((char*)dhbuf, dhlen, "%X", *(int*)val);
+			break;
+
+		case CKA_TRUSTED:
+		case CKA_TOKEN:
+		case CKA_PRIVATE:
+		case CKA_MODIFIABLE:
+			if (*(int*)val)
+				return("True");
+			else
+				return("False");
+			break;
+
+#if INCL_NETSCAPE_VDE 
+		case CKA_TRUST_STEP_UP_APPROVED:
+			if (*(int*)val)
+				return("True");
+			else
+				return("False");
+			break;
+
+		case CKA_TRUST_SERVER_AUTH:
+		case CKA_TRUST_CLIENT_AUTH:
+		case CKA_TRUST_EMAIL_PROTECTION:
+		case CKA_TRUST_CODE_SIGNING:
+			{
+				CK_TRUST trust;
+
+				memcpy(&trust, val, len);
+				switch (trust)
+					{
+					case CKT_NSS_TRUSTED:
+						return("Trusted");
+					case CKT_NSS_TRUSTED_DELEGATOR:
+						return("Trusted delegator");
+					case CKT_NSS_UNTRUSTED:
+						return("Untrusted");
+					case CKT_NSS_MUST_VERIFY:
+						return("Must verify");
+					case CKT_NSS_TRUST_UNKNOWN:
+						return("Trust unknown");
+					default:
+						return("Unknown trust value");
+					}
+			}
+			break;
+#endif
+
+#if 0
+		case CKA_SUBJECT:
+		case CKA_ISSUER:
+			{
+				X509_NAME* xn;
+
+				xn = d2i_X509_NAME(NULL, val, len);
+				if (xn) {
+					X509_NAME_oneline(xn, (char*)dhbuf, dhlen);
+					X509_NAME_free(xn);
+				}
+			}
+			break;
+
+		case CKA_SERIAL_NUMBER:
+			{
+				ASN1_INTEGER* ival;
+				char* tbuf = NULL;
+
+				ival = d2i_ASN1_INTEGER(NULL, val, len);
+				if (ival) {
+					i2c_ASN1_INTEGER(ival, (unsigned char**)&tbuf);
+					if (tbuf) {
+						strncpy((char*)dhbuf, tbuf, dhlen);
+						OPENSSL_free(tbuf);
+					}
+					ASN1_INTEGER_free(ival);
+				}
+			}
+#endif
+		default:
+			;
+		}
+	return((const char*)dhbuf);
 }
