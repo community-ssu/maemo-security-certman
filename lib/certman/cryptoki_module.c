@@ -27,7 +27,7 @@
 static X509_STORE* root_certs;
 
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
-static const char* attr_value(CK_ATTRIBUTE_TYPE of_a, void* val, unsigned val_len);
+static const char* attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned val_len);
 
 
 static const CK_INFO library_info = {
@@ -168,225 +168,241 @@ access_attribute(SESSION sess,
 {
 	CK_RV rv = CKR_OK;
 
-	switch (attr->type) {
-	case CKA_CLASS:
+	switch (attr->type) 
 		{
-			CK_OBJECT_CLASS objtype = CKO_CERTIFICATE;
-			rv = callback(&objtype, sizeof(objtype), attr);
-		}
-		break;
-	case CKA_CERTIFICATE_TYPE:
-		{
-			CK_CERTIFICATE_TYPE cert_type = CKC_X_509;
-			rv = callback(&cert_type, sizeof(cert_type), attr);
-		}
-		break;
-	case CKA_VALUE:
-		{
-			unsigned char* obuf = NULL;
-			int len;
+		case CKA_CLASS:
+			{
+				CK_OBJECT_CLASS objtype = CKO_CERTIFICATE;
+				rv = callback(&objtype, sizeof(objtype), attr);
+			}
+			break;
 
-			len = i2d_X509(cert, &obuf);
-			if (len <= 0) {
-				MAEMOSEC_ERROR("Cannot encode cert (%d)", len);
-				rv = CKR_FUNCTION_FAILED;
-				goto out;
-			} else {
-				rv = callback(obuf, len, attr);
+		case CKA_CERTIFICATE_TYPE:
+			{
+				CK_CERTIFICATE_TYPE cert_type = CKC_X_509;
+				rv = callback(&cert_type, sizeof(cert_type), attr);
 			}
-			if (obuf) 
-				OPENSSL_free(obuf);
-		}
-		break;
-	case CKA_TRUSTED:
-	case CKA_TOKEN:
-		{
-			CK_BBOOL avalue = CK_TRUE;
-			rv = callback(&avalue, sizeof(avalue), attr);
-		}
-		break;
-	case CKA_PRIVATE:
-	case CKA_MODIFIABLE:
-		{
-			CK_BBOOL avalue = CK_FALSE;
-			rv = callback(&avalue, sizeof(avalue), attr);
-		}
-		break;
-	case CKA_CERTIFICATE_CATEGORY:
-		{
-			/*
-			 * TODO: other than authority certs supported?
-			 * There seems not to be any constants for this?
-			 */
-			CK_ULONG avalue = 2;
-			rv = callback(&avalue, sizeof(avalue), attr);
-		}
-		break;
-	case CKA_CHECK_VALUE:
-		{
-			/*
-			 * TODO: a checksum, where should this be taken from?
-			 */
-			rv = callback(cert->sha1_hash, 
-						  SHA_DIGEST_LENGTH, 
-						  attr);
-		}
-		break;
-	case CKA_START_DATE:
-	case CKA_END_DATE:
-		{
-			CK_DATE avalue;
-			ASN1_GENERALIZEDTIME* svalue;
-			if (attr->type == CKA_START_DATE)
-				svalue = X509_get_notBefore(cert);
-			else
-				svalue = X509_get_notAfter(cert);
-			if (!svalue || svalue->length < 12) {
-				rv = CKR_FUNCTION_FAILED;
-				goto out;
-			}
-			/*
-			 * TODO: UTC to local time conversion?
-			 */
-			memcpy(avalue.year,  &svalue->data[0], 4);
-			memcpy(avalue.month, &svalue->data[4], 2);
-			memcpy(avalue.day,   &svalue->data[6], 2);
-			rv = callback(&avalue, sizeof(avalue), attr);
-		}
-		break;
-#if 0
-	case CKA_MODULUS_BITS:
-		break;
-	case CKA_MODULUS:
-		break;
-	case CKA_PUBLIC_EXPONENT:
-		break;
-	case CKA_KEY_TYPE:
-		break;
-	case CKA_CLASS:
-		break;
-#endif
-	case CKA_SUBJECT:
-	case CKA_ISSUER:
-		{
-			unsigned char* buf = NULL;
-			X509_NAME* name;
-			int len;
-			
-			switch (attr->type) {
-			case CKA_SUBJECT:
-				name = X509_get_subject_name(cert);
-				break;
-			case CKA_ISSUER:
-				name = X509_get_issuer_name(cert);
-				break;
-			default:
-				attr->ulValueLen = -1;
-				goto out;
-			}
-			len = i2d_X509_NAME(name, &buf);
-			if (len > 0) {
-				rv = callback(buf, len, attr);
-			} else
-				rv = CKR_FUNCTION_FAILED;
-			if (buf)
-				OPENSSL_free(buf);
-		}
-		break;
+			break;
 
-	case CKA_SERIAL_NUMBER:
-		{
-			unsigned char* buf = NULL;
-			ASN1_INTEGER* ival;
-			int len;
-
-			switch (attr->type) {
-			case CKA_SERIAL_NUMBER:
-				ival = X509_get_serialNumber(cert);
-				break;
-			default:
-				rv = CKR_FUNCTION_FAILED;
-				goto out;
-			}
-			len = i2d_ASN1_INTEGER(ival, &buf);
-			if (len > 0) {
-				rv = callback(buf, len, attr);
-			} else
-				rv = CKR_FUNCTION_FAILED;
-			if (buf)
-				OPENSSL_free(buf);
-		}
-		break;
+		case CKA_VALUE:
+			{
+				unsigned char* obuf = NULL;
+				int len;
 				
-	case CKA_LABEL:
-		{
-#if 1
-			char buf[255];
-			snprintf(buf, sizeof(buf), "%s#%d", 
-					 sess->domain_name, 
-					 cert_number);
-			rv = callback(buf, strlen(buf), attr);
-#else
-			unsigned char* buf = NULL;
-			int len = i2d_X509_NAME(X509_get_subject_name(cert), &buf);
-			if (len > 0) {
-				rv = callback(buf, len, attr);
+				len = i2d_X509(cert, &obuf);
+				if (len <= 0) {
+					MAEMOSEC_ERROR("Cannot encode cert (%d)", len);
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				} else {
+					rv = callback(obuf, len, attr);
+				}
+				if (obuf) 
+					OPENSSL_free(obuf);
 			}
-			if (buf)
-				OPENSSL_free(buf);
-#endif
-		}
-		break;
+			break;
 
-	case CKA_ID:
-		{
-			/*
-			 * TODO: Guess what
-			 */
-			CK_ULONG cert_id = 0x1703 + cert_number;
-			rv = callback(&cert_id, sizeof(cert_id), attr);
-		}
-		break;
+		case CKA_TRUSTED:
+		case CKA_TOKEN:
+			{
+				CK_BBOOL avalue = CK_TRUE;
+				rv = callback(&avalue, sizeof(avalue), attr);
+			}
+			break;
+
+		case CKA_PRIVATE:
+		case CKA_MODIFIABLE:
+			{
+				CK_BBOOL avalue = CK_FALSE;
+				rv = callback(&avalue, sizeof(avalue), attr);
+			}
+			break;
+
+		case CKA_CERTIFICATE_CATEGORY:
+			{
+				/*
+				 * TODO: other than authority certs supported?
+				 * There seems not to be any constants for this?
+				 */
+				CK_ULONG avalue = 2;
+				rv = callback(&avalue, sizeof(avalue), attr);
+			}
+			break;
+
+		case CKA_CHECK_VALUE:
+#if INCL_NETSCAPE_VDE
+		case CKA_CERT_SHA1_HASH:
+#endif
+			{
+				unsigned char sha1_hash [SHA_DIGEST_LENGTH];
+				if (X509_digest(cert, EVP_sha1(), sha1_hash, NULL))
+					rv = callback(sha1_hash,
+								  SHA_DIGEST_LENGTH, 
+								  attr);
+				else
+					rv = CKR_FUNCTION_FAILED;
+			}
+			break;
+
+		case CKA_START_DATE:
+		case CKA_END_DATE:
+			{
+				CK_DATE avalue;
+				ASN1_GENERALIZEDTIME* svalue;
+				if (attr->type == CKA_START_DATE)
+					svalue = X509_get_notBefore(cert);
+				else
+					svalue = X509_get_notAfter(cert);
+				if (!svalue || svalue->length < 12) {
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+				/*
+				 * TODO: UTC to local time conversion?
+				 */
+				memcpy(avalue.year,  &svalue->data[0], 4);
+				memcpy(avalue.month, &svalue->data[4], 2);
+				memcpy(avalue.day,   &svalue->data[6], 2);
+				rv = callback(&avalue, sizeof(avalue), attr);
+			}
+			break;
+#if 0
+		case CKA_MODULUS_BITS:
+			break;
+		case CKA_MODULUS:
+			break;
+		case CKA_PUBLIC_EXPONENT:
+			break;
+		case CKA_KEY_TYPE:
+			break;
+		case CKA_CLASS:
+			break;
+#endif
+		case CKA_SUBJECT:
+		case CKA_ISSUER:
+			{
+				unsigned char* buf = NULL;
+				X509_NAME* name;
+				int len;
+			
+				switch (attr->type) {
+				case CKA_SUBJECT:
+					name = X509_get_subject_name(cert);
+					break;
+				case CKA_ISSUER:
+					name = X509_get_issuer_name(cert);
+					break;
+				default:
+					attr->ulValueLen = -1;
+					goto out;
+				}
+				len = i2d_X509_NAME(name, &buf);
+				if (len > 0) {
+					rv = callback(buf, len, attr);
+				} else
+					rv = CKR_FUNCTION_FAILED;
+				if (buf)
+					OPENSSL_free(buf);
+			}
+			break;
+
+		case CKA_SERIAL_NUMBER:
+			{
+				unsigned char* buf = NULL;
+				ASN1_INTEGER* ival;
+				int len;
+				
+				switch (attr->type) {
+				case CKA_SERIAL_NUMBER:
+					ival = X509_get_serialNumber(cert);
+					break;
+				default:
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+				len = i2d_ASN1_INTEGER(ival, &buf);
+				if (len > 0) {
+					rv = callback(buf, len, attr);
+				} else
+					rv = CKR_FUNCTION_FAILED;
+				if (buf)
+					OPENSSL_free(buf);
+			}
+			break;
+				
+		case CKA_LABEL:
+			{
+				/*
+				 * TODO: Think of a better 'nickname'
+				 */
+#if 1
+				char buf[255];
+				snprintf(buf, sizeof(buf), "%s#%d", 
+						 sess->domain_name, 
+						 cert_number);
+				rv = callback(buf, strlen(buf), attr);
+#else
+				unsigned char* buf = NULL;
+				int len = i2d_X509_NAME(X509_get_subject_name(cert), &buf);
+				if (len > 0) {
+					rv = callback(buf, len, attr);
+				}
+				if (buf)
+					OPENSSL_free(buf);
+#endif
+			}
+			break;
+
+		case CKA_ID:
+			{
+				/*
+				 * TODO: Guess what
+				 */
+				CK_ULONG cert_id = 0x1703 + cert_number;
+				rv = callback(&cert_id, sizeof(cert_id), attr);
+			}
+			break;
 
 #if INCL_NETSCAPE_VDE
 
-	case CKA_TRUST_SERVER_AUTH:
-	case CKA_TRUST_EMAIL_PROTECTION:
-	case CKA_TRUST_CLIENT_AUTH:
-	case CKA_TRUST_CODE_SIGNING:
-		{
-			CK_TRUST trust = CKT_NSS_TRUSTED;
-			rv = callback(&trust, sizeof(trust), attr);
-		}
-		break;
+		case CKA_TRUST_SERVER_AUTH:
+		case CKA_TRUST_EMAIL_PROTECTION:
+		case CKA_TRUST_CLIENT_AUTH:
+		case CKA_TRUST_CODE_SIGNING:
+			{
+				CK_TRUST trust = CKT_NSS_TRUSTED_DELEGATOR;
+				rv = callback(&trust, sizeof(trust), attr);
+			}
+			break;
 
-	case CKA_TRUST_IPSEC_END_SYSTEM:
-	case CKA_TRUST_IPSEC_TUNNEL:
-	case CKA_TRUST_IPSEC_USER:
-	case CKA_TRUST_TIME_STAMPING:
-		{
-			CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
-			rv = callback(&trust, sizeof(trust), attr);
-		}
-		break;
+		case CKA_TRUST_IPSEC_END_SYSTEM:
+		case CKA_TRUST_IPSEC_TUNNEL:
+		case CKA_TRUST_IPSEC_USER:
+		case CKA_TRUST_TIME_STAMPING:
+			{
+				CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
+				rv = callback(&trust, sizeof(trust), attr);
+			}
+			break;
 
-	case CKA_TRUST_STEP_UP_APPROVED:
-		{
-			CK_BBOOL avalue = CK_TRUE;
-			rv = callback(&avalue, sizeof(avalue), attr);
-		}
-		break;
+		case CKA_TRUST_STEP_UP_APPROVED:
+			{
+				CK_BBOOL avalue = CK_TRUE;
+				rv = callback(&avalue, sizeof(avalue), attr);
+			}
+			break;
+
 #endif		
 
-	default:
-		MAEMOSEC_DEBUG(1, "unsupported attribute id %x", (int)attr->type);
+		default:
+			MAEMOSEC_DEBUG(1, "unsupported attribute id %x", (int)attr->type);
 #if 0
-		if (attr->pValue)
-			rv = CKR_FUNCTION_NOT_SUPPORTED;
+			if (attr->pValue)
+				rv = CKR_FUNCTION_NOT_SUPPORTED;
 #endif
-		attr->ulValueLen = -1;
-		break;
-	}
+			attr->ulValueLen = -1;
+			break;
+		}
  out:
 	return(rv);
 }
@@ -1273,16 +1289,24 @@ attr_name(CK_ATTRIBUTE_TYPE of_a)
 		RETATTR(CKA_TRUST_IPSEC_USER,"CKA_TRUST_IPSEC_USER");
 		RETATTR(CKA_TRUST_TIME_STAMPING,"CKA_TRUST_TIME_STAMPING");
 		RETATTR(CKA_TRUST_STEP_UP_APPROVED,"CKA_TRUST_STEP_UP_APPROVED");
+		RETATTR(CKA_CERT_SHA1_HASH,"CKA_CERT_SHA1_HASH");
+		RETATTR(CKA_CERT_MD5_HASH,"CKA_CERT_MD5_HASH");
 #endif
 	default:
 		{
-			return(dynhex((unsigned char*)of_a, sizeof(of_a)));
+			char aname [64], *c;
+			sprintf(aname, "Unknown attribute %X(CKA_TRUST+%d)", 
+					(CK_ULONG)of_a, 
+					(CK_ULONG) - CKA_TRUST);
+			c = (char*)dynhex(aname, strlen(aname));
+			strcpy(c, aname);
+			return(c);
 		}
 	}
 }
 
 static const char*
-attr_value(CK_ATTRIBUTE_TYPE of_a, void* val, unsigned len)
+attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned len)
 {
 	const char* dhbuf = dynhex((unsigned char*)val, len);
 	size_t dhlen = 2*len + 1;
@@ -1408,5 +1432,5 @@ attr_value(CK_ATTRIBUTE_TYPE of_a, void* val, unsigned len)
 		default:
 			;
 		}
-	return((const char*)dhbuf);
+	return(dhbuf);
 }

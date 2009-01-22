@@ -27,36 +27,23 @@ dlog_message(const char* format, ...)
 	static int port;
 	static unsigned long s_addr = (unsigned long)-1;
 	va_list p_arg;
-	int rc;
-	size_t printed;
+	int rc, tries = 3;
+	size_t printed, sent;
 
 	if (dlog_socket == -1) {
+		unsigned send_buffer_size = 64 * 1024;
 		dlog_socket = socket(PF_INET, SOCK_DGRAM, 0);
 		if (dlog_socket < 0) {
 			syslog(LOG_ERR, "%s(%d)[%s]: ERROR cannot create debug socket (%d)\n",
 				   __FILE__, __LINE__, __func__, errno);
 			return;
 		}
-#if 0
-		i_mad.sin_family = AF_INET;
-		i_mad.sin_addr.s_addr = INADDR_ANY;
-		i_mad.sin_port = 0;
-		rc = bind(dlog_socket, (struct sockaddr*)&i_mad, sizeof(struct sockaddr_in));
-		if (rc < 0) {
-			syslog(LOG_ERR, "%s(%d)[%s]: ERROR cannot bind debug socket (%d)\n",
-				   __FILE__, __LINE__, __func__, errno);
-			close(dlog_socket);
-			dlog_socket = -1;
-			return;
-		} else {
-			syslog(LOG_INFO, "%s(%d)[%s]: bound debug socket to port %d\n",
-				   __FILE__, __LINE__, __func__, ntohs(i_mad.sin_port));
-		}
-#endif
+		/*
+		 * Make the outbut buffer rather big
+		 */
+		setsockopt(dlog_socket, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, 
+				   sizeof(send_buffer_size));
 	}
-	/*
-	 * TODO: Obviously...
-	 */
 	if ((unsigned long)-1 == s_addr) {
 		int i1, i2, i3, i4, p, rc;
 		char* addr = GETENV("DLOG_TARGET","127.0.0.1");
@@ -75,11 +62,14 @@ dlog_message(const char* format, ...)
 	va_start(p_arg, format);
 	printed = vsnprintf(sndbuf, sizeof(sndbuf) - 1, format, p_arg);
 	va_end(p_arg);
-	rc = sendto(dlog_socket, sndbuf, printed, MSG_DONTWAIT, 
-				(struct sockaddr*)&i_rad, 
-				sizeof(struct sockaddr_in));
-	if (rc < 0) {
-		syslog(LOG_ERR, "%s(%d)[%s]: ERROR cannot send debug message (%d)\n",
-			   __FILE__, __LINE__, __func__, errno);
-	}
+	do {
+		sent = sendto(dlog_socket, sndbuf, printed, 0, // MSG_DONTWAIT, 
+					  (struct sockaddr*)&i_rad, 
+					  sizeof(struct sockaddr_in));
+		if (0 > sent) {
+			if (EAGAIN == errno)
+				usleep(10);
+		} else
+			printed -= sent;
+	} while (printed && 0 < --tries);
 }
