@@ -60,6 +60,8 @@
 #include <maemosec_certman.h>
 #include <maemosec_common.h>
 
+static char key_str_buf[MAEMOSEC_KEY_ID_STR_LEN];
+
 extern int inspect_certificate(const char* pathname);
 
 /*
