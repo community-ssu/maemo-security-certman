@@ -1,4 +1,4 @@
-/* -*- mode:c++; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *

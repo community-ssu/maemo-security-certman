@@ -183,9 +183,9 @@ show_cert(int pos, X509* cert, void* x)
 							 sizeof(buf));
 
 	if (0 == maemosec_certman_get_key_id(cert, key_id))
-		print_key_id(key_id, keybuf, sizeof(keybuf));
+		maemosec_certman_key_id_to_str(key_id, keybuf, sizeof(keybuf));
 	else
-		strcpy(keybuf, "??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??:??");
+		strcpy(keybuf, "????????????????????????????????????????");
 
 	if (pos >= 0) 
 		printf("%s %s\n", keybuf, name);
@@ -206,7 +206,7 @@ static int
 show_key(int pos, void* key_id, void* ctx)
 {
 	char keybuf[64];
-	print_key_id(key_id, keybuf, sizeof(keybuf));
+	maemosec_certman_key_id_to_str(key_id, keybuf, sizeof(keybuf));
 	printf("%3d: %s\n", pos, keybuf);
 	return(0);
 }
@@ -621,7 +621,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 'k':
-			if (decode_key_id(optarg, my_key_id)) {
+			if (maemosec_certman_str_to_key_id(optarg, my_key_id)) {
 				EVP_PKEY* my_key = NULL;
 				char password[64];
 
@@ -659,7 +659,7 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
-			if (decode_key_id(optarg, my_key_id)) {
+			if (maemosec_certman_str_to_key_id(optarg, my_key_id)) {
 				rc = maemosec_certman_rm_cert(my_domain, my_key_id);
 				if (0 != rc) {
 					fprintf(stderr, "ERROR: cannot remove certificate (%d)\n", rc);

@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -74,6 +74,28 @@ extern "C" {
 
 	#define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
 	typedef unsigned char maemosec_key_id [MAEMOSEC_KEY_ID_LEN];
+
+	#define MAEMOSEC_KEY_ID_STR_LEN 2*SHA_DIGEST_LEN + 1
+
+    /**
+	 * \brief Convert a key id value to string
+	 * \param key_id Key id as a byte array
+	 * \param to_this A buffer to hold the default string
+	 * \param max_len Size of the buffer, must be >= MAEMOSEC_KEY_ID_STR_LEN
+	 * \returns 0 on success, otherwise an error code
+	 */
+	int maemosec_certman_key_id_to_str(maemosec_key_id key_id,
+									   char* to_buf,
+									   unsigned max_len);
+
+    /**
+	 * \brief Convert a string into a key id
+	 * \param from_str The string presentation
+	 * \param to_this Key id as a byte array
+	 * \returns 0 on success, otherwise an error code
+	 */
+	int maemosec_certman_str_to_key_id(char* from_str,
+									   maemosec_key_id key_id);
 
 
 /// \name General certificate management functions

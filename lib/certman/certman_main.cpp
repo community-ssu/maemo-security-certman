@@ -1,4 +1,4 @@
-/* -*- mode:c++; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -1026,6 +1026,50 @@ extern "C" {
 										   storage_names.c_str(), 
 										   cb_relay_storename, 
 										   &relay_pars));
+	}
+
+	int 
+	maemosec_certman_key_id_to_str(maemosec_key_id key_id, 
+								   char* to_buf, 
+								   unsigned max_len)
+	{
+		unsigned i;
+		
+		if (max_len < 3*MAEMOSEC_KEY_ID_LEN)
+			return(EINVAL);
+
+		for (i = 0; i < MAEMOSEC_KEY_ID_LEN; i++) {
+			sprintf(to_buf, "%02hX", key_id[i]);
+			to_buf += strlen(to_buf);
+		}
+		return(0);
+	}
+
+
+	int 
+	maemosec_certman_str_to_key_id(char* from_str, 
+								   maemosec_key_id key_id)
+	{
+		unsigned i = 0;
+		unsigned short b;
+		const char* f = from_str;
+
+		if (!f)
+			return(0);
+
+		while (*f && sscanf(f, "%02hX", &b)) {
+			f += 2;
+			if (*f == ':')
+				f++;
+			key_id[i++] = (unsigned char)b;
+			if (i == MAEMOSEC_KEY_ID_LEN)
+				break;
+		}
+		
+		if (i < MAEMOSEC_KEY_ID_LEN || *f) {
+			return(EINVAL);
+		} else
+			return(0);
 	}
 
 	/*
