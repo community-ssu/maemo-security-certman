@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -621,7 +621,7 @@ main(int argc, char* argv[])
 			break;
 
 		case 'k':
-			if (maemosec_certman_str_to_key_id(optarg, my_key_id)) {
+			if (0 == maemosec_certman_str_to_key_id(optarg, my_key_id)) {
 				EVP_PKEY* my_key = NULL;
 				char password[64];
 
@@ -659,7 +659,7 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
-			if (maemosec_certman_str_to_key_id(optarg, my_key_id)) {
+			if (0 == maemosec_certman_str_to_key_id(optarg, my_key_id)) {
 				rc = maemosec_certman_rm_cert(my_domain, my_key_id);
 				if (0 != rc) {
 					fprintf(stderr, "ERROR: cannot remove certificate (%d)\n", rc);

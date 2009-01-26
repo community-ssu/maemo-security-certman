@@ -1039,7 +1039,7 @@ extern "C" {
 			return(EINVAL);
 
 		for (i = 0; i < MAEMOSEC_KEY_ID_LEN; i++) {
-			sprintf(to_buf, "%02hX", key_id[i]);
+			sprintf(to_buf, "%02hx", key_id[i]);
 			to_buf += strlen(to_buf);
 		}
 		return(0);
@@ -1057,7 +1057,7 @@ extern "C" {
 		if (!f)
 			return(0);
 
-		while (*f && sscanf(f, "%02hX", &b)) {
+		while (*f && sscanf(f, "%02hx", &b)) {
 			f += 2;
 			if (*f == ':')
 				f++;
