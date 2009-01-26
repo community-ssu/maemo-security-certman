@@ -15,7 +15,7 @@ Description: Maemo security base library
 Package: libmaemosec-dev
 Section: devel
 Architecture: any
-Depends: libmaemosec0 (=${binary:Version})
+Depends: libmaemosec0 (=${binary:Version}), libssl-dev
 Description: Maemo security base library
  Development files for the maemo security base library 
 
@@ -31,7 +31,7 @@ Section: devel
 Architecture: any
 # Conflicts: libcst-dev
 # Replaces: libcst-dev
-Depends: libmaemosec-certman0 (=${binary:Version})
+Depends: libmaemosec-certman0 (=${binary:Version}), libmaemosec-dev, libssl-dev
 Description: Maemo certificate manager shared library
  Development files for the maemo certificate manager.
 
