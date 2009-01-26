@@ -76,7 +76,7 @@ extern "C" {
 	#define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
 	typedef unsigned char maemosec_key_id [MAEMOSEC_KEY_ID_LEN];
 
-	#define MAEMOSEC_KEY_ID_STR_LEN 2*SHA_DIGEST_LEN + 1
+	#define MAEMOSEC_KEY_ID_STR_LEN 2*SHA_DIGEST_LENGTH + 1
 
     /**
 	 * \brief Convert a key id value to string
