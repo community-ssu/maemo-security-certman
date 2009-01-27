@@ -188,7 +188,7 @@ namespace maemosec {
 		retval = (X509_verify_cert(csc) > 0);
 		*error = csc->error;
 		if (!retval) {
-			MAEMOSEC_DEBUG(1, "Verification files because of %d", csc->error);
+			MAEMOSEC_DEBUG(1, "Verification fails because of %d", csc->error);
 		}
 		X509_STORE_CTX_free(csc);
 		X509_STORE_free(tmp_store);

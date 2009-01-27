@@ -209,7 +209,7 @@ show_key(int pos, void* key_id, void* ctx)
 {
 	char keybuf[64];
 	maemosec_certman_key_id_to_str(key_id, keybuf, sizeof(keybuf));
-	printf("%3d: %s\n", pos, keybuf);
+	printf("%s\n", keybuf);
 	return(0);
 }
 
@@ -581,6 +581,8 @@ main(int argc, char* argv[])
 					show_cert(i, obj->data.x509, NULL);
 				}
 			}
+			if (my_domain)
+				maemosec_certman_iterate_certs(my_domain, show_cert, NULL);
 			printf("Private keys:\n");
 			maemosec_certman_iterate_keys(show_key, NULL);
 			break;
@@ -596,8 +598,6 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: cannot open/create domain '%s' (%d)\n", 
 						optarg, rc);
 				return(-1);
-			} else if (0 < maemosec_certman_nbrof_certs(my_domain)) {
-				maemosec_certman_collect(optarg, flags, certs);
 			}
 			break;
 

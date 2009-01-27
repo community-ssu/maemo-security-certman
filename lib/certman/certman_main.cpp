@@ -125,6 +125,7 @@ verify_cert(X509_STORE* ctx, X509* cert)
 
 static bool
 load_certs(vector<string> &certnames,
+		   bool do_verify,
 		   X509_STORE* certs
 ) {
 	map<string, x509_container*> cert_map;
@@ -694,7 +695,7 @@ extern "C" {
 		} while (sep);
 
 		if (x.size()) {
-			load_certs(x, my_cert_store);
+			load_certs(x, true, my_cert_store);
 		}
 		return(0);
 	}
@@ -878,7 +879,7 @@ extern "C" {
 		}
 		tmp_store = X509_STORE_new();
 		if (tmp_store) {
-			if (load_certs(certs, tmp_store)) {
+			if (load_certs(certs, true, tmp_store)) {
 				for (i = 0; i < sk_X509_num(tmp_store->objs); i++) {
 					obj = sk_X509_OBJECT_value(tmp_store->objs, i);
 					if (X509_LU_X509 == obj->type) {
@@ -1045,6 +1046,7 @@ extern "C" {
 								   unsigned max_len)
 	{
 		unsigned i;
+		char* start = to_buf;
 		
 		if (max_len < MAEMOSEC_KEY_ID_STR_LEN)
 			return(EINVAL);
@@ -1053,6 +1055,7 @@ extern "C" {
 			sprintf(to_buf, "%02hx", key_id[i]);
 			to_buf += strlen(to_buf);
 		}
+		MAEMOSEC_DEBUG(1, "%s: %s", __func__, start);
 		return(0);
 	}
 
