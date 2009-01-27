@@ -80,7 +80,8 @@ static const char priv_keys_dir       [] = ".maemosec-keys";
 
 
 // TODO: should this really be a public
-EVP_PKEY *root_pkey = NULL;
+// EVP_PKEY *root_pkey = NULL;
+static int is_inited = 0;
 
 
 namespace maemosec 
@@ -591,9 +592,10 @@ maemosec_certman_int_init(void)
 {
 	string my_app_name;
 
-	if (process_name(my_app_name))
+	if (process_name(my_app_name)) {
 		MAEMOSEC_DEBUG(1, "Init '%s'", my_app_name.c_str());
-	else
+		is_inited = 1;
+	} else
 		MAEMOSEC_ERROR("Could not access process name");
 }
 
@@ -629,7 +631,8 @@ extern "C" {
 
 		maemosec_certman_int_init();
 		bb5_init();
-		*my_cert_store = X509_STORE_new();
+		if (my_cert_store)
+			*my_cert_store = X509_STORE_new();
 		bb5cert = bb5_get_cert(0);
 #if 0
 		// This is really a el-gamal key or something like that
@@ -700,7 +703,8 @@ extern "C" {
 	int
 	maemosec_certman_close(X509_STORE* my_cert_store)
 	{
-		X509_STORE_free(my_cert_store);
+		if (my_cert_store)
+			X509_STORE_free(my_cert_store);
 		bb5_finish();
 		return(0);
 	}
@@ -716,6 +720,12 @@ extern "C" {
 		struct local_domain mydomain;
 		storage::visibility_t storvis;
 		int rc;
+
+		/*
+		 * DEBUG
+		 */
+		if (!is_inited)
+			maemosec_certman_open(NULL);
 
 		*handle = NULL;
 		decide_storage_name(domain_name, flags, mydomain.dirname, storename);
@@ -756,11 +766,12 @@ extern "C" {
 
 		mydomain = (struct local_domain*)the_domain;
 		pos = mydomain->index->get_files(files);
-		MAEMOSEC_DEBUG(1, "domain contains %d certificates", pos);
+		MAEMOSEC_DEBUG(1, "%s: domain contains %d certificates", __func__, pos);
 		for (i = 0; i < pos; i++) {
 			X509* cert = load_cert_from_file(files[i]);
 			if (cert) {
 				res = cb_func(i, cert, ctx);
+				MAEMOSEC_DEBUG(1, "callback returned %d", res);
 				if (res != -1)
 					X509_free(cert);
 				else
@@ -1035,7 +1046,7 @@ extern "C" {
 	{
 		unsigned i;
 		
-		if (max_len < 3*MAEMOSEC_KEY_ID_LEN)
+		if (max_len < MAEMOSEC_KEY_ID_STR_LEN)
 			return(EINVAL);
 
 		for (i = 0; i < MAEMOSEC_KEY_ID_LEN; i++) {
