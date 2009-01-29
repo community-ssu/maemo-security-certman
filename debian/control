@@ -12,6 +12,14 @@ Depends: ${shlibs:Depends}
 Description: Maemo security base library
  The common security base library 
 
+Package: libmaemosec0-dbg
+Section: libdevel
+Architecture: any
+Priority: extra
+Depends: libmaemosec0 (= ${Source-Version})
+Description: Debug symbols for maemo security base library
+ Debug symbols for the the maemo security base library 
+
 Package: libmaemosec-dev
 Section: devel
 Architecture: any
@@ -26,13 +34,20 @@ Depends: ${shlibs:Depends}, libnss3
 Description: Maemo certificate manager shared library
  The maemo certificate manager shared library.
 
+Package: libmaemosec-certman0-dbg
+Section: libdevel
+Architecture: any
+Depends: libmaemosec-certman0 (= ${Source-Version})
+Description: Debug symbols for maemo certificate manager shared library
+ Debug symbols for the maemo certificate manager shared library.
+
 Package: libmaemosec-certman-dev
 Section: devel
 Architecture: any
 # Conflicts: libcst-dev
 # Replaces: libcst-dev
 Depends: libmaemosec-certman0 (=${binary:Version}), libmaemosec-dev, libssl-dev
-Description: Maemo certificate manager shared library
+Description: Maemo certificate manager shared library headers and librariers
  Development files for the maemo certificate manager.
 
 Package: maemosec-certman-tools
@@ -40,6 +55,13 @@ Architecture: any
 Depends: ${shlibs:Depends}
 Description: Maemo certificate manager runtime tools
  The command line tools for managing certificate stores.
+
+Package: maemosec-certman-tools-dbg
+Section: devel
+Architecture: any
+Depends: maemosec-certman-tools (= ${Source-Version})
+Description: Debug symbols for maemo certificate manager runtime tools
+ Debug symbols for the command line tools of maemo certificate manager
 
 Package: maemosec-certman-common-ca
 Architecture: all

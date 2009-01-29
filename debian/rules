@@ -81,7 +81,9 @@ binary-common: build install
 #	dh_installinfo
 #	dh_installman
 	dh_link
-	dh_strip
+	dh_strip --dbg-package="libmaemosec0" \
+		 --dbg-package="libmaemosec-certman0" \
+		 --dbg-package="maemosec-certman-tools"
 	dh_compress
 	dh_fixperms
 #	dh_gconf
