@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -32,6 +32,7 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <time.h>
+#include <syslog.h>
 
 #define INET4A(a,b,c,d) (in_addr_t)htonl(a << 24 | b << 16 | c << 8 | d)
 
@@ -42,18 +43,15 @@ main(int argc, char* argv[])
 {
 	int i1 = 127, i2 = 0, i3 = 0, i4 = 1, port = 2300;
 	int sd, rc, level = 9;
+	int run_as_daemon = 0;
 	size_t rlen;
 	signed char arg;
-	char* msg = NULL;
 	struct sockaddr_in i_mad, i_rad;
 
-	while ((arg = getopt(argc, argv, "l:s:a:")) >= 0) {
+	while ((arg = getopt(argc, argv, "l:a:d")) >= 0) {
 		switch (arg) {
 		case 'l':
 			level = atoi(optarg);
-			break;
-		case 's':
-			msg = optarg;
 			break;
 		case 'a':
 			rc = sscanf(optarg, "%d.%d.%d.%d:%d", &i1, &i2, &i3, &i4, &port);
@@ -63,8 +61,13 @@ main(int argc, char* argv[])
 				return(-1);
 			}
 			break;
+		case 'd':
+			run_as_daemon = 1;
+			openlog("dlog", 0, LOG_DAEMON);
+			daemon(0, 0);
+			break;
 		default:
-			fprintf(stderr, "Usage: dlog [-l level] [-s message]\n");
+			fprintf(stderr, "Usage: dlog [-l level] \n");
 			return(-1);
 		}
 	}
@@ -77,17 +80,9 @@ main(int argc, char* argv[])
 
 	i_mad.sin_family = i_rad.sin_family = AF_INET;
 	i_mad.sin_port = i_rad.sin_port = 0;
-	if (msg) {
-		// Send
-		i_mad.sin_addr.s_addr = INADDR_ANY;
-		i_rad.sin_addr.s_addr = INET4A(i1, i2, i3, i4);
-		i_rad.sin_port = htons(port);
-	} else {
-		// Receive
-		i_rad.sin_addr.s_addr = INADDR_ANY;
-		i_mad.sin_addr.s_addr = INET4A(i1, i2, i3, i4);
-		i_mad.sin_port = htons(port);
-	}
+	i_rad.sin_addr.s_addr = INADDR_ANY;
+	i_mad.sin_addr.s_addr = INET4A(i1, i2, i3, i4);
+	i_mad.sin_port = htons(port);
 	
 	rc = bind(sd, (struct sockaddr*)&i_mad, sizeof(struct sockaddr_in));
 	if (rc < 0) {
@@ -95,17 +90,11 @@ main(int argc, char* argv[])
 		return(-1);
 	}
 
-	if (msg) {
-		rc = sendto(sd, msg, strlen(msg), MSG_DONTWAIT, 
-					(struct sockaddr*)&i_rad, 
-					sizeof(struct sockaddr_in));
-		if (rc < 0) {
-			fprintf(stderr, "Error from sendto (%d)\n", errno);
-		}
-	} else {
+	{
 		struct timeval now;
 		struct tm* t_now;
 		struct timeval prev_stamp = {0, 0};
+		char time_as_str [64];
 		int dlevel;
 		char* c;
 
@@ -128,12 +117,13 @@ main(int argc, char* argv[])
 				dlevel = recbuf[1] - '0';
 				if (dlevel > level)
 					continue;
-			}
+			} else
+				dlevel = 0;
 
 			gettimeofday(&now, NULL);
 			if (now.tv_sec > prev_stamp.tv_sec + 10) {
 				t_now = localtime(&now.tv_sec);
-				printf("%04d-%02d-%02d %02d:%02d:%02d.%06ld ", 
+				sprintf(time_as_str, "%04d-%02d-%02d %02d:%02d:%02d.%06ld ", 
 					   t_now->tm_year + 1900, t_now->tm_mon + 1, t_now->tm_mday,
 					   t_now->tm_hour, t_now->tm_min, t_now->tm_sec, now.tv_usec);
 				prev_stamp = now;
@@ -147,30 +137,38 @@ main(int argc, char* argv[])
 					diff_sec  = now.tv_sec - prev_stamp.tv_sec;
 					diff_usec = now.tv_usec - prev_stamp.tv_usec;
 				}
-				printf("%16s+%02ld.%06ld ", "",
-					   diff_sec, diff_usec);
+				sprintf(time_as_str, "%16s+%02ld.%06ld ", "", diff_sec, diff_usec);
 			}
+
 			c = recbuf + 3;
-			while ( c && *c ) {
-				char* a;
-				if (*c == '\n') {
-					if (*(c + 1)) {
-						printf("\n%27s", "");
-						c++;
-					} else {
-						printf("%c", '\n');
-						break;
+			if (!run_as_daemon) {
+				printf("%s", time_as_str);
+
+				while ( c && *c ) {
+					char* a;
+					if (*c == '\n') {
+						if (*(c + 1)) {
+							printf("\n%27s", "");
+							c++;
+						} else {
+							printf("%c", '\n');
+							break;
+						}
 					}
+					for (a = c; *a && ('\n' != *a); a++)
+						printf("%c", *a);
+					c = a;
 				}
-				for (a = c; *a && ('\n' != *a); a++)
-					printf("%c", *a);
-				c = a;
+				if ('\n' != *c)
+					printf("%c", '\n');
+			} else {
+				syslog(LOG_ERR + dlevel, "%s %s", time_as_str, c);
 			}
-			if ('\n' != *c)
-				printf("%c", '\n');
 		}
 	}
 
 	close(sd);
+	if (run_as_daemon)
+		closelog();
 	return(0);
 }
