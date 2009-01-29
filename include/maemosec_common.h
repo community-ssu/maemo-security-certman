@@ -134,6 +134,8 @@ extern "C" {
 } // extern "C"
 #endif
 
+#define bare_file_name(s) strrchr(s,'/')?strrchr(s,'/')+1:s
+
 /**
  * \def MAEMOSEC_ERROR
  * \brief Report an error to the dlog server.
@@ -142,7 +144,7 @@ extern "C" {
  */
 #define MAEMOSEC_ERROR(format,args...) \
 	do {\
-		dlog_message("<0>%s(%d)[%d]: ERROR " format, __FILE__, __LINE__, \
+	  dlog_message("<0>%s(%d)[%d]: ERROR " format, bare_file_name(__FILE__), __LINE__, \
 					 getpid() ,##args);\
 	} while (0)
 
@@ -157,7 +159,7 @@ extern "C" {
  */
 #define MAEMOSEC_DEBUG(level,format,args...)	\
 	do { \
-		dlog_message("<%d>%s(%d)[%d]: " format, level, __FILE__, __LINE__, \
+	  dlog_message("<%d>%s(%d)[%d]: " format, level, bare_file_name(__FILE__), __LINE__, \
 					 getpid() ,##args);							\
     } while (0)
 

@@ -266,7 +266,15 @@ local_storage_dir(string& to_this, const char* subarea)
 {
 	string curbinname;
 
-	to_this.assign(GETENV("HOME",""));
+	/*
+	 * TODO: This is an ugly patch to force root 
+	 * processes to handle the same files as user
+	 * processes.
+	 */
+	if (0 == getuid())
+		to_this.assign("/home/user");
+	else
+		to_this.assign(GETENV("HOME",""));
 	
 	to_this.append(PATH_SEP);
 	to_this.append(subarea);
@@ -492,22 +500,31 @@ read_key_from_file(maemosec_key_id key_id, EVP_PKEY** key, char* passwd)
 	X509_SIG *p8 = NULL;
 	PKCS8_PRIV_KEY_INFO *p8inf = NULL;
 	int rc = 0;
+	const char* lpasswd;
+
+	if (passwd)
+		lpasswd = passwd;
+	else
+		lpasswd = "";
 
 	local_storage_dir(storage_file_name, priv_keys_dir);
 	create_directory(storage_file_name.c_str(), PRIVATE_DIR_MODE);
 	append_hex(storage_file_name, key_id, MAEMOSEC_KEY_ID_LEN);
 	storage_file_name.append(".pem");
 
+	MAEMOSEC_DEBUG(1, "Reading file '%s'", storage_file_name.c_str());
+
 	infile = BIO_new_file(storage_file_name.c_str(), "rb");
 	if (infile) {
 		p8 = PEM_read_bio_PKCS8(infile, NULL, NULL, NULL);
 		MAEMOSEC_DEBUG(1, "PEM_read_bio_PKCS8 ret %p", p8);
 		if (p8) {
+			MAEMOSEC_DEBUG(1, "Decrypting with '%s'", lpasswd);
 			p8inf = (PKCS8_PRIV_KEY_INFO*)
 				PKCS12_item_decrypt_d2i(p8->algor, 
 										ASN1_ITEM_rptr(PKCS8_PRIV_KEY_INFO),
-										passwd, 
-										strlen(passwd),
+										lpasswd, 
+										strlen(lpasswd),
 										p8->digest,
 										1);
 			MAEMOSEC_DEBUG(1, "PKCS8_decrypt ret %p", p8inf);
@@ -644,12 +661,26 @@ extern "C" {
 		return(0);
 	}
 
+	/*
+	 * Some libraries call these functions without initializing
+	 * the library first. Use this ugly hack to help them work
+	 * at the moment.
+	 */
+
+#define AUTOINIT do {							\
+		if (!is_inited)							\
+			maemosec_certman_open(NULL);		\
+	} while (0)
+	
+
 
 	int maemosec_certman_collect(const char* domain, int shared, X509_STORE* my_cert_store)
 	{
 		vector<string> x;
 		const char* sep, *start = domain;
 		storage::visibility_t storvis;
+
+		AUTOINIT;
 
 		do {
 			string domainname, dirname, storagename;
@@ -704,6 +735,8 @@ extern "C" {
 	int
 	maemosec_certman_close(X509_STORE* my_cert_store)
 	{
+		AUTOINIT;
+
 		if (my_cert_store)
 			X509_STORE_free(my_cert_store);
 		bb5_finish();
@@ -722,11 +755,7 @@ extern "C" {
 		storage::visibility_t storvis;
 		int rc;
 
-		/*
-		 * DEBUG
-		 */
-		if (!is_inited)
-			maemosec_certman_open(NULL);
+		AUTOINIT;
 
 		*handle = NULL;
 		decide_storage_name(domain_name, flags, mydomain.dirname, storename);
@@ -762,6 +791,8 @@ extern "C" {
 		struct local_domain* mydomain;
 		int i, pos, res = 0;
 
+		AUTOINIT;
+
 		if (!the_domain || !cb_func)
 			return(-EINVAL);
 
@@ -794,6 +825,8 @@ extern "C" {
 		string filename;
 		struct local_domain *my_domain = (struct local_domain*)the_domain;
 
+		AUTOINIT;
+
 		filename = my_domain->dirname;
 		filename.append(PATH_SEP);
 		append_hex(filename, with_id, MAEMOSEC_KEY_ID_LEN);
@@ -811,6 +844,8 @@ extern "C" {
 	int
 	maemosec_certman_nbrof_certs(domain_handle in_domain)
 	{
+		AUTOINIT;
+
 		if (in_domain)
 			return(((struct local_domain*)in_domain)->index->nbrof_files());
 		else
@@ -825,6 +860,8 @@ extern "C" {
 		FILE* to_file;
 		string filename;
 		int pos, rc = 0;
+
+		AUTOINIT;
 
 		if (!to_domain || !cert)
 			return(EINVAL);
@@ -866,6 +903,8 @@ extern "C" {
 		X509_STORE* tmp_store;
 		X509_OBJECT* obj;
 		int i, rc, added = 0;
+
+		AUTOINIT;
 
 		for (i = 0; i < count; i++) {
 			if (cert_files[i]) {
@@ -909,6 +948,8 @@ extern "C" {
 		string filename;
 		struct local_domain* mydomain = (struct local_domain*)from_domain;
 
+		AUTOINIT;
+
 		if (!mydomain)
 			return(EINVAL);
 
@@ -932,6 +973,8 @@ extern "C" {
 	{
 		struct local_domain* mydomain;
 
+		AUTOINIT;
+
 		if (!handle)
 			return(EINVAL);
 		mydomain = (struct local_domain*)handle;
@@ -943,6 +986,8 @@ extern "C" {
 	int 
 	maemosec_certman_get_key_id(X509* of_cert, maemosec_key_id to_this)
 	{
+		AUTOINIT;
+
 		if (!of_cert && !to_this)
 			return(EINVAL);
 		if (X509_pubkey_digest(of_cert, EVP_sha1(), to_this, NULL))
@@ -957,6 +1002,8 @@ extern "C" {
 							   EVP_PKEY* the_key, 
 							   char* with_passwd)
 	{
+		AUTOINIT;
+
 		return(store_key_to_file(with_id, the_key, with_passwd));
 	}
 
@@ -966,6 +1013,8 @@ extern "C" {
 							   EVP_PKEY** the_key, 
 							   char* with_passwd)
 	{
+		AUTOINIT;
+
 		return(read_key_from_file(with_id, the_key, with_passwd));
 	}
 
@@ -986,6 +1035,8 @@ extern "C" {
 		string keystore_name;
 		string name_expression;
 		struct cb_relay_par relay_pars;
+
+		AUTOINIT;
 
 		name_expression = "^";
 		for (int i = 0; i < MAEMOSEC_KEY_ID_LEN; i++)
@@ -1022,6 +1073,8 @@ extern "C" {
 		string storage_names = cert_storage_prefix;
 		struct cb_relay_par relay_pars;
 
+		AUTOINIT;
+
 		storage_names.assign(cert_storage_prefix);
 		storage_names.append("\\..*");
 		if (MAEMOSEC_CERTMAN_DOMAIN_SHARED == flags)
@@ -1048,6 +1101,8 @@ extern "C" {
 		unsigned i;
 		char* start = to_buf;
 		
+		AUTOINIT;
+
 		if (max_len < MAEMOSEC_KEY_ID_STR_LEN)
 			return(EINVAL);
 
@@ -1067,6 +1122,8 @@ extern "C" {
 		unsigned i = 0;
 		unsigned short b;
 		const char* f = from_str;
+
+		AUTOINIT;
 
 		if (!f)
 			return(0);
