@@ -1,3 +1,9 @@
+maemo-security-certman (0.0.6) unstable; urgency=low
+
+  * This version is supposed to work together with Connectivity EAP handling.
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Thu, 29 Jan 2009 09:56:21 +0200
+
 maemo-security-certman (0.0.5) unstable; urgency=low
 
   * Added support for NSS trust flags. This version should work with the browser

@@ -5,7 +5,7 @@ includedir=${prefix}/include
 
 Name: maemosec
 Description: Base security library
-Version: 0.0.5
+Version: ${VERSION}
 Requires: openssl
 Libs: -lmaemosec
 Cflags: 
