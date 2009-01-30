@@ -125,11 +125,21 @@ get_storage_directory(storage::visibility_t visibility,
 		access_mode = 0755;
 
 	} else if (visibility == storage::vis_private) {
-		dir_name.assign(GETENV("HOME",""));
+		/*
+		 * TODO: This is an ugly patch to force root 
+		 * processes to handle the same files as user
+		 * processes.
+		 */
+		if (0 == getuid())
+			dir_name.assign("/home/user");
+		else
+			dir_name.assign(GETENV("HOME",""));
+
 		if (dir_name.empty()) {
 			MAEMOSEC_ERROR("home not defined");
 			return(EINVAL);
 		}
+
 		dir_name.append(PATH_SEP);
 		dir_name.append(sec_private_root);
 		access_mode = 0700;
