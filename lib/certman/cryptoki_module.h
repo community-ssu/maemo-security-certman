@@ -30,8 +30,9 @@
 #ifndef MAEMOSEC_CRYPTOKI_H
 #define MAEMOSEC_CRYPTOKI_H
 
-// #pragma pack(push, cryptoki, 1)
+#include <pkcs11.h>
 
+#ifndef CK_NULL_PTR
 /* Specifies that the function is a DLL entry point. */
 // #define CK_IMPORT_SPEC __declspec(dllimport)
 #define CK_IMPORT_SPEC
@@ -70,9 +71,8 @@
 #define NULL_PTR 0
 #endif
 
-#include "pkcs11.h"
+#endif
 
 // #pragma pack(pop, cryptoki)
 
 #endif
-

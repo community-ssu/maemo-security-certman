@@ -7,7 +7,7 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
-CFLAGS = -Wall -g -fPIC
+CFLAGS = -Wall -g -fPIC -Werror
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -O0

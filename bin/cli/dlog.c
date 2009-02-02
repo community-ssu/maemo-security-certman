@@ -64,7 +64,8 @@ main(int argc, char* argv[])
 		case 'd':
 			run_as_daemon = 1;
 			openlog("dlog", 0, LOG_DAEMON);
-			daemon(0, 0);
+			if (0 > (rc = daemon(0, 0)))
+				fprintf(stderr, "Failed to daemonize (%s)", strerror(errno));
 			break;
 		default:
 			fprintf(stderr, "Usage: dlog [-l level] \n");

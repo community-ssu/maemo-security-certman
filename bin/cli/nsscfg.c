@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <linux/limits.h>
+#include <sys/fcntl.h>
 #include <cert.h>
 #include <secmod.h>
 #include <pk11pub.h>
@@ -235,9 +236,14 @@ main(int argc, char* argv[])
 
 				fh = creat(file_name, 0644);
 				if (fh) {
-					write(fh, node->cert->derCert.data, node->cert->derCert.len);
+					int len;
+					len = write(fh, node->cert->derCert.data, node->cert->derCert.len);
+					if (len < node->cert->derCert.len)
+						fprintf(stderr, "Failed to write all data");
 					close(fh);
-				}
+				} else
+					fprintf(stderr, "Failed to create file '%s' (%s)", file_name,
+							strerror(errno));
 			}
 			CERT_DestroyCertList(certs);
 		}

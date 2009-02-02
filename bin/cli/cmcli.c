@@ -60,8 +60,6 @@
 #include <maemosec_certman.h>
 #include <maemosec_common.h>
 
-static char key_str_buf[MAEMOSEC_KEY_ID_STR_LEN];
-
 extern int inspect_certificate(const char* pathname);
 
 /*
@@ -126,47 +124,6 @@ determine_filetype(FILE* fp, void** idata)
 		MAEMOSEC_DEBUG(1, "Not a PKCS12 file");
 
 	return(ft_unknown);
-}
-
-
-static void
-print_key_id(maemosec_key_id key_id, char* to_buf, unsigned max_len)
-{
-	unsigned i;
-
-	if (max_len < 3*MAEMOSEC_KEY_ID_LEN)
-		return;
-	for (i = 0; i < MAEMOSEC_KEY_ID_LEN; i++) {
-		sprintf(to_buf, "%s%02hX", i?":":"", key_id[i]);
-		to_buf += strlen(to_buf);
-	}
-}
-
-
-static int
-decode_key_id(const char* from_buf, maemosec_key_id key_id)
-{
-	unsigned i = 0;
-	unsigned short b;
-	const char* f = from_buf;
-
-	if (!from_buf)
-		return(0);
-
-	while (*f && sscanf(f, "%02hX", &b)) {
-		f += 2;
-		if (*f == ':')
-			f++;
-		key_id[i++] = (unsigned char)b;
-		if (i == MAEMOSEC_KEY_ID_LEN)
-			break;
-	}
-
-	if (i < MAEMOSEC_KEY_ID_LEN) {
-		fprintf(stderr, "ERROR: invalid key id '%s'\n", from_buf);
-		return(0);
-	} else
-		return(1);
 }
 
 

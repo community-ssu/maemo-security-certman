@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -44,7 +44,7 @@
 
 #if INCL_NETSCAPE_VDE
 #define PR_CALLBACK
-#include "pkcs11n.h"
+#include <pkcs11n.h>
 #endif
 
 static X509_STORE* root_certs;
@@ -52,6 +52,11 @@ static X509_STORE* root_certs;
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
 static const char* attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned val_len);
 
+/*
+ * Support version 2.20 of the specs
+ */
+#define CRYPTOKI_VERSION_MAJOR 2
+#define CRYPTOKI_VERSION_MINOR 20
 
 static const CK_INFO library_info = {
 	.cryptokiVersion = {
@@ -84,11 +89,7 @@ static const CK_FUNCTION_LIST function_list = {
 	#undef CK_NEED_ARG_LIST
 	#define CK_PKCS11_FUNCTION_INFO(name) \
 		.name = name,
-#ifdef ALL_FUNCTIONS
-	#include "pkcs11f.h"
-#else
-	#include "pkcs11f-partial.h"
-#endif
+	#include <pkcs11f.h>
 	#undef CK_PKCS11_FUNCTION_INFO
 };
 
@@ -871,7 +872,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 		}
 	} else
 		rv = CKR_ARGUMENTS_BAD;
- out:
+
 	MAEMOSEC_DEBUG(1, "exit %lx", rv);
 	return(rv);
 }
@@ -985,7 +986,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 	return CKR_OK;
 }
 
-#ifdef ALL_FUNCTIONS
+/*
+ * Unsupported functions
+ */
 CK_DECLARE_FUNCTION(CK_RV, C_InitPIN)(CK_SESSION_HANDLE hSession,
 	CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
@@ -1278,8 +1281,10 @@ CK_DECLARE_FUNCTION(CK_RV, C_GenerateRandom)(CK_SESSION_HANDLE hSession,
 {
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
-#endif
 
+/*
+ * Some help functions
+ */
 #define RETATTR(s,x) case s: return(x)
 
 static const char*
@@ -1318,10 +1323,10 @@ attr_name(CK_ATTRIBUTE_TYPE of_a)
 	default:
 		{
 			char aname [64], *c;
-			sprintf(aname, "Unknown attribute %X(CKA_TRUST+%d)", 
-					(CK_ULONG)of_a, 
-					(CK_ULONG) - CKA_TRUST);
-			c = (char*)dynhex(aname, strlen(aname));
+			sprintf(aname, "Unknown attribute %lX(CKA_TRUST+%ld)", 
+				(CK_ULONG) of_a, 
+				(CK_ULONG) (of_a - CKA_TRUST));
+			c = (char*)dynhex((unsigned char*)aname, strlen(aname));
 			strcpy(c, aname);
 			return(c);
 		}

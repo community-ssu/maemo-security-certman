@@ -28,6 +28,7 @@
  */
 
 #include "cryptoki_config.h"
+#include <pkcs11t.h>
 #include <maemosec_common.h>
 #include "c_xmldoc.h"
 

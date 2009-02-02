@@ -49,7 +49,7 @@ dlog_message(const char* format, ...)
 	static int port;
 	static unsigned long s_addr = (unsigned long)-1;
 	va_list p_arg;
-	int rc, tries = 3;
+	int tries = 3;
 	size_t printed, sent;
 
 	if (dlog_socket == -1) {

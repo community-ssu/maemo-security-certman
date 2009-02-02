@@ -1,4 +1,4 @@
-INCLUDES = -I../../include -I../../lib/security $(MICROB_CFLAGS)
+INCLUDES = -I../../include -I../../lib/security ${NSS_CFLAGS}
 
 bin_PROGRAMS = sscli cmcli xmlpp dlog nsscfg
 
@@ -14,7 +14,6 @@ xmlpp_SOURCES = xmlpp.cpp
 xmlpp_LDADD =  -L../../lib/security/.libs -lmaemosec
 
 dlog_SOURCES = dlog.c
-
 nsscfg_SOURCES = nsscfg.c
 nsscfg_LDADD = -L../../lib/libbb5/.libs -lbb5 \
- -L../../lib/security/.libs -lmaemosec $(MICROB_LIBS)
+ -L../../lib/security/.libs -lmaemosec $(NSS_LIBS)
