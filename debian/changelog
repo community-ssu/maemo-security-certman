@@ -1,3 +1,9 @@
+maemo-security-certman (0.0.7) unstable; urgency=low
+
+  * Work version for the next step
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Mon, 02 Feb 2009 14:30:53 +0200
+
 maemo-security-certman (0.0.6) unstable; urgency=low
 
   * Implemented support for WLAN/EAP.

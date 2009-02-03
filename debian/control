@@ -3,7 +3,7 @@ Section: user/other
 Priority: extra
 Maintainer: Juhani Mäkelä <ext-juhani.3.makela@nokia.com>
 Build-Depends: debhelper (>= 5), autotools-dev, libssl-dev, libexpat1-dev, 
- libnss3-dev, microb-engine-dev
+ microb-engine-dev | libnss3-dev (>= 3.12)
 Standards-Version: 3.7.2
 
 Package: libmaemosec0
