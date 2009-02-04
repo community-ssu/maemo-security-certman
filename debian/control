@@ -2,8 +2,8 @@ Source: maemo-security-certman
 Section: user/other
 Priority: extra
 Maintainer: Juhani Mäkelä <ext-juhani.3.makela@nokia.com>
-Build-Depends: debhelper (>= 5), autotools-dev, libssl-dev, libexpat1-dev, 
- microb-engine-dev | libnss3-dev (>= 3.12)
+Build-Depends: debhelper (>= 5), autotools-dev, fakeroot, libtool, pkg-config,
+ libssl-dev, libexpat1-dev, microb-engine-dev | libnss3-dev (>= 1.8)
 Standards-Version: 3.7.2
 
 Package: libmaemosec0
@@ -31,7 +31,7 @@ Description: Maemo security base library
 Package: libmaemosec-certman0
 Section: libs
 Architecture: any
-Depends: ${shlibs:Depends}, libnss3 | libnss3-1d
+Depends: ${shlibs:Depends}, libnss3 | libnss3-0d | libnss3-1d
 Description: Maemo certificate manager shared library
  The maemo certificate manager shared library.
 

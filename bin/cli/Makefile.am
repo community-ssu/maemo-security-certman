@@ -1,4 +1,4 @@
-INCLUDES = -I../../include -I../../lib/security ${NSS_CFLAGS}
+INCLUDES = -I../../include -I../../lib/security ${NSS_CFLAGS} ${OPENSSL_CFLAGS}
 
 bin_PROGRAMS = sscli cmcli xmlpp dlog nsscfg
 
@@ -8,12 +8,13 @@ sscli_LDADD =  -L../../lib/libbb5/.libs -lbb5 \
 
 cmcli_SOURCES = cmcli.c
 cmcli_LDADD =  -L../../lib/security/.libs -lmaemosec \
- -L../../lib/certman/.libs -lmaemosec_certman -lssl
+ -L../../lib/certman/.libs -lmaemosec_certman ${OPENSSL_LIBS}
 
 xmlpp_SOURCES = xmlpp.cpp
 xmlpp_LDADD =  -L../../lib/security/.libs -lmaemosec
 
 dlog_SOURCES = dlog.c
+
 nsscfg_SOURCES = nsscfg.c
 nsscfg_LDADD = -L../../lib/libbb5/.libs -lbb5 \
  -L../../lib/security/.libs -lmaemosec $(NSS_LIBS)
