@@ -1,4 +1,4 @@
-/* -*- mode:c++; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -279,12 +279,14 @@ extern "C" {
 				if (-1 != rc) {
 					return(0);
 				} else {
-					MAEMOSEC_DEBUG(2, "Creation failed (%s)", strerror(rc));
+					MAEMOSEC_DEBUG(2, "Creation failed (%s)", 
+						       strerror(errno));
 					return(errno);
 				}
 			} else {
-				MAEMOSEC_DEBUG(2, "Error other than ENOENT with '%s' (%s)", 
-					  dir, strerror(rc));
+				MAEMOSEC_DEBUG(2, 
+					       "Error other than ENOENT with '%s' (%s)", 
+					       dir, strerror(errno));
 				return(errno);
 			}
 		} else {

@@ -996,6 +996,75 @@ extern "C" {
 			return(EINVAL);
 	}
 
+	/*
+	 * Nickname is constructed by catenating these name components
+	 * together in the order of precedence. -1 is a group separator.
+	 */
+	static const int nickname_components [] = {
+		NID_commonName, -1, 
+		NID_organizationalUnitName, NID_organizationName, NID_countryName, -1,
+		NID_organizationalUnitName, NID_organizationName, -1,
+		NID_organizationName, NID_countryName, -1,
+		NID_organizationName, -1, 
+		NID_organizationalUnitName, -1,
+		-1
+	};
+
+	int
+	maemosec_certman_get_nickname(X509* of_cert, 
+								  char* to_buf, 
+								  unsigned buf_len)
+	{
+		X509_NAME* name;
+		bool found = false;
+		int idx, npos = 0;
+		string result;
+
+		if (NULL == of_cert || NULL == to_buf || 0 == buf_len)
+			return(EINVAL);
+
+		name = X509_get_subject_name(of_cert);
+		if (NULL == name)
+			return(EINVAL);
+
+		while (-1 != nickname_components[npos]) {
+			idx = X509_NAME_get_index_by_NID(name, nickname_components[npos], -1);
+			if (-1 == idx) {
+				/*
+				 * Component not found, roll forward
+				 */
+				result = "";
+				while (-1 != nickname_components[npos])
+					npos++;
+			} else {
+				X509_NAME_ENTRY *entry;
+				ASN1_STRING *str;
+				unsigned char *quark = NULL;
+
+				entry = X509_NAME_get_entry(name, idx);
+				if (NULL != entry)
+					str = X509_NAME_ENTRY_get_data(entry);
+				if (NULL != str)
+					ASN1_STRING_to_UTF8(&quark, str);
+				if (NULL != quark) {
+					if ("" != result)
+						result.append("/");
+					result.append((char*)quark);
+					OPENSSL_free(quark);
+				}
+			}
+			npos++;
+		}
+
+		if (result.length() < buf_len)
+			strcpy(to_buf, result.c_str());
+		else {
+			memcpy(to_buf, result.c_str(), buf_len);
+			to_buf[buf_len] = '\0';
+		}
+		return(0);
+	}
+
 
 	int 
 	maemosec_certman_store_key(maemosec_key_id with_id, 

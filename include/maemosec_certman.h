@@ -50,13 +50,13 @@ extern "C" {
 	 *        one application, the one that has created them and
 	 *        owns them.
 	 */
-#define MAEMOSEC_CERTMAN_DOMAIN_PRIVATE 0
+    #define MAEMOSEC_CERTMAN_DOMAIN_PRIVATE 0
 	
 	/**
 	 * \def MAEMOSEC_CERTMAN_DOMAIN_SHARED
 	 * \brief Common certificate domain, accessible by all applications
 	 */
-#define MAEMOSEC_CERTMAN_DOMAIN_SHARED 1
+    #define MAEMOSEC_CERTMAN_DOMAIN_SHARED 1
 	
 	/**
 	 * \typedef domain_handle
@@ -71,12 +71,12 @@ extern "C" {
 	 * \brief The value a domain handle cannot have if its properly
 	 * opened.
 	 */
-#define MAEMOSEC_CERTMAN_DOMAIN_NONE (void*)(0)
+    #define MAEMOSEC_CERTMAN_DOMAIN_NONE (void*)(0)
 
-	#define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
+    #define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
 	typedef unsigned char maemosec_key_id [MAEMOSEC_KEY_ID_LEN];
 
-	#define MAEMOSEC_KEY_ID_STR_LEN 2*SHA_DIGEST_LENGTH + 1
+    #define MAEMOSEC_KEY_ID_STR_LEN 2*SHA_DIGEST_LENGTH + 1
 
     /**
 	 * \brief Convert a key id value to string
@@ -255,6 +255,8 @@ extern "C" {
 									  char* with_passwd);
 
 	int maemosec_certman_iterate_keys(maemosec_callback* cb_func, void* ctx);
+
+	int maemosec_certman_get_nickname(X509* of_cert, char* to_buf, unsigned buf_len);
 
 
 //@}

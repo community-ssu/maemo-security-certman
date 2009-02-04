@@ -46,6 +46,7 @@
 #include <openssl/pkcs12.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#include <openssl/ssl.h>
 
 /**
  * \def sk_STORE_OBJECT_num(st)
@@ -66,6 +67,7 @@ extern int inspect_certificate(const char* pathname);
  * Global options
  */
 static int force_opt = 0;
+static int save_cert = 0;
 
 /*
  * Utilities. Should maybe be added to libmaemosec_certman0
@@ -130,33 +132,31 @@ determine_filetype(FILE* fp, void** idata)
 static int
 show_cert(int pos, X509* cert, void* x)
 {
-	char buf[255], keybuf[64], *name;
+	char nickname[255], keybuf[MAEMOSEC_KEY_ID_STR_LEN];
 	maemosec_key_id key_id;
 	int i;
 
 	if (!cert)
 		return(ENOENT);
 
-	name = X509_NAME_oneline(X509_get_subject_name(cert),
-							 buf, 
-							 sizeof(buf));
+	if (0 != maemosec_certman_get_nickname(cert, nickname, sizeof(nickname)))
+		strcpy(nickname, "(no name)");
 
 	if (0 == maemosec_certman_get_key_id(cert, key_id))
 		maemosec_certman_key_id_to_str(key_id, keybuf, sizeof(keybuf));
-	else
-		strcpy(keybuf, "????????????????????????????????????????");
-
-	if (pos >= 0) 
-		printf("%s %s\n", keybuf, name);
 	else {
-		if (pos < -1) {
-			if (pos < -2)
-				for (i = -2; i > pos; i--)
-					printf("   ");
-			printf("+->");
-		}
-		printf("%s\n", name);
+		for (i = 0; i < MAEMOSEC_KEY_ID_STR_LEN; i++)
+			keybuf[i] = '?';
+		keybuf[i - 1] = '\0';
 	}
+
+	if (pos < -1) {
+		if (pos < -2)
+			for (i = -2; i > pos; i--)
+				printf("   ");
+		printf("+->");
+	}
+	printf("%s %s\n", keybuf, nickname);
 	return(0);
 }
 
@@ -225,6 +225,158 @@ get_cert(const char* from_file)
 	fclose(fp);
 	return(cert);
 }
+
+
+static void
+write_cert_to_file(X509 *cert)
+{
+	char filename[255];
+	FILE *tof;
+	maemosec_key_id key_id;
+
+	if(NULL == cert)
+		return;
+	maemosec_certman_get_key_id(cert, key_id);
+	maemosec_certman_key_id_to_str(key_id, filename, sizeof(filename));
+	strcat(filename, ".pem");
+	tof = fopen(filename, "w+");
+	if (tof) {
+		printf("Save cert to '%s'\n", filename);
+		PEM_write_X509(tof, cert);
+		fclose(tof);
+	}
+}
+
+
+static X509_STORE*
+X509_STORE_dup(X509_STORE* model)
+{
+	X509_STORE* res = NULL;
+	X509_OBJECT* obj;
+	int i;
+
+	if (model && model->objs) {
+		res = X509_STORE_new();	
+		for (i = 0; i < sk_X509_num(model->objs); i++) {
+			obj = sk_X509_OBJECT_value(model->objs, i);
+			if (X509_LU_X509 == obj->type) {
+				X509_STORE_add_cert(res, obj->data.x509);
+			}
+		}
+	}
+	return(res);
+}
+
+
+struct check_ssl_args {
+	int result;
+	int save;
+};
+
+static int
+check_ssl_certificate(X509_STORE_CTX *ctx, void* arg)
+{
+	X509* cert;
+	struct check_ssl_args *args = (struct check_ssl_args*) arg;
+
+	if (ctx && ctx->cert) {
+		cert = ctx->cert;
+		show_cert(0, ctx->cert, NULL);
+		args->result = X509_verify_cert(ctx);
+		if (0 == args->result) {
+			printf("Verification failed: %s\n", X509_verify_cert_error_string(ctx->error));
+		} else {
+			int i;
+			printf("trust chain:\n");
+			for (i = sk_X509_num(ctx->chain); i > 1; i--) {
+				X509* issuer = sk_X509_value(ctx->chain, i - 1);
+				if (issuer) {
+					show_cert(i - sk_X509_num(ctx->chain) - 1, issuer, NULL);
+				}
+			}
+		}
+		if (args->save)
+			write_cert_to_file(ctx->cert);
+	}
+	return(1);
+}
+
+
+
+int
+verify_object(X509_STORE *certs, const char* name)
+{
+	int res = 0;
+
+	if (file_exists(name)) {
+		X509 *my_cert;
+		my_cert = get_cert(optarg);
+		if (my_cert) {
+			res = verify_cert(certs, my_cert);
+			X509_free(my_cert);
+		}
+		return(res);
+	} else {
+		SSL_CTX *c_ctx=NULL;
+		BIO *conn;
+		BIO *bio_err;
+		SSL *scon;
+		struct check_ssl_args args;
+		int i;
+
+		bio_err = BIO_new_fp(stderr, BIO_NOCLOSE);
+		SSL_library_init();
+		SSL_load_error_strings();
+
+		c_ctx=SSL_CTX_new(TLSv1_method());
+
+		if (NULL == c_ctx)
+			return(0);
+
+		args.save = save_cert;
+		args.result = 0;
+		SSL_CTX_set_cert_verify_callback(c_ctx, check_ssl_certificate, &args);
+		SSL_CTX_set_cert_store(c_ctx, X509_STORE_dup(certs));
+
+		conn = BIO_new(BIO_s_connect());
+		if (NULL == conn)
+			return(0);
+
+		MAEMOSEC_DEBUG(1, "Connecting to %s...", name);
+		BIO_set_conn_hostname(conn, name);
+
+		scon = SSL_new(c_ctx);
+		SSL_set_bio(scon, conn, conn);
+		
+		for (;;) {
+			i = SSL_connect(scon);
+
+			if (BIO_sock_should_retry(i)) {
+				int fd, width;
+				fd_set readfds;
+
+				BIO_printf(bio_err,"DELAY\n");
+
+				fd = SSL_get_fd(scon);
+				width=fd+1;
+				FD_ZERO(&readfds);
+				FD_SET(fd,&readfds);
+				select(width,(void *)&readfds,NULL,NULL,NULL);
+			} else
+				break;
+		}
+
+		MAEMOSEC_DEBUG(1, "connection made, rc=%d\n", i);
+		if (0 > i)
+			ERR_print_errors(bio_err);
+
+		SSL_shutdown(scon);
+		SSL_free(scon);
+		SSL_CTX_free(c_ctx);
+		return(args.result);
+	}
+}
+
 
 
 void
@@ -441,7 +593,7 @@ usage(void)
 	printf(
 		"Usage:\n"
 		"cmcli [-<T|t> <domain>[:<domain>...]] [-<c|p> <domain>]\n"
-		       "-a <cert-file> -i <pkcs12-file> -v <cert-file>\n"
+		       "-a <cert-file> -i <pkcs12-file> -v <cert-file|DNS-name>\n"
 		       "-k <fingerprint> -r <key-id> -b <file>\n" 
 		       "[-DL] -d{d}* [-f]\n"
 		" -T to load CA certificates from one or more shared domains\n"
@@ -450,11 +602,12 @@ usage(void)
 		" -p to open/create a private domain for modifications\n"
 		" -a to add a certificate to the given domain\n"
 		" -i to install a PKCS#12 container or a single private key\n"
-		" -v to verify a certificate against the trusted domains\n"
+		" -v to verify a certificate or SSL-server against the trusted domains\n"
 		" -k to display a private key specified by its fingerprint\n"
 		" -r to remove the certificate identified by key id from domain\n"
 		" -D to list certificate domains\n"
-		" -L to list certificates in the specified domains and all private keys\n"
+		" -L to list certificates\n"
+		" -K to list private\n"
 		" -d, -dd... to increase level of debug info shown\n"
 		" -f to force an operation despite warnings\n"
 		);
@@ -473,7 +626,6 @@ main(int argc, char* argv[])
 	int rc, i, a, flags;
 	domain_handle my_domain = NULL;
 	X509_STORE* certs = NULL;
-	X509* my_cert = NULL;
 	multi_arg_cmd ma_cmd = cmd_none;
 	maemosec_key_id my_key_id;
 
@@ -491,7 +643,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLdfh?A:");
+		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLKdfhsA:?");
 		if (a < 0) {
 			break;
 		}
@@ -508,15 +660,8 @@ main(int argc, char* argv[])
 			break;
 
 		case 'v':
-			my_cert = get_cert(optarg);
-			if (my_cert) {
-				if (verify_cert(certs, my_cert))
-					printf("Verified OK\n");
-				else 
-					printf("Verification fails\n");
-				X509_free(my_cert);
-			}
 			ma_cmd = cmd_verify;
+			goto handle_rest;
 			break;
 
 		case 'D':
@@ -531,16 +676,19 @@ main(int argc, char* argv[])
 			break;
 
 		case 'L':
-			printf("Certificates:\n");
-			for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
-				X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
-				if (obj->type == X509_LU_X509) {
-					show_cert(i, obj->data.x509, NULL);
-				}
-			}
 			if (my_domain)
 				maemosec_certman_iterate_certs(my_domain, show_cert, NULL);
-			printf("Private keys:\n");
+			else {
+				for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
+					X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
+					if (obj->type == X509_LU_X509) {
+						show_cert(i, obj->data.x509, NULL);
+					}
+				}
+			}
+			break;
+
+		case 'K':
 			maemosec_certman_iterate_keys(show_key, NULL);
 			break;
 
@@ -631,31 +779,31 @@ main(int argc, char* argv[])
 			force_opt++;
 			break;
 
+		case 's':
+			save_cert = 1;
+			break;
+
 		default:
 			usage();
 			return(-1);
 		}
 	}
 
-	if (optind < argc) {
-		for (i = optind; i < argc; i++) {
-			switch (ma_cmd) 
-				{
-				case cmd_verify:
-					my_cert = get_cert(argv[i]);
-					if (my_cert) {
-						if (verify_cert(certs, my_cert))
-							printf("Verified OK\n");
-						else 
-							printf("Verification fails\n");
-						X509_free(my_cert);
-					}
-					break;
-				default:
-					printf("Warning: %d extraneous parameter(s)\n", argc - optind);
-					usage();
-				}
-		}
+ handle_rest:
+	for (i = optind - 1; i < argc; i++) {
+		MAEMOSEC_DEBUG(1, "Handle %s\n", argv[i]);
+		switch (ma_cmd) 
+			{
+			case cmd_verify:
+				if (verify_object(certs, argv[i]))
+					printf("Verified OK\n");
+				else 
+					printf("Verification fails\n");
+				break;
+			default:
+				printf("Warning: %d extraneous parameter(s)\n", argc - optind);
+				usage();
+			}
 	}
 
 end:

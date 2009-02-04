@@ -8,7 +8,7 @@ sscli_LDADD =  -L../../lib/libbb5/.libs -lbb5 \
 
 cmcli_SOURCES = cmcli.c
 cmcli_LDADD =  -L../../lib/security/.libs -lmaemosec \
- -L../../lib/certman/.libs -lmaemosec_certman
+ -L../../lib/certman/.libs -lmaemosec_certman -lssl
 
 xmlpp_SOURCES = xmlpp.cpp
 xmlpp_LDADD =  -L../../lib/security/.libs -lmaemosec
