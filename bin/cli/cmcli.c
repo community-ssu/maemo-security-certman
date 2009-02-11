@@ -517,7 +517,7 @@ install_pkcs12(PKCS12* cont)
 		EVP_PKEY_free(pkey);
 	}
 
-	if (cas) {
+	if (cas && sk_X509_num(cas)) {
 		printf("%d CA certificates detected\n", sk_X509_num(cas));
 		printf("%s\n", "Writable certificate stores:");
 		maemosec_certman_iterate_domains(MAEMOSEC_CERTMAN_DOMAIN_PRIVATE, 
