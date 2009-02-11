@@ -273,7 +273,7 @@ extern "C" {
 		MAEMOSEC_DEBUG(2, "Test '%s'", dir);
 		rc = stat(dir, &fs);
 		if (0 > rc) {
-			if (errno == ENOENT) {
+			if (ENOENT == errno) {
 				MAEMOSEC_DEBUG(2, "Create '%s'", dir);
 				rc = mkdir(dir, mode);
 				if (0 == rc) {
