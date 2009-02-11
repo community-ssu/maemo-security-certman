@@ -272,11 +272,11 @@ extern "C" {
 	
 		MAEMOSEC_DEBUG(2, "Test '%s'", dir);
 		rc = stat(dir, &fs);
-		if (-1 == rc) {
+		if (0 > rc) {
 			if (errno == ENOENT) {
 				MAEMOSEC_DEBUG(2, "Create '%s'", dir);
 				rc = mkdir(dir, mode);
-				if (-1 != rc) {
+				if (0 > rc) {
 					return(0);
 				} else {
 					MAEMOSEC_DEBUG(2, "Creation failed (%s)", 
@@ -345,7 +345,7 @@ extern "C" {
 		DIR* dh;
 		unsigned char dir_d_type = '\0';
 		struct dirent* entry;
-		int rc, res, count = 0;
+		int rc, res = 0, count = 0;
 		regex_t name_pattern;
 		char ebuf[100];
 

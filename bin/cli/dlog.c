@@ -79,6 +79,7 @@ main(int argc, char* argv[])
 		return(-1);
 	}
 
+	memset(&i_mad, '\0', sizeof(i_mad));
 	i_mad.sin_family = i_rad.sin_family = AF_INET;
 	i_mad.sin_port = i_rad.sin_port = 0;
 	i_rad.sin_addr.s_addr = INADDR_ANY;

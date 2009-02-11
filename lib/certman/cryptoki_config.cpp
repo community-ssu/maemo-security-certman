@@ -1,4 +1,4 @@
-/* -*- mode:c++; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -314,11 +314,11 @@ extern "C" {
 		int rv;
 		cstore* certs;
 
-		if (   !sess
-			|| MAEMOSEC_CERTMAN_DOMAIN_NONE == sess->cmdomain) 
-		{
-			MAEMOSEC_DEBUG(1, "sess %p, sess->cmdomain %p",
-				  sess, sess->cmdomain);
+		if (!sess) {
+			MAEMOSEC_DEBUG(1, "NULL session");
+			return(CKR_SESSION_HANDLE_INVALID);
+		} else if (MAEMOSEC_CERTMAN_DOMAIN_NONE == sess->cmdomain) {
+			MAEMOSEC_DEBUG(1, "NULL session cmdomain");
 			return(CKR_SESSION_HANDLE_INVALID);
 		}
 

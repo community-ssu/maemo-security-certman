@@ -139,16 +139,23 @@ static CK_RV
 match_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 {
 	CK_RV rv;
-	if (   p 
-		&& p->ulValueLen == size
-		&& p->pValue
-		&& memcmp(p->pValue, value, size) == 0)
+
+	if (NULL == p || NULL == p->pValue || NULL == value)
+		return(CKR_CANCEL);
+
+	if (p->ulValueLen == size
+		&& 0 == memcmp(p->pValue, value, size))
     {
 		rv = CKR_OK;
 	} else {
 		rv = CKR_CANCEL;
 
 #if INCL_NETSCAPE_VDE
+		/*
+		 * Check if this is a trust flag query, and always return
+		 * yes when so. Probably doesn't make sense always, has to
+		 * TODO: check later.
+		 */
 		if (CKA_CLASS == p->type) {
 			CK_OBJECT_CLASS objtype = *(CK_OBJECT_CLASS*)p->pValue;
 			if (CKO_NSS_TRUST == objtype) {
@@ -935,6 +942,11 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	 * given in the search template, all objects are returned.
 	 */
 	nbrof_certs = maemosec_certman_nbrof_certs(sess->cmdomain);
+	if (0 > nbrof_certs) {
+		MAEMOSEC_ERROR("Nonexistent domain (race?)");
+		goto out;
+	}
+
 	for (i = sess->find_point; i < nbrof_certs; i++) {
 		int is_match = 1;
 		X509* cert = get_cert(sess, i);

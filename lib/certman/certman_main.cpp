@@ -176,12 +176,11 @@ load_certs(vector<string> &certnames,
 		x509_container* cert = ii->second;
 		x509_container* issuer;
 
-		MAEMOSEC_DEBUG(2, "iterate next (%d,%p,%d)", ++i, cert, cert->m_verified);
-
 		if (!cert) {
 			MAEMOSEC_DEBUG(0, "What hell? (%s)", ii->first.c_str());
 			continue;
 		}
+		MAEMOSEC_DEBUG(2, "iterate next (%d,%p,%d)", ++i, cert, cert->m_verified);
 
 		/*
 		 * Find possible issuer for those stupid certificates
@@ -651,10 +650,10 @@ extern "C" {
 		bb5_init();
 		if (my_cert_store)
 			*my_cert_store = X509_STORE_new();
-		bb5cert = bb5_get_cert(0);
 #if 0
 		// This is really a el-gamal key or something like that
 		// so don't store it
+		bb5cert = bb5_get_cert(0);
 		if (bb5cert)
 			X509_STORE_add_cert(*my_cert_store, bb5cert);
 #endif
@@ -849,7 +848,10 @@ extern "C" {
 		if (in_domain)
 			return(((struct local_domain*)in_domain)->index->nbrof_files());
 		else
-			return(-1);
+			/*
+			 * No domain, no certs
+			 */
+			return(0);
 	}
 
 
@@ -980,6 +982,7 @@ extern "C" {
 		mydomain = (struct local_domain*)handle;
 		delete(mydomain->index);
 		delete(mydomain);
+		return(0);
 	}
 
 
@@ -1219,6 +1222,7 @@ extern "C" {
 	inspect_certificate(const char* pathname)
 	{
 		x509_container xc(pathname);
+		return(0);
 	}
 
 } // extern "C"

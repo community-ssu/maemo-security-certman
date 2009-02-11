@@ -1,4 +1,4 @@
-/* -*- mode:c++; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -344,7 +344,7 @@ c_xmlnode* c_xmlnode :: navigate(const char* to_xpath, bool required)
 		for (; result->m_parent; result = result->m_parent);
 		xp++;
 	}
-	for (start = xp; *xp; xp++) {
+	for (start = xp; *xp && (NULL != result); xp++) {
 		if (*xp == '/') {
 			string child_name(start, xp - start);
 			if (xp != start) {
@@ -356,9 +356,9 @@ c_xmlnode* c_xmlnode :: navigate(const char* to_xpath, bool required)
 			} else {
 				MAEMOSEC_ERROR("empty path element in '%s'", to_xpath);
 			}
-			if (!result && required) {
+			if (NULL == result && required) {
 				MAEMOSEC_ERROR("required path element '%s' not found", 
-					  child_name.c_str());
+							   child_name.c_str());
 			}
 		}
 	}

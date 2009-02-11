@@ -1,4 +1,4 @@
-/* -*- mode:c++; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -116,7 +116,8 @@ extern "C" {
 	{
 		struct timeval now;
 
-		CRYPTO_malloc_init();
+		if (0 == CRYPTO_malloc_init())
+			MAEMOSEC_ERROR("CRYPTO_malloc_init returned 0");
 		// OPENSSL_config(NULL);
 		ERR_load_crypto_strings();
 		OpenSSL_add_all_algorithms();
