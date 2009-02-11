@@ -116,8 +116,7 @@ extern "C" {
 	{
 		struct timeval now;
 
-		if (0 == CRYPTO_malloc_init())
-			MAEMOSEC_ERROR("CRYPTO_malloc_init returned 0");
+		// CRYPTO_malloc_init()) -- Not needed but in Win32
 		// OPENSSL_config(NULL);
 		ERR_load_crypto_strings();
 		OpenSSL_add_all_algorithms();

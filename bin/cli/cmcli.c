@@ -194,14 +194,17 @@ verify_cert(X509_STORE* store, X509* cert)
 
 	if (retval) {
 		int i;
-		printf("Trust chain:\n");
+		printf(" trust chain:\n");
 		for (i = sk_X509_num(csc->chain); i > 0; i--) {
 			X509* issuer = sk_X509_value(csc->chain, i - 1);
 			if (issuer) {
-				show_cert(i - sk_X509_num(csc->chain) - 1, issuer, NULL);
+				show_cert(i - sk_X509_num(csc->chain) - 2, issuer, NULL);
 			}
 		}
-	}
+	} else
+		printf(" Verification failed: %s\n", 
+			   X509_verify_cert_error_string(csc->error));
+
 	X509_STORE_CTX_free(csc);
 	return(retval);
 }
@@ -284,14 +287,15 @@ check_ssl_certificate(X509_STORE_CTX *ctx, void* arg)
 		show_cert(0, ctx->cert, NULL);
 		args->result = X509_verify_cert(ctx);
 		if (0 == args->result) {
-			printf("Verification failed: %s\n", X509_verify_cert_error_string(ctx->error));
+			printf(" Verification failed: %s\n", 
+				   X509_verify_cert_error_string(ctx->error));
 		} else {
 			int i;
-			printf("trust chain:\n");
+			printf(" trust chain:\n");
 			for (i = sk_X509_num(ctx->chain); i > 1; i--) {
 				X509* issuer = sk_X509_value(ctx->chain, i - 1);
 				if (issuer) {
-					show_cert(i - sk_X509_num(ctx->chain) - 1, issuer, NULL);
+					show_cert(i - sk_X509_num(ctx->chain) - 2, issuer, NULL);
 				}
 			}
 		}
@@ -300,7 +304,6 @@ check_ssl_certificate(X509_STORE_CTX *ctx, void* arg)
 	}
 	return(1);
 }
-
 
 
 int
@@ -593,7 +596,8 @@ usage(void)
 	printf(
 		"Usage:\n"
 		"cmcli [-<T|t> <domain>[:<domain>...]] [-<c|p> <domain>]\n"
-		       "-a <cert-file> -i <pkcs12-file> -v <cert-file|DNS-name>\n"
+		       "-a <cert-file [<cert-file>...]> -i <pkcs12-file>\n"
+		       "-v <cert-file|hostname:port>\n"
 		       "-k <fingerprint> -r <key-id> -b <file>\n" 
 		       "[-DL] -d{d}* [-f]\n"
 		" -T to load CA certificates from one or more shared domains\n"
@@ -602,7 +606,7 @@ usage(void)
 		" -p to open/create a private domain for modifications\n"
 		" -a to add a certificate to the given domain\n"
 		" -i to install a PKCS#12 container or a single private key\n"
-		" -v to verify a certificate or SSL-server against the trusted domains\n"
+		" -v to verify a certificate or a SSL-server against the trusted domains\n"
 		" -k to display a private key specified by its fingerprint\n"
 		" -r to remove the certificate identified by key id from domain\n"
 		" -D to list certificate domains\n"
@@ -612,8 +616,6 @@ usage(void)
 		" -f to force an operation despite warnings\n"
 		);
 }
-
-typedef enum {cmd_add, cmd_verify, cmd_none} multi_arg_cmd;
 
 /**
  * \brief The main program
@@ -626,7 +628,6 @@ main(int argc, char* argv[])
 	int rc, i, a, flags;
 	domain_handle my_domain = NULL;
 	X509_STORE* certs = NULL;
-	multi_arg_cmd ma_cmd = cmd_none;
 	maemosec_key_id my_key_id;
 
 	if (1 == argc) {
@@ -660,8 +661,12 @@ main(int argc, char* argv[])
 			break;
 
 		case 'v':
-			ma_cmd = cmd_verify;
-			goto handle_rest;
+			if (verify_object(certs, optarg))
+				/*
+				 * Error messages are printed already inside 
+				 * verify object.
+				 */
+				printf("Verified OK\n");
 			break;
 
 		case 'D':
@@ -787,23 +792,6 @@ main(int argc, char* argv[])
 			usage();
 			return(-1);
 		}
-	}
-
- handle_rest:
-	for (i = optind - 1; i < argc; i++) {
-		MAEMOSEC_DEBUG(1, "Handle %s\n", argv[i]);
-		switch (ma_cmd) 
-			{
-			case cmd_verify:
-				if (verify_object(certs, argv[i]))
-					printf("Verified OK\n");
-				else 
-					printf("Verification fails\n");
-				break;
-			default:
-				printf("Warning: %d extraneous parameter(s)\n", argc - optind);
-				usage();
-			}
 	}
 
 end:
