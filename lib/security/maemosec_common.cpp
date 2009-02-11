@@ -276,7 +276,7 @@ extern "C" {
 			if (errno == ENOENT) {
 				MAEMOSEC_DEBUG(2, "Create '%s'", dir);
 				rc = mkdir(dir, mode);
-				if (0 > rc) {
+				if (0 == rc) {
 					return(0);
 				} else {
 					MAEMOSEC_DEBUG(2, "Creation failed (%s)", 
