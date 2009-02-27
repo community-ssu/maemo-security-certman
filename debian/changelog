@@ -1,8 +1,13 @@
 maemo-security-certman (0.0.7) unstable; urgency=low
 
-  * Work version for the next step
+  * Removed redundant pkcs11-headers from the package and used
+    the ones from NSS in stead. Defined dependencies so that the
+    package can be built in Debian desktop distro in addition of
+    maemo scratchbox. Added function maemosec_certman_get_nickname,
+    added the ability to check TLS/SSL servers over network to cmcli, and
+    fixed some minor bugs here and there.
 
- -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Mon, 02 Feb 2009 14:30:53 +0200
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Mon, 27 Feb 2009 16:40:00 +0200
 
 maemo-security-certman (0.0.6) unstable; urgency=low
 
