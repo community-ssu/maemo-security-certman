@@ -5,7 +5,7 @@ maemo-security-certman (0.0.7) unstable; urgency=low
     package can be built in Debian desktop distro in addition of
     maemo scratchbox. Added function maemosec_certman_get_nickname,
     added the ability to check TLS/SSL servers over network to cmcli, and
-    fixed some minor bugs here and there.
+    fixed some minor bugs here and there. Fixes: NB#100963
 
  -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Mon, 27 Feb 2009 16:40:00 +0200
 
