@@ -53,6 +53,7 @@ Description: Maemo certificate manager shared library headers and librariers
 
 Package: maemosec-certman-tools
 Architecture: any
+Section: libs
 Depends: ${shlibs:Depends}
 Description: Maemo certificate manager runtime tools
  The command line tools for managing certificate stores.
@@ -66,6 +67,7 @@ Description: Debug symbols for maemo certificate manager runtime tools
 
 Package: maemosec-certman-common-ca
 Architecture: all
+Section: libs
 Description: Common CA certificates
  The common CA certificate store.
 
