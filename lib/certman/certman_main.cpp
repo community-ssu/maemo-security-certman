@@ -1041,7 +1041,7 @@ extern "C" {
 					npos++;
 			} else {
 				X509_NAME_ENTRY *entry;
-				ASN1_STRING *str;
+				ASN1_STRING *str = NULL;
 				unsigned char *quark = NULL;
 
 				entry = X509_NAME_get_entry(name, idx);
