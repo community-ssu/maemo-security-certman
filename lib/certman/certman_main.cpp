@@ -196,9 +196,8 @@ load_certs(vector<string> &certnames,
 		 * be in the certs-store.
 		 */
 		if (0 == strlen(cert->issuer_key_id())) {
-
+			bool found_issuer = false;
 			MAEMOSEC_DEBUG(1, "Searching issuer for '%s'", cert->subject_name());
-			
 			for (map<string, x509_container*>::const_iterator jj = cert_map.begin();
 				 jj != cert_map.end();
 				 jj++) 
@@ -206,11 +205,18 @@ load_certs(vector<string> &certnames,
 				if (0 == strcmp(cert->issuer_name(), jj->second->subject_name())) {
 					if (cert->is_issued_by(jj->second->cert(), &error)) {
 						MAEMOSEC_DEBUG(1, "Found issuer");
+						found_issuer = true;
 						cert->set_issuer(jj->second);
 						break;
+					} else {
+						MAEMOSEC_DEBUG(1, "Issuer names match but verification fails?");
 					}
+				} else {
+					MAEMOSEC_DEBUG(5, "'%s' != '%s'",  cert->issuer_name(), jj->second->subject_name());
 				}
 			}
+			if (!found_issuer)
+				MAEMOSEC_DEBUG(1, "Issuer '%s' not found", cert->issuer_name());
 		}
 
 		if (!cert->m_verified) {
@@ -349,56 +355,6 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 	int rc;
 	struct stat fs;
 
-	to_string.assign("");
-
-#if 0
-	name = X509_NAME_oneline(X509_get_subject_name(of_cert), nbuf, sizeof(nbuf));
-	serial = ASN1_INTEGER_get(X509_get_serialNumber(of_cert));
-
-	if (!name) {
-		MAEMOSEC_ERROR("Cert has no name!!!");
-		return;
-	}
-
-	MAEMOSEC_DEBUG(1,"Making filename out of '%s'\n+ in dir '%s'", name, in_dir);
-
-	to_string.assign(in_dir);
-	to_string.append(PATH_SEP);
-
-	// Use the organization name from subject name as basis
-	c = strstr(name, "O=");
-	if (c) 
-		c += 2;
-	else
-		c = name;
-
-	while (*c && (strchr("/,=",*c) == NULL))
-	{
-		if (!isalnum(*c))
-			to_string.append(1,'_');
-		else
-			to_string.append(1,*c);
-		c++;
-	}
-	
-	// Do not use the real serial number
-	serial = 1;
-	do {
-		sprintf(nbuf, "%s.%ld.pem", to_string.c_str(), serial);
-		rc = stat(nbuf, &fs);
-		if (-1 == rc) {
-			if (ENOENT == errno)
-				break;
-			else {
-				MAEMOSEC_ERROR("cannot do stat on '%s' (%s)", nbuf, strerror(errno));
-				return;
-			}
-		} else
-			serial++;
-	} while (serial < LONG_MAX);
-	to_string.assign(nbuf);
-
-#else
 	to_string.assign(in_dir);
 	to_string.append(PATH_SEP);
 	maemosec_key_id key_id;
@@ -409,7 +365,6 @@ make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
 		MAEMOSEC_ERROR("Cannot get key id out of certificate");
 		goto failed;
 	}
-#endif
 
   ok:
 	MAEMOSEC_DEBUG(1, "=> %s", to_string.c_str());
@@ -809,7 +764,7 @@ extern "C" {
 			X509* cert = load_cert_from_file(files[i]);
 			if (cert) {
 				res = cb_func(i, cert, ctx);
-				MAEMOSEC_DEBUG(1, "callback returned %d", res);
+				MAEMOSEC_DEBUG(5, "callback returned %d", res);
 				if (res != -1)
 					X509_free(cert);
 				else
@@ -875,6 +830,7 @@ extern "C" {
 		if (!to_domain || !cert)
 			return(EINVAL);
 
+#if 0
 		pos = maemosec_certman_iterate_certs(to_domain, x509_equals, cert);
 		if (0 != pos) {
 			MAEMOSEC_DEBUG(0, 
@@ -882,6 +838,7 @@ extern "C" {
 						   pos);
 			return(EEXIST);
 		}
+#endif
 
 		make_unique_filename(cert, mydomain->dirname.c_str(), filename);
 		

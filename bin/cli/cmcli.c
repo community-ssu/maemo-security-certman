@@ -154,7 +154,7 @@ show_cert(int pos, X509* cert, void* x)
 		if (pos < -2)
 			for (i = -2; i > pos; i--)
 				printf("   ");
-		printf("+->");
+		printf("%s", -2==pos?"   ":"+->");
 	}
 	printf("%s %s\n", keybuf, nickname);
 	return(0);
@@ -172,20 +172,23 @@ show_key(int pos, void* key_id, void* ctx)
 
 
 static int
-verify_cert(X509_STORE* store, X509* cert)
+verify_cert(X509_STORE* store, X509* cert, int show_trust_chain)
 {
 	X509_STORE_CTX *csc;
 	int retval;
 	int rc;
 
+	if (NULL == cert)
+		return(0);
+
 	csc = X509_STORE_CTX_new();
-	if (csc == NULL) {
+	if (NULL == csc) {
 		fprintf(stderr, "ERROR: cannot create new context\n");
 		return(0);
 	}
 
 	rc = X509_STORE_CTX_init(csc, store, cert, NULL);
-	if (rc == 0) {
+	if (0 == rc) {
 		fprintf(stderr, "ERROR: cannot initialize new context\n");
 		return(0);
 	}
@@ -193,12 +196,14 @@ verify_cert(X509_STORE* store, X509* cert)
 	retval = (X509_verify_cert(csc) > 0);
 
 	if (retval) {
-		int i;
-		printf(" trust chain:\n");
-		for (i = sk_X509_num(csc->chain); i > 0; i--) {
-			X509* issuer = sk_X509_value(csc->chain, i - 1);
-			if (issuer) {
-				show_cert(i - sk_X509_num(csc->chain) - 2, issuer, NULL);
+		if (show_trust_chain) {
+			int i;
+			printf(" trust chain:\n");
+			for (i = sk_X509_num(csc->chain); i > 0; i--) {
+				X509* issuer = sk_X509_value(csc->chain, i - 1);
+				if (issuer) {
+					show_cert(i - sk_X509_num(csc->chain) - 2, issuer, NULL);
+				}
 			}
 		}
 	} else
@@ -315,7 +320,7 @@ verify_object(X509_STORE *certs, const char* name)
 		X509 *my_cert;
 		my_cert = get_cert(optarg);
 		if (my_cert) {
-			res = verify_cert(certs, my_cert);
+			res = verify_cert(certs, my_cert, 1);
 			X509_free(my_cert);
 		}
 		return(res);
@@ -721,8 +726,18 @@ main(int argc, char* argv[])
 				return(-1);
 			}
 			MAEMOSEC_DEBUG(1, "Adding %d certificates\n", argc - optind + 1);
-			for (i = optind - 1; i < argc; i++)
+			for (i = optind - 1; i < argc; i++) {
 				MAEMOSEC_DEBUG(1, "Add %s\n", argv[i]);
+				/*
+				 * Verify if trusted domains have been given
+				 */
+				if (sk_STORE_OBJECT_num(certs->objs)) {
+					if (!verify_cert(certs, get_cert(argv[i]), 0)) {
+						printf("Reject %s\n", argv[i]);
+						argv[i] = "";
+					}
+				}
+			}
 			rc = maemosec_certman_add_certs(my_domain, argv + optind - 1, argc - optind + 1);
 			printf("Added %d certificates\n", rc);
 			goto end;
