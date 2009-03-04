@@ -1,4 +1,4 @@
-/* -*- mode:c++; tab-width:4; c-basic-offset:4;
+/* -*- mode:c++; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -128,12 +128,12 @@ main(int argc, char* argv[])
 	char* xpath = NULL;
 	string fpath;
 	c_xmldoc xdoc;
-	signed char opt;
+	int opt;
 	bool pretty_print = true;
 	bool include_header = true;
 	int indent_width = 4;
 
-	while ((opt = getopt (argc, argv, "vbri:")) != (char)-1) {
+	while ((opt = getopt (argc, argv, "vbri:")) != -1) {
 		
 		switch (opt) {
 		case 'v':
