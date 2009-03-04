@@ -98,7 +98,7 @@ namespace maemosec
 
 
 static bool
-verify_cert(X509_STORE* ctx, X509* cert)
+verify_cert(X509_STORE* ctx, X509* cert, bool allow_unknown_issuer)
 {
 	X509_STORE_CTX *csc;
 	bool retval;
@@ -117,6 +117,13 @@ verify_cert(X509_STORE* ctx, X509* cert)
 	}
 
 	retval = (X509_verify_cert(csc) > 0);
+	if (allow_unknown_issuer && 
+		X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY == csc->error)
+		/*
+		 * TODO: Make sure that this does not make openssl to ignore
+		 * other, more severe errors.
+		 */
+		retval = 1;
 	X509_STORE_CTX_free(csc);
 
 	return(retval);
@@ -235,7 +242,7 @@ load_certs(vector<string> &certnames,
 				MAEMOSEC_DEBUG(2, "pop %d", temp.size());
 				cert = temp.top();
 				temp.pop();
-				if (verify_cert(certs, cert->cert())) {
+				if (verify_cert(certs, cert->cert(), !do_verify)) {
 					MAEMOSEC_DEBUG(2, "verified: %s", cert->subject_name());
 					X509_STORE_add_cert(certs, cert->cert());
 					cert->m_verified = true;
@@ -899,7 +906,9 @@ extern "C" {
 	}
 
 	int
-	maemosec_certman_add_certs(domain_handle to_domain, char* cert_files[], unsigned count)
+	maemosec_certman_add_certs(domain_handle to_domain, 
+							   char* cert_files[], 
+							   unsigned count)
 	{
 		vector<string> certs;
 		X509_STORE* tmp_store;
@@ -913,14 +922,13 @@ extern "C" {
 				if (file_exists(cert_files[i])) {
 					certs.push_back(cert_files[i]);
 				} else
-					MAEMOSEC_DEBUG(1, "Invalid certificate file '%s'",
-								   cert_files[i]);
+					MAEMOSEC_ERROR("Invalid certificate file '%s'", cert_files[i]);
 			} else
 				break;
 		}
 		tmp_store = X509_STORE_new();
 		if (tmp_store) {
-			if (load_certs(certs, true, tmp_store)) {
+			if (load_certs(certs, false, tmp_store)) {
 				for (i = 0; i < sk_X509_num(tmp_store->objs); i++) {
 					obj = sk_X509_OBJECT_value(tmp_store->objs, i);
 					if (X509_LU_X509 == obj->type) {
@@ -944,7 +952,8 @@ extern "C" {
 
 
 	int
-	maemosec_certman_rm_cert(domain_handle from_domain, maemosec_key_id key_id)
+	maemosec_certman_rm_cert(domain_handle from_domain, 
+							 maemosec_key_id key_id)
 	{
 		int pos, rc;
 		string filename;
