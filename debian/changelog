@@ -1,3 +1,11 @@
+maemo-security-certman (0.0.8) unstable; urgency=low
+
+  * Updated the cryptoki configuration file to comply with the
+    store names in the maemo-security-certman-applet package.
+    Fixes: NB#107774.
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Tue, 31 Mar 2009 16:40:00 +0200
+
 maemo-security-certman (0.0.7) unstable; urgency=low
 
   * Removed redundant pkcs11-headers from the package and used

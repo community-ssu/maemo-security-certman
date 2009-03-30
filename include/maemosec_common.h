@@ -134,6 +134,9 @@ extern "C" {
 } // extern "C"
 #endif
 
+#ifndef _STRING_H
+#include <string.h>
+#endif
 #define bare_file_name(s) strrchr(s,'/')?strrchr(s,'/')+1:s
 
 /**
