@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -63,7 +63,7 @@
 
 extern "C" {
 
-    /**
+	/**
 	 * \brief Find out the absolute pathname of a file or directory
 	 * \param name (in) The name of the file or directory
 	 * \param to_this (out) The absolute pathname of the file or directory
@@ -73,7 +73,7 @@ extern "C" {
 	bool absolute_pathname(const char* name, std::string& to_this);
 	bool process_name(std::string& to_this);
 	void append_hex(std::string& to_this, unsigned char* dta, unsigned len);
-
+	
 #else
 	/**
 	 * \def bool
@@ -129,6 +129,16 @@ extern "C" {
 	 * \brief Return a hex string describing given data
 	 */
 	const char* dynhex(const unsigned char* d, unsigned len);
+
+	/**
+	 * \brief Base-64 encode
+	 */
+	char* base64_encode(unsigned char* data, unsigned len);
+
+	/**
+	 * \brief Base-64 decode
+	 */
+	unsigned base64_decode(char* string, unsigned char** to_buf);
 
 #ifdef	__cplusplus
 } // extern "C"

@@ -1,119 +1,33 @@
 /* -*- mode:c; tab-width:4; c-basic-offset:4; -*- */
 
+#include <maemosec_common.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
-#define MAEMOSEC_ERROR(s) do { \
-	fprintf(stderr, "%s\n", s); \
-	exit(0); \
-} while(0)
-
-/*
- * Help routines
- */
-const char b64t[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-
-static char*
-base64_encode(unsigned char* data, unsigned len)
-{
-	unsigned char* b;
-	char *res = malloc((4*len)/3 + len%3 + 1);
-	char *c = res;
-	int bytes_left = (int)len;
-
-	for (b = data, data += len; 0 < bytes_left; b += 3) {
-		switch (bytes_left) 
-			{
-			case 1:
-				*c++ = b64t[*b & 0xfc >> 2];
-				*c++ = b64t[*b & 0x03 << 4];
-				*c++ = '=';
-				*c++ = '=';
-				break;
-			case 2:
-				*c++ = b64t[*b & 0xfc >> 2];
-				*c++ = b64t[(*b & 0x03 << 4) | (*(b + 1) & 0xf0 >> 4)];
-				*c++ = b64t[*(b + 1) & 0x0f << 2];
-				*c++ = '=';
-				break;
-			default:
-				*c++ = b64t[*b & 0xfc >> 2];
-				*c++ = b64t[(*b & 0x03 << 4) | (*(b + 1) & 0xf0 >> 4)];
-				*c++ = b64t[(*(b + 1) & 0x0f << 2) | (*(b + 2) & 0xc0 >> 6)];
-				*c++ = b64t[*(b + 2) & 0x3f];
-				break;
-			}
-		bytes_left -= 3;
-	}
-	*c = '\0';
-	return(res);
-}
-
-static unsigned
-base64_decode(char* string, unsigned char** to_buf)
-{
-	char *c = string;
-	char s[4];
-	unsigned len, i, done = 0;
-	unsigned char *b;
-
-	*to_buf = NULL;
-	if (NULL == c)
-		return(0);
-	len = strlen(c)*3;
-	if (len % 4) {
-		MAEMOSEC_ERROR("Invalid base64 string");
-		return(0);
-	}
-	len >>= 2;
-	*to_buf = b = malloc(len);
-	for (c = string; *c && 0 == done; c += 4) {
-		memcpy(s, c, 4);
-		for (i = 0; i < 4; i++) {
-			if ('=' == s[i]) {
-				s[i] = 0;
-				if (3 == i) {
-					len -= 1;
-					done = 1;
-				} else if (2 == i) {
-					len -= 2;
-					done = 1;
-				} else {
-					goto error;
-				}
-			} else if ('+' == s[i])
-				s[i] = 62;
-			else if ('/' == s[i])
-				s[i] = 63;
-			else if ('a' <= s[i] && 'z' >= s[i])
-				s[i] = 26 + s[i] - 'a';
-			else if ('A' <= s[i] && 'Z' >= s[i])
-				s[i] = s[i] - 'A';
-			else if ('0' <= s[i] && '9' >= s[i])
-				s[i] = 52 + s[i] - '0';
-			else {
-			error:
-				MAEMOSEC_ERROR("Invalid base64 string");
-				free(*to_buf);
-				*to_buf = NULL;
-				return(0);
-			}
-		}
-		*b++ = (s[0] << 2) | (s[1] & 0xc >> 4);
-		*b++ = (s[1] & 0x0f << 4) | (s[2] & 0x3c >> 4);
-		*b++ = (s[2] & 0x03 << 6) | (s[3]);
-	}
-	return(len);
-}
+#define LLEN 76
 
 enum {encode, decode} mode = encode;
 
+static void
+usage(void)
+{
+	printf("%s\n", "Usage: b64 [-e|-b] <file>");
+}
+
 int main(int argc, char* argv[])
 {
-	int a, i;
-	unsigned len;
+	int a, fd;
+	unsigned char *data;
+	char *edata, *c;
+	ssize_t len, flen;
+	struct stat fs;
 
     while (1) {
 		a = getopt(argc, argv, "ed");
@@ -128,19 +42,61 @@ int main(int argc, char* argv[])
 		case 'd':
 			mode = decode;
 			break;
+		default:
+			usage();
+			exit(0);
 		}
 	}
 
-	for (i = optind; i < argc; i++) {
-		if (encode == mode)
-			printf("%s\n", base64_encode((unsigned char*)argv[i], strlen(argv[i])));
-		else {
-			unsigned char* buf;
-			len = base64_decode(argv[i], &buf);
-			printf("%s\n", (char*)buf);
-			free(buf);
-		}
+	if (optind == argc) {
+		usage();
+		exit(0);
 	}
 
+	fd = open(argv[optind], O_RDONLY);
+	if (0 > fd) {
+		MAEMOSEC_ERROR("cannot open '%s' (%s)\n",
+					   argv[optind], strerror(errno));
+		exit(0);
+	}
+
+	fstat(fd, &fs);
+	flen = len = fs.st_size;
+	data = (unsigned char*)mmap(NULL, flen, PROT_READ, MAP_PRIVATE, fd, 0);
+
+	if (MAP_FAILED == data) {
+		close(fd);
+		MAEMOSEC_ERROR("cannot map '%s' (%s)\n",
+					   argv[optind], strerror(errno));
+		exit(0);
+	}
+
+	if (encode == mode) {
+		edata = base64_encode(data, len);
+		if (NULL == edata) {
+			close(fd);
+			MAEMOSEC_ERROR("cannot encode '%s' (%s)\n",
+						   argv[optind], strerror(errno));
+			exit(0);
+		}
+		len = strlen(edata);
+		for (c = edata; len > LLEN; len -= LLEN) {
+			char lbuf[LLEN + 1];
+			memmove(lbuf, c, LLEN);
+			lbuf[LLEN] = '\0';
+			printf("%s\n", lbuf);
+			c += LLEN;
+		}
+		printf("%s\n", c);
+
+	} else {
+		unsigned char* buf;
+		len = base64_decode((char*)data, &buf);
+		printf("%s", (char*)buf);
+		free(buf);
+	}
+
+	munmap(data, flen);
+	close(fd);
 	return(0);
 }

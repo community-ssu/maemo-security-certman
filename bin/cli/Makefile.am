@@ -16,6 +16,8 @@ xmlpp_LDADD =  -L../../lib/security/.libs -lmaemosec
 dlog_SOURCES = dlog.c
 
 b64_SOURCES = b64.c
+b64_LDADD = -L../../lib/libbb5/.libs -lbb5 \
+ -L../../lib/security/.libs -lmaemosec
 
 nsscfg_SOURCES = nsscfg.c
 nsscfg_LDADD = -L../../lib/libbb5/.libs -lbb5 \

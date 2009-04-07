@@ -36,9 +36,10 @@
 
 using namespace std;
 
-extern "C" {
+extern "C" 
+{
 
-	#define DYNHEX_STRINGS 10
+#define DYNHEX_STRINGS 10
 	int eh_registered = 0;
 	int dynhexpos = 0;
 	char* dynhexring[DYNHEX_STRINGS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -416,4 +417,126 @@ extern "C" {
 		return(res);
 	}
 
-}
+	const char b64t[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+	char*
+	base64_encode(unsigned char* data, unsigned len)
+	{
+		unsigned char* b;
+		char *res = (char*)malloc((4*len)/3 + len%3 + 1);
+		char *c = res;
+		int bytes_left = (int)len;
+
+		for (b = data; 0 < bytes_left; b += 3, bytes_left -= 3) {
+			/*
+			 * Make four 6-bit bytes out of three 8-bit 
+			 * bytes, and use them as indexes in the b64t table.
+			 */
+			switch (bytes_left) 
+				{
+				case 1:
+					*c++ = b64t[(*b & 0xfc) >> 2];
+					*c++ = b64t[(*b & 0x03) << 4];
+					*c++ = '=';
+					*c++ = '=';
+					break;
+				case 2:
+					*c++ = b64t[(*b & 0xfc) >> 2];
+					*c++ = b64t[((*b & 0x03)) << 4 | ((*(b + 1) & 0xf0) >> 4)];
+					*c++ = b64t[(*(b + 1) & 0x0f) << 2];
+					*c++ = '=';
+					break;
+				default:
+					*c++ = b64t[(*b & 0xfc) >> 2];
+					*c++ = b64t[((*b & 0x03) << 4) | ((*(b + 1) & 0xf0) >> 4)];
+					*c++ = b64t[((*(b + 1) & 0x0f) << 2) | ((*(b + 2) & 0xc0) >> 6)];
+					*c++ = b64t[*(b + 2) & 0x3f];
+					break;
+				}
+		}
+		*c = '\0';
+		return(res);
+	}
+
+	unsigned
+	base64_decode(char* string, unsigned char** to_buf)
+	{
+		char *c, *t;
+		char s[4];
+		unsigned len, i, done = 0;
+		unsigned char *b;
+		char* tbuf = NULL;
+
+		*to_buf = NULL;
+		if (NULL == string)
+			return(0);
+
+		for (len = 0, c = string; *c; c++)
+			if (!isspace(*c))
+				len++;
+
+		tbuf = (char*) malloc(len + 1);
+		for (t = tbuf, c = string; *c; c++)
+			if (!isspace(*c))
+				*t++ = *c;
+
+		*t = '\0';
+		len = len * 3;
+		if (len % 4) {
+			free(tbuf);
+			MAEMOSEC_ERROR("Invalid base64 string (%d !%% 4)", len);
+			return(0);
+		}
+		len >>= 2;
+		*to_buf = b = (unsigned char*)malloc(len);
+
+		for (c = tbuf; *c && 0 == done; c += 4) {
+			/*
+			 * Convert characters back to their index in the  
+			 * b64t-table.
+			 */
+			memcpy(s, c, 4);
+			for (i = 0; i < 4; i++) {
+				if ('a' <= s[i] && 'z' >= s[i])
+					s[i] = 26 + s[i] - 'a';
+				else if ('A' <= s[i] && 'Z' >= s[i])
+					s[i] = s[i] - 'A';
+				else if ('0' <= s[i] && '9' >= s[i])
+					s[i] = 52 + s[i] - '0';
+				else if ('+' == s[i])
+					s[i] = 62;
+				else if ('/' == s[i])
+					s[i] = 63;
+				else if ('=' == s[i]) {
+					s[i] = 0;
+					if (3 == i) {
+						len -= 1;
+						done = 1;
+					} else if (2 == i) {
+						len -= 2;
+						done = 1;
+					} else {
+						goto error;
+					}
+				} else {
+				error:
+					free(tbuf);
+					free(*to_buf);
+					*to_buf = NULL;
+					MAEMOSEC_ERROR("Invalid base64 string");
+					return(0);
+				}
+			}
+			/*
+			 * Restore the three original 8-bit bytes
+			 * out of the four 6-bit bytes in s[4]
+			 */
+			*b++ = (s[0] << 2) | ((s[1] & 0x30) >> 4);
+			*b++ = ((s[1] & 0x0f) << 4) | ((s[2] & 0x3c) >> 2);
+			*b++ = ((s[2] & 0x03) << 6) | (s[3]);
+		}
+		free(tbuf);
+		return(len);
+	}
+
+} // extern "C"
