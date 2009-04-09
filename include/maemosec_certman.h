@@ -73,15 +73,31 @@ extern "C" {
 	 */
     #define MAEMOSEC_CERTMAN_DOMAIN_NONE (void*)(0)
 
+	/**
+	 * \def MAEMOSEC_KEY_ID_LEN
+	 * \brief The length of a key identifier
+	 */
     #define MAEMOSEC_KEY_ID_LEN SHA_DIGEST_LENGTH
+
+	/**
+	 * \typedef maemosec_key_id
+	 * \brief A type for a unique key identifier. In practice this is
+	 * the SHA1 fingerprint of a (public) key, which is considered 
+	 * unique enough.
+	 */
 	typedef unsigned char maemosec_key_id [MAEMOSEC_KEY_ID_LEN];
 
+	/**
+	 * \def MAEMOSEC_KEY_ID_STR_LEN
+	 * \brief The lenght of a string representing a maemosec_key_id
+	 * in the printable form, with the terminating NUL included.
+	 */
     #define MAEMOSEC_KEY_ID_STR_LEN 2*SHA_DIGEST_LENGTH + 1
 
     /**
 	 * \brief Convert a key id value to string
 	 * \param key_id Key id as a byte array
-	 * \param to_this A buffer to hold the default string
+	 * \param to_buf A buffer to hold the default string
 	 * \param max_len Size of the buffer, must be >= MAEMOSEC_KEY_ID_STR_LEN
 	 * \returns 0 on success, otherwise an error code
 	 */
@@ -92,7 +108,7 @@ extern "C" {
     /**
 	 * \brief Convert a string into a key id
 	 * \param from_str The string presentation
-	 * \param to_this Key id as a byte array
+	 * \param key_id Key id as a byte array
 	 * \returns 0 on success, otherwise an error code
 	 */
 	int maemosec_certman_str_to_key_id(char* from_str,
@@ -180,20 +196,29 @@ extern "C" {
 	 * \return if >= 0, the index where iteration terminated,
 	 *         if < 0, an error code
 	 * \warning If you modify the domain inside the callback function
-	 *        with "add cert" or "rm cert", the results may be quite unpredictable.
-	 *        So don't.
+	 *        with "add cert" or "rm cert", the results may be quite 
+	 *        unpredictable. So don't.
 	 */
 	int maemosec_certman_iterate_certs(domain_handle the_domain, 
 									   int cb_func(int, X509*, void*), 
 									   void* ctx);
 
 
+	/**
+	 * \brief Load a single certificate identifier by its key fingerprint
+	 * \param the_domain (in) a handle to the domain
+	 * \param with_id (in) the fingerprint of the public key
+	 * \param cert (out) the certificate, if found
+	 * \return 0 on success, otherwise an error code. ENOENT
+	 * if there is no certificate in the store with the given
+	 * key fingerprint.
+	 */
 	int maemosec_certman_load_cert(domain_handle the_domain, 
 								   maemosec_key_id with_id, 
 								   X509** cert);
 
 	/**
-	 * \brief Add a certificate into the domain
+	 * \brief Add a certificate into a domain
 	 * \param to_domain (in) a handle to the domain
 	 * \param cert (in) the certificate to be added
 	 * \return 0 on success, otherwise an error code. EACCESS
@@ -203,9 +228,10 @@ extern "C" {
 	int maemosec_certman_add_cert(domain_handle to_domain, X509* cert);
 
 	/**
-	 * \brief Add a certificate into the domain
+	 * \brief Add one or more certificates into a domain
 	 * \param to_domain (in) a handle to the domain
-	 * \param cert_files (in) files from which the certificate are to be added
+	 * \param cert_files (in) names of files from which the certificate 
+	 *        are to be added
 	 * \param count (in) how many file names there are in the list. A NULL also
 	 *        terminates the list
 	 * \return The number of certificates successfully added.
@@ -240,24 +266,59 @@ extern "C" {
 	 */
 	int maemosec_certman_close_domain(domain_handle handle);
 
-	/*
-	 * TODO: Documentation
+	/**
+	 * \brief Get the public key fingerprint out of a certificate
+	 * \param of_cert (in) The certificate
+	 * \param to_this (out) The fingerprint of the public key
+	 * \return 0 on success. EINVAL if the given certificate is 
+	 * NULL or otherwise invalid.
 	 */
-
 	int maemosec_certman_get_key_id(X509* of_cert, maemosec_key_id to_this);
 
+	/**
+	 * \brief Store a private key into the global private key store.
+	 * \param with_id (in) the fingerprint of the corresponding public key
+	 * \param the_key (in) the key to be stored
+	 * \param with_passwd (in) the password for the container.
+	 * The private key is stored in an encrypted PKCS#8 container.
+	 * \return 0 on success, an error code otherwise.
+	 */
 	int maemosec_certman_store_key(maemosec_key_id with_id, 
 								   EVP_PKEY* the_key, 
 								   char* with_passwd);
 
+	/**
+	 * \brief Retrieve a private key from the global private key store.
+	 * \param with_id (in) the fingerprint of the corresponding public key
+	 * \param the_key (out) the private key
+	 * \param with_passwd (in) the password for the container.
+	 * \return 0 on success, an error code otherwise.
+	 */
 	int maemosec_certman_retrieve_key(maemosec_key_id with_id, 
 									  EVP_PKEY** the_key, 
 									  char* with_passwd);
 
+	/**
+	 * \brief Iterate through all of the private keys in the global store
+	 * \param cb_func (in) a callback function. The first parameter
+	 *        is the order number of the key (starting from 0), 
+	 *        the second a pointer to a maemosec_key_id 
+	 *        struct and the third is the given ctx pointer.
+	 * \param ctx (in) a void pointer passed to the callback function
+	 * \return if >= 0, the index where iteration terminated,
+	 *         if < 0, an error code
+	 */
 	int maemosec_certman_iterate_keys(maemosec_callback* cb_func, void* ctx);
 
+	/**
+	 * \brief Get a short name composed of the Subject DN name suitable for display
+	 * \param of_cert (in) a certificate
+	 * \param to_buf (out) the buffer where the nickname is copied to
+	 * \param buf_len (in) the maximum length of the name. If the nickname
+	 *                     would exceed the length, it's truncated.
+	 * \return 0 on success, otherwise an error code.
+	 */
 	int maemosec_certman_get_nickname(X509* of_cert, char* to_buf, unsigned buf_len);
-
 
 //@}
 

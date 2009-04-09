@@ -83,8 +83,8 @@ extern "C" {
 #endif
 
 	/**
-	 * \def path_sep
-	 * \brief Let's not rely on even this
+	 * \def PATH_SEP
+	 * \brief The path separator
 	 */
 	#define PATH_SEP "/"
 
@@ -113,8 +113,27 @@ extern "C" {
 	 */
 	int create_directory(const char* path, int mode);
 
+	/**
+	 * \brief A generic callback function type. A function of this
+	 * type is called in the various iterate_*-functions in this library.
+	 * \param nbr (in) The order number of the item, starting from 0
+	 * \param item (in) An item in the collection. The actual type
+	 * depends on the type of the collection and is documentd for each
+	 * iterate-function separately.
+	 * \param context (in) A generic context pointer.
+	 */
 	typedef int maemosec_callback(int nbr, void* item, void* context);
 
+	/**
+	 * \brief Iterate through the files in a directory
+	 * \param in_directory (in) the name of the directory
+	 * \param matching_names (in) a regular expression matched against
+	 * the filenames
+	 * \param cb_func (in) a callback function which is called for each
+	 * file in the given directory that has a name matching with the
+	 * given expression. The item parameter is a NUL-terminated filename.
+	 * \param ctx (in) the context pointer
+	 */
 	int	iterate_files(const char* in_directory,
 					  const char* matching_names,
 					  maemosec_callback* cb_func,
@@ -147,6 +166,12 @@ extern "C" {
 #ifndef _STRING_H
 #include <string.h>
 #endif
+
+/**
+ * \def bare_file_name
+ * \brief Return the file name part of a pathname
+ * \param s a path name
+ */
 #define bare_file_name(s) strrchr(s,'/')?strrchr(s,'/')+1:s
 
 /**

@@ -48,12 +48,6 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
-/**
- * \def sk_STORE_OBJECT_num(st)
- * \brief This macro is normally defined in openssl/safestack.h, 
- * but not in the scratchbox osso-98 version of OpenSSL, so define 
- * it here if not yet defined.
- */
 #ifndef sk_STORE_OBJECT_num
 #define sk_STORE_OBJECT_num(st) SKM_sk_num(STORE_OBJECT, (st))
 #endif

@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -202,6 +202,18 @@ namespace maemosec {
 		const char* filename();
 
 		  
+		/**
+		 * \brief Iterate through storages of the given visibility and
+		 * protection
+		 * \param of_visibility (in) vis_shared or vis_private
+		 * \param of_protection (in) prot_signed or prot_encrypted
+		 * \param matching_names (in) a regular expression for the storage name
+		 * \param cb_func (in) a callback function, the storage name as the
+		 * payload parameter.
+		 * \param ctx (in) the context pointer for the callback
+		 * \return if < 0, 0 - error code
+		 *         if >= 0, the value returned by the callback function
+		 */
 		static int iterate_storage_names(storage::visibility_t of_visibility, 
 							  storage::protection_t of_protection, 
 							  const char* matching_names,
