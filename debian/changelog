@@ -1,3 +1,9 @@
+maemo-security-certman (0.0.9) unstable; urgency=low
+
+  * In development
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 17 Apr 2009 16:40:00 +0200
+
 maemo-security-certman (0.0.8) unstable; urgency=low
 
   * Updated the cryptoki configuration file to comply with the
