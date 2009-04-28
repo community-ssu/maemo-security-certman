@@ -928,7 +928,12 @@ extern "C" {
 		if (mydomain->index->contains_file(filename.c_str())) {
 			MAEMOSEC_DEBUG(1, "Remove cert file '%s'", filename.c_str());
 			mydomain->index->remove_file(filename.c_str());
-			remove_key_file(key_id);
+			unlink(filename.c_str());
+			/*
+			 * TODO: Never remove keys in case it is used for another
+			 * purpose. Must be fixed by checking other domains.
+			 */
+			// remove_key_file(key_id);
 			mydomain->index->commit();
 			return(0);
 		} else
