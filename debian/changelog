@@ -1,8 +1,9 @@
 maemo-security-certman (0.0.9) unstable; urgency=low
 
-  * In development
+  * Do not erase keyfiles but certificate file in stead when
+    removing a certificate.
 
- -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 17 Apr 2009 16:40:00 +0200
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 28 Apr 2009 19:30:00 +0200
 
 maemo-security-certman (0.0.8) unstable; urgency=low
 
