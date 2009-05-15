@@ -488,6 +488,7 @@ extern "C"
 			return(0);
 		}
 		len >>= 2;
+		MAEMOSEC_DEBUG(1, "%s: allocate %d bytes", __func__, len);
 		*to_buf = b = (unsigned char*)malloc(len);
 
 		for (c = tbuf; *c && 0 == done; c += 4) {
@@ -515,6 +516,7 @@ extern "C"
 					} else if (2 == i) {
 						len -= 2;
 						done = 1;
+						break;
 					} else {
 						goto error;
 					}
@@ -535,6 +537,7 @@ extern "C"
 			*b++ = ((s[1] & 0x0f) << 4) | ((s[2] & 0x3c) >> 2);
 			*b++ = ((s[2] & 0x03) << 6) | (s[3]);
 		}
+		MAEMOSEC_DEBUG(1, "%s: filled %d bytes", __func__, b - *to_buf);
 		free(tbuf);
 		return(len);
 	}

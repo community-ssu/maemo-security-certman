@@ -11,26 +11,26 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-#define LLEN 76
+#define LLEN 64
 
 enum {encode, decode} mode = encode;
 
 static void
 usage(void)
 {
-	printf("%s\n", "Usage: b64 [-e|-b] <file>");
+	printf("%s\n", "Usage: b64 [-e(ncode)|-d(ecode)] <file> [-o <outfile>]");
 }
 
 int main(int argc, char* argv[])
 {
-	int a, fd;
+	int a, fd, ofd = -1;
 	unsigned char *data;
 	char *edata, *c;
-	ssize_t len, flen;
+	ssize_t len, flen, wlen;
 	struct stat fs;
 
     while (1) {
-		a = getopt(argc, argv, "ed");
+		a = getopt(argc, argv, "edo:");
 		if (a < 0) {
 			break;
 		}
@@ -41,6 +41,15 @@ int main(int argc, char* argv[])
 			break;
 		case 'd':
 			mode = decode;
+			break;
+		case 'o':
+			ofd = open(optarg, O_CREAT | O_RDWR, 0644);
+			if (0 > ofd) {
+				fprintf(stderr, "ERROR: cannot open '%s' (%s)\n",
+						optarg, strerror(errno));
+				exit(-1);
+			}
+			MAEMOSEC_DEBUG(1, "Output file %d", ofd);
 			break;
 		default:
 			usage();
@@ -80,19 +89,34 @@ int main(int argc, char* argv[])
 			exit(0);
 		}
 		len = strlen(edata);
-		for (c = edata; len > LLEN; len -= LLEN) {
-			char lbuf[LLEN + 1];
-			memmove(lbuf, c, LLEN);
-			lbuf[LLEN] = '\0';
-			printf("%s\n", lbuf);
-			c += LLEN;
+		if (-1 == ofd) {
+			for (c = edata; len > LLEN; len -= LLEN) {
+				char lbuf[LLEN + 1];
+				memmove(lbuf, c, LLEN);
+				lbuf[LLEN] = '\0';
+				printf("%s\n", lbuf);
+				c += LLEN;
+			}
+			printf("%s\n", c);
+		} else {
+			wlen = write(ofd, data, len);
+			if (wlen != len)
+				fprintf(stderr, "ERROR: %s (written %d != tried %d)\n", strerror(errno), wlen, len);
+			close(ofd);
 		}
-		printf("%s\n", c);
 
 	} else {
 		unsigned char* buf;
 		len = base64_decode((char*)data, &buf);
-		printf("%s", (char*)buf);
+		MAEMOSEC_DEBUG(1, "Decoded %d bytes, %p write to %d", len, buf, ofd);
+		if (-1 == ofd) {
+			printf("%s", (char*)buf);
+		} else {
+			wlen = write(ofd, buf, len);
+			if (wlen != len)
+				fprintf(stderr, "ERROR: %s (written %d != tried %d)\n", strerror(errno), wlen, len);
+			close(ofd);
+		}
 		free(buf);
 	}
 
