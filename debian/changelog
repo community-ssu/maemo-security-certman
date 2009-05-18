@@ -1,3 +1,14 @@
+maemo-security-certman (0.1.0) unstable; urgency=low
+
+  * Fixed an error with base64_decode which left the last byte away
+    from the data in some cases. 
+      Fixes: NB#115790	
+  * Added a check for using the root certificate before the module
+    is initialized.
+      Fixes: NB#112831
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 18 May 2009 17:00:00 +0300
+
 maemo-security-certman (0.0.9) unstable; urgency=low
 
   * Do not erase keyfiles but certificate file in stead when

@@ -155,7 +155,8 @@ extern "C" {
 	X509*
 	bb5_get_cert(int pos)
 	{
-		// Always return the root cert
+		if (NULL == root_crt)
+			bb5_init();
 		return(root_crt);
 	}
 
