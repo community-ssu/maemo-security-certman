@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
 						optarg, strerror(errno));
 				exit(-1);
 			}
-			MAEMOSEC_DEBUG(1, "Output file %d", ofd);
+			MAEMOSEC_DEBUG(1, "Output file %ld", ofd);
 			break;
 		default:
 			usage();
@@ -101,20 +101,22 @@ int main(int argc, char* argv[])
 		} else {
 			wlen = write(ofd, data, len);
 			if (wlen != len)
-				fprintf(stderr, "ERROR: %s (written %d != tried %d)\n", strerror(errno), wlen, len);
+				fprintf(stderr, "ERROR: %s (written %ld != tried %ld)\n", 
+						strerror(errno), wlen, len);
 			close(ofd);
 		}
 
 	} else {
 		unsigned char* buf;
 		len = base64_decode((char*)data, &buf);
-		MAEMOSEC_DEBUG(1, "Decoded %d bytes, %p write to %d", len, buf, ofd);
+		MAEMOSEC_DEBUG(1, "Decoded %ld bytes, %p write to %d", len, buf, ofd);
 		if (-1 == ofd) {
 			printf("%s", (char*)buf);
 		} else {
 			wlen = write(ofd, buf, len);
 			if (wlen != len)
-				fprintf(stderr, "ERROR: %s (written %d != tried %d)\n", strerror(errno), wlen, len);
+				fprintf(stderr, "ERROR: %s (written %ld != tried %ld)\n", 
+						strerror(errno), wlen, len);
 			close(ofd);
 		}
 		free(buf);

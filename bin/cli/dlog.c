@@ -44,7 +44,7 @@ main(int argc, char* argv[])
 	int i1 = 127, i2 = 0, i3 = 0, i4 = 1, port = 2300;
 	int sd, rc, level = 9;
 	int run_as_daemon = 0;
-	size_t rlen;
+	socklen_t slen;
 	signed char arg;
 	struct sockaddr_in i_mad, i_rad;
 
@@ -103,10 +103,10 @@ main(int argc, char* argv[])
 		printf("Listening %d.%d.%d.%d:%d...\n", i1, i2, i3, i4, port);
 
 		while (1) {
-			rlen = sizeof(struct sockaddr_in);
+			slen = sizeof(struct sockaddr_in);
 			rc = recvfrom(sd, recbuf, sizeof(recbuf) - 1, 0, 
 						  (struct sockaddr*)&i_rad, 
-						  &rlen);
+						  &slen);
 			if (rc < 0) {
 				fprintf(stderr, "Error from recvfrom (%d)\n", errno);
 				break;

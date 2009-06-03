@@ -278,10 +278,25 @@ struct check_ssl_args {
 static int
 check_ssl_certificate(X509_STORE_CTX *ctx, void* arg)
 {
+	int i;
 	X509* cert;
 	struct check_ssl_args *args = (struct check_ssl_args*) arg;
 
-	if (ctx && ctx->cert) {
+	if (!ctx) {
+		MAEMOSEC_ERROR("%s: invalid call", __func__);
+		return(0);
+	}
+
+	if (ctx->untrusted) {
+		for (i = sk_X509_num(ctx->untrusted); i > 1; i--) {
+			X509* untr = sk_X509_value(ctx->untrusted, i - 1);
+			if (untr) {
+				show_cert(i - sk_X509_num(ctx->untrusted) - 2, untr, NULL);
+			}
+		}
+	}
+
+	if (ctx->cert) {
 		cert = ctx->cert;
 		show_cert(0, ctx->cert, NULL);
 		args->result = X509_verify_cert(ctx);
@@ -289,7 +304,6 @@ check_ssl_certificate(X509_STORE_CTX *ctx, void* arg)
 			printf(" Verification failed: %s\n", 
 				   X509_verify_cert_error_string(ctx->error));
 		} else {
-			int i;
 			printf(" trust chain:\n");
 			for (i = sk_X509_num(ctx->chain); i > 1; i--) {
 				X509* issuer = sk_X509_value(ctx->chain, i - 1);
