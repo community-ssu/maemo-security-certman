@@ -25,7 +25,6 @@ AC_PROG_MAKE_SET
 AC_OUTPUT([
 Makefile 
 lib/Makefile
-lib/libbb5/Makefile 
 lib/security/Makefile 
 lib/certman/Makefile 
 bin/Makefile

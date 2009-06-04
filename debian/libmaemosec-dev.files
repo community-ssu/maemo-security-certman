@@ -1,3 +1,3 @@
-usr/include/maemosec_common.h usr/include/libbb5.h usr/include/libbb5stub.h usr/include/maemosec_storage.h
-usr/lib/libbb5.a usr/lib/libbb5.la usr/lib/libbb5.so usr/lib/libmaemosec.a usr/lib/libmaemosec.la usr/lib/libmaemosec.so
+usr/include/maemosec_common.h usr/include/maemosec_storage.h
+usr/lib/libmaemosec.a usr/lib/libmaemosec.la usr/lib/libmaemosec.so
 usr/lib/pkgconfig/maemosec.pc

@@ -1,1 +1,1 @@
-SUBDIRS = libbb5 security certman
+SUBDIRS = security certman
