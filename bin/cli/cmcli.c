@@ -243,7 +243,7 @@ write_cert_to_file(X509 *cert)
 	strcat(filename, ".pem");
 	tof = fopen(filename, "w+");
 	if (tof) {
-		printf("Save cert to '%s'\n", filename);
+		// printf("Save cert to '%s'\n", filename);
 		PEM_write_X509(tof, cert);
 		fclose(tof);
 	}
@@ -278,7 +278,7 @@ struct check_ssl_args {
 static int
 check_ssl_certificate(X509_STORE_CTX *ctx, void* arg)
 {
-	int i;
+	int i, purp;
 	X509* cert;
 	struct check_ssl_args *args = (struct check_ssl_args*) arg;
 
@@ -287,25 +287,49 @@ check_ssl_certificate(X509_STORE_CTX *ctx, void* arg)
 		return(0);
 	}
 
+	cert = ctx->cert;
+	purp = ctx->param->purpose;
+	MAEMOSEC_DEBUG(1, "Initial purpose %d", purp);
+
+	/*
+	 * Do not imitate this code. This is but a feeble attempt
+	 * to study the incoming certificate chain.
+	 */
 	if (ctx->untrusted) {
 		for (i = sk_X509_num(ctx->untrusted); i > 1; i--) {
+			char cname[256];
 			X509* untr = sk_X509_value(ctx->untrusted, i - 1);
 			if (untr) {
-				show_cert(i - sk_X509_num(ctx->untrusted) - 2, untr, NULL);
+				if (args->save)
+					write_cert_to_file(untr);
+				maemosec_certman_get_nickname(untr, cname, sizeof(cname));
+
+				// Verify for any purpose.
+				ctx->cert = untr;
+				ctx->param->purpose = 0;
+
+				if (0 < X509_verify_cert(ctx)) {
+					MAEMOSEC_DEBUG(1, "Accepted '%s'", cname);
+				} else {
+					MAEMOSEC_ERROR("Invalid cert '%s' in chain (%s)", 
+								   cname, X509_verify_cert_error_string(ctx->error));
+				}
 			}
 		}
 	}
 
+	ctx->cert = cert;
+	ctx->param->purpose = purp;
+
 	if (ctx->cert) {
-		cert = ctx->cert;
 		show_cert(0, ctx->cert, NULL);
 		args->result = X509_verify_cert(ctx);
 		if (0 == args->result) {
 			printf(" Verification failed: %s\n", 
 				   X509_verify_cert_error_string(ctx->error));
 		} else {
-			printf(" trust chain:\n");
-			for (i = sk_X509_num(ctx->chain); i > 1; i--) {
+			printf(" trust chain(%d):\n", sk_X509_num(ctx->chain));
+			for (i = sk_X509_num(ctx->chain); i > 0; i--) {
 				X509* issuer = sk_X509_value(ctx->chain, i - 1);
 				if (issuer) {
 					show_cert(i - sk_X509_num(ctx->chain) - 2, issuer, NULL);
