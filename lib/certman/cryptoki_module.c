@@ -44,7 +44,7 @@
 
 #if INCL_NETSCAPE_VDE
 #define PR_CALLBACK
-#include <pkcs11n.h>
+#include <../nss/pkcs11n.h>
 #endif
 
 static X509_STORE* root_certs;
@@ -89,7 +89,7 @@ static const CK_FUNCTION_LIST function_list = {
 	#undef CK_NEED_ARG_LIST
 	#define CK_PKCS11_FUNCTION_INFO(name) \
 		.name = name,
-	#include <pkcs11f.h>
+	#include <../nss/pkcs11f.h>
 	#undef CK_PKCS11_FUNCTION_INFO
 };
 

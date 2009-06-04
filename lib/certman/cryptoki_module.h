@@ -30,7 +30,7 @@
 #ifndef MAEMOSEC_CRYPTOKI_H
 #define MAEMOSEC_CRYPTOKI_H
 
-#include <pkcs11.h>
+#include <../nss/pkcs11.h>
 
 #ifndef CK_NULL_PTR
 /* Specifies that the function is a DLL entry point. */

@@ -1,6 +1,6 @@
 INCLUDES = -I../../include -I../../lib/security ${NSS_CFLAGS} ${OPENSSL_CFLAGS}
 
-bin_PROGRAMS = sscli cmcli xmlpp dlog nsscfg b64
+bin_PROGRAMS = sscli cmcli xmlpp dlog b64
 
 sscli_SOURCES = sscli.cpp
 sscli_LDADD =  -L../../lib/libbb5/.libs -lbb5 \
