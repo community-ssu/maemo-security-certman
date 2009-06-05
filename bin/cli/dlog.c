@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/time.h>
@@ -44,11 +45,12 @@ main(int argc, char* argv[])
 	int i1 = 127, i2 = 0, i3 = 0, i4 = 1, port = 2300;
 	int sd, rc, level = 9;
 	int run_as_daemon = 0;
+	int ofd = -1;
 	socklen_t slen;
 	signed char arg;
 	struct sockaddr_in i_mad, i_rad;
 
-	while ((arg = getopt(argc, argv, "l:a:d")) >= 0) {
+	while ((arg = getopt(argc, argv, "l:a:o:d")) >= 0) {
 		switch (arg) {
 		case 'l':
 			level = atoi(optarg);
@@ -65,10 +67,18 @@ main(int argc, char* argv[])
 			run_as_daemon = 1;
 			openlog("dlog", 0, LOG_DAEMON);
 			if (0 > (rc = daemon(0, 0)))
-				fprintf(stderr, "Failed to daemonize (%s)", strerror(errno));
+				fprintf(stderr, "Failed to daemonize (%s)\n", strerror(errno));
+			break;
+		case 'o':
+			ofd = open(optarg, O_APPEND | O_WRONLY | O_CREAT, 0644);
+			if (-1 == ofd) {
+				fprintf(stderr, "Cannot open '%s' (%s)\n", optarg, strerror(errno));
+				return(-1);
+			}
 			break;
 		default:
-			fprintf(stderr, "Usage: dlog [-l level] \n");
+			fprintf(stderr, "Usage: dlog -d [-a address-to-listen:port-to-listen]"
+					" [-l level] [-o outfile]\n");
 			return(-1);
 		}
 	}
@@ -144,6 +154,12 @@ main(int argc, char* argv[])
 
 			c = recbuf + 3;
 			if (!run_as_daemon) {
+				if (-1 != ofd) {
+					write(ofd, time_as_str, strlen(time_as_str));
+					write(ofd, c, strlen(c));
+					write(ofd, "\n", 1);
+				}
+
 				printf("%s", time_as_str);
 
 				while ( c && *c ) {
@@ -163,12 +179,15 @@ main(int argc, char* argv[])
 				}
 				if ('\n' != *c)
 					printf("%c", '\n');
+
 			} else {
 				syslog(LOG_ERR + dlevel, "%s %s", time_as_str, c);
 			}
 		}
 	}
 
+	if (-1 != ofd)
+		close(ofd);
 	close(sd);
 	if (run_as_daemon)
 		closelog();
