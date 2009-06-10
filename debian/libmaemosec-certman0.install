@@ -1,1 +1,2 @@
 etc/maemosec-certman-cryptoki.conf /etc
+etc/osso-backup/applications/maemosec-certman.conf /etc/osso-backup/applications
