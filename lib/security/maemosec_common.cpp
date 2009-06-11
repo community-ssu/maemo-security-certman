@@ -423,10 +423,18 @@ extern "C"
 	base64_encode(unsigned char* data, unsigned len)
 	{
 		unsigned char* b;
-		char *res = (char*)malloc((4*len)/3 + len%3 + 1);
-		char *c = res;
+		unsigned alen;
+		char *res = NULL;
+		char *c;
 		int bytes_left = (int)len;
 
+		alen = 4*(len/3);
+		if (0 < (len%3))
+			alen += 4;
+		alen++;
+		c = res = (char*)malloc(alen);
+		
+		MAEMOSEC_DEBUG(1, "%s: allocated %d bytes for %d", __func__, alen, len);
 		for (b = data; 0 < bytes_left; b += 3, bytes_left -= 3) {
 			/*
 			 * Make four 6-bit bytes out of three 8-bit 
