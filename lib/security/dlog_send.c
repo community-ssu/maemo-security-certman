@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -40,12 +40,14 @@
  * TODO: This code is not thread safe
  */
 
+static long msg_nbr = 0;
+
 void
 dlog_message(const char* format, ...)
 {
 	static struct sockaddr_in i_rad;
 	static int dlog_socket = -1;
-	static char sndbuf [1024];
+	static char sndbuf [0x4000], *fp;
 	static int port;
 	static unsigned long s_addr = (unsigned long)-1;
 	va_list p_arg;
@@ -81,17 +83,27 @@ dlog_message(const char* format, ...)
 	i_rad.sin_family = AF_INET;
 	i_rad.sin_addr.s_addr = s_addr;
 	i_rad.sin_port = htons(port);
+
+	memcpy(sndbuf, &msg_nbr, sizeof(msg_nbr));
+	msg_nbr++;
+
 	va_start(p_arg, format);
-	printed = vsnprintf(sndbuf, sizeof(sndbuf) - 1, format, p_arg);
+	printed = vsnprintf(sndbuf + sizeof(msg_nbr), sizeof(sndbuf) - sizeof(msg_nbr) - 1, format, p_arg);
 	va_end(p_arg);
+	fp = sndbuf;
+	printed += sizeof(msg_nbr);
 	do {
-		sent = sendto(dlog_socket, sndbuf, printed, 0, // MSG_DONTWAIT, 
+		sent = sendto(dlog_socket, fp, printed, 0, // MSG_DONTWAIT, 
 					  (struct sockaddr*)&i_rad, 
 					  sizeof(struct sockaddr_in));
 		if (0 > sent) {
 			if (EAGAIN == errno)
 				usleep(10);
-		} else
+			tries--;
+		} else {
 			printed -= sent;
-	} while (printed && 0 < --tries);
+			fp += sent;
+		}
+	} while (printed && 0 < tries);
+	usleep(1);
 }

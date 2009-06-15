@@ -453,6 +453,31 @@ return_pem_password(char* to_buf, int size, int rwflag, void* userdata)
 }
 
 
+extern "C" {
+int
+has_private_key(X509* cert)
+{
+	maemosec_key_id key_id;
+	string storage_file_name;
+	struct stat fs;
+	int rc;
+
+	if (NULL == cert || (0 != maemosec_certman_get_key_id(cert, key_id)))
+		return(0);
+	local_storage_dir(storage_file_name, priv_keys_dir);
+	append_hex(storage_file_name, key_id, MAEMOSEC_KEY_ID_LEN);
+	storage_file_name.append(".pem");
+	rc = stat(storage_file_name.c_str(), &fs);
+	if (0 == rc) {
+		MAEMOSEC_DEBUG(1, "Has private key");
+		return(1);
+	} else {
+		MAEMOSEC_DEBUG(1, "Does not have a private key");
+		return(0);
+	}
+}
+} // extern "C"
+
 static int
 read_key_from_file(maemosec_key_id key_id, EVP_PKEY** key, char* passwd)
 {

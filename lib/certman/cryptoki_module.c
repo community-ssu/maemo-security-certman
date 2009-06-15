@@ -47,6 +47,11 @@
 #include <../nss/pkcs11n.h>
 #endif
 
+/*
+ * TODO: Fix this
+ */
+int has_private_key(X509* cert);
+
 static X509_STORE* root_certs;
 
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
@@ -122,9 +127,11 @@ copy_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 
 	if (p->pValue) {
 		if (p->ulValueLen >= size) {
-			MAEMOSEC_DEBUG(2, "%s=%s", 
-						   attr_name(p->type),
-						   attr_value(p->type, value, size));
+			if (CKA_VALUE != p->type) {
+				MAEMOSEC_DEBUG(2, "%s=%s", 
+							   attr_name(p->type),
+							   attr_value(p->type, value, size));
+			}
 			memcpy(p->pValue, value, size);
 		} else {
 			MAEMOSEC_DEBUG(1, "buf %ld cannot take %ld", p->ulValueLen, size);
@@ -250,12 +257,18 @@ access_attribute(SESSION sess,
 			break;
 
 		case CKA_CERTIFICATE_CATEGORY:
+			/*
+			 *  PKCS11 v2.0 10.6.2
+			 */
+#define CK_USER_CERT 1
+#define CK_AUTHORITY_CERT 2
+#define CK_OTHER_CERT 3
 			{
-				/*
-				 * TODO: other than authority certs supported?
-				 * There seems not to be any constants for this?
-				 */
-				CK_ULONG avalue = 2;
+				CK_ULONG avalue = CK_OTHER_CERT;
+				if (X509_check_ca(cert))
+					avalue = CK_AUTHORITY_CERT;
+				else if (has_private_key(cert))
+					avalue = CK_USER_CERT;
 				rv = callback(&avalue, sizeof(avalue), attr);
 			}
 			break;
@@ -386,10 +399,7 @@ access_attribute(SESSION sess,
 
 		case CKA_ID:
 			{
-				/*
-				 * TODO: Guess what
-				 */
-				CK_ULONG cert_id = 0x1703 + cert_number;
+				CK_ULONG cert_id = cert_number;
 				rv = callback(&cert_id, sizeof(cert_id), attr);
 			}
 			break;
@@ -398,10 +408,19 @@ access_attribute(SESSION sess,
 
 		case CKA_TRUST_SERVER_AUTH:
 		case CKA_TRUST_EMAIL_PROTECTION:
-		case CKA_TRUST_CLIENT_AUTH:
 		case CKA_TRUST_CODE_SIGNING:
 			{
-				CK_TRUST trust = CKT_NSS_TRUSTED_DELEGATOR;
+				CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
+				if (X509_check_ca(cert))
+					 trust = CKT_NSS_TRUSTED_DELEGATOR;
+				rv = callback(&trust, sizeof(trust), attr);
+			}
+			break;
+		case CKA_TRUST_CLIENT_AUTH:
+			{
+				CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
+				if (!X509_check_ca(cert))
+					 trust = CKT_NSS_TRUSTED;
 				rv = callback(&trust, sizeof(trust), attr);
 			}
 			break;
@@ -855,6 +874,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetObjectSize)(CK_SESSION_HANDLE hSession,
 }
 
 
+#define PKEY_LIMIT 10000
+
+
 CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
@@ -863,9 +885,15 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	SESSION sess;
 	X509* cert;
 	CK_ATTRIBUTE_PTR attr;
+	int is_pkey = 0;
 
 	MAEMOSEC_DEBUG(1, "get %ld attributes of object %d", ulCount, (int)hObject);
 	GET_SESSION(hSession, sess);
+
+	if (hObject > PKEY_LIMIT) {
+		hObject -= PKEY_LIMIT;
+		is_pkey = 1;
+	}
 
 	cert = get_cert(sess, hObject);
 	if (cert) {
@@ -873,6 +901,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 			attr = &pTemplate[i];
 			MAEMOSEC_DEBUG(1, "get %s", attr_name(attr->type));
 			rv = access_attribute(sess, cert, (int)hObject, attr, copy_attribute);
+			if (is_pkey && CKA_CLASS == attr->type)
+				*(int*)attr->pValue = CKO_PRIVATE_KEY;
 			if (rv != CKR_OK) {
 				break;
 			}
@@ -880,7 +910,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	} else
 		rv = CKR_ARGUMENTS_BAD;
 
-	MAEMOSEC_DEBUG(1, "exit %lx", rv);
+	MAEMOSEC_DEBUG(5, "%s: exit %lx", __func__, rv);
 	return(rv);
 }
 
@@ -901,9 +931,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjectsInit)(CK_SESSION_HANDLE hSession,
 	SESSION sess;
 	CK_ULONG i;
 
-	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
-
 	GET_SESSION(hSession, sess);
+	MAEMOSEC_DEBUG(1, "%s: search from '%s'", __func__, sess->domain_name);
+
 	for (i = 0; i < ulCount; i++) {
 		MAEMOSEC_DEBUG(2, "  cond %s=%s", 
 					   attr_name(pTemplate[i].type),
@@ -924,9 +954,11 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	CK_ULONG_PTR pulObjectCount)
 {
 	CK_RV rv = CKR_OK;
+	CK_ATTRIBUTE_PTR type_attr_ptr = NULL;
+	CK_OBJECT_CLASS objtype = (CK_OBJECT_CLASS)-1;
 	SESSION sess;
 	CK_ULONG i, j;
-	int found = 0, nbrof_certs = 0;
+	int rc, found = 0, nbrof_certs = 0;
 
 	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	GET_SESSION(hSession, sess);
@@ -936,49 +968,104 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	}
 
 	/*
-	 * Rationale: iterate through all data objects and compare
-	 * their attributes with the given template. If all attributes
-	 * match, populate the handle-table. If no attributes are
-	 * given in the search template, all objects are returned.
+	 * Check what kind of an object we are searching for.
+	 * Supported types are certificates and private keys.
 	 */
-	nbrof_certs = maemosec_certman_nbrof_certs(sess->cmdomain);
-	if (0 > nbrof_certs) {
-		MAEMOSEC_ERROR("Nonexistent domain (race?)");
-		goto out;
+	for (i = 0; i < sess->find_count; i++) {
+		if (CKA_CLASS == sess->find_template[i].type) {
+			objtype = *(CK_OBJECT_CLASS*)sess->find_template[i].pValue;
+			type_attr_ptr = &sess->find_template[i];
+			break;
+		}
 	}
 
-	for (i = sess->find_point; i < nbrof_certs; i++) {
-		int is_match = 1;
-		X509* cert = get_cert(sess, i);
-		for (j = 0; j < sess->find_count; j++) {
-			CK_RV tst = access_attribute(sess, cert, i, 
-										 &sess->find_template[j],
-										 match_attribute);
-			if (tst != CKR_OK) {
-				is_match = 0;
-				if (tst != CKR_CANCEL) {
-					MAEMOSEC_ERROR("match_attribute:%lx", tst);
-					rv = tst;
-					goto out;
+	if (CKO_CERTIFICATE == objtype || CKO_NSS_TRUST == objtype) {
+		MAEMOSEC_DEBUG(1, "Searching for a certificate");
+		/*
+		 * Iterate through all data objects and compare their 
+		 * attributes with the given template. If all attributes
+		 * match, populate the handle-table. If no attributes are
+		 * given in the search template, all objects are considered
+		 * a match.
+		 */
+		nbrof_certs = maemosec_certman_nbrof_certs(sess->cmdomain);
+		if (0 > nbrof_certs) {
+			MAEMOSEC_ERROR("Nonexistent domain (race?)");
+			goto out;
+		}
+
+		for (i = sess->find_point; i < nbrof_certs; i++) {
+			int is_match = 1;
+			X509* cert = get_cert(sess, i);
+			for (j = 0; j < sess->find_count; j++) {
+				CK_RV tst = access_attribute(sess, cert, i, 
+											 &sess->find_template[j],
+											 match_attribute);
+				if (tst != CKR_OK) {
+					is_match = 0;
+					if (tst != CKR_CANCEL) {
+						MAEMOSEC_ERROR("match_attribute:%lx", tst);
+						rv = tst;
+						goto out;
+					}
+					break;
 				}
+			}
+			if (is_match) {
+				MAEMOSEC_DEBUG(2, "cert %ld matches", i);
+				if (found < ulMaxObjectCount) {
+					phObject[found++] = i;
+				} else {
+					/*
+					 * No more objects fit in the answer.
+					 * Remember where to Continue the search 
+					 * in the next call.
+					 */
+					sess->find_point = i;
+					break;
+				}
+			}
+		}
+	} else if (CKO_PRIVATE_KEY == objtype) {
+		int cert_id = -1;
+		/*
+		 * Do not search but get the key according to the given id.
+		 */
+		MAEMOSEC_DEBUG(1, "Searching for a private key.");
+		for (i = 0; i < sess->find_count; i++) {
+			if (CKA_ID == sess->find_template[i].type) {
+				cert_id = *(int*)sess->find_template[i].pValue;
 				break;
 			}
 		}
-		if (is_match) {
-			MAEMOSEC_DEBUG(2, "cert %ld matches", i);
-			if (found < ulMaxObjectCount) {
-				phObject[found++] = i;
+		if (-1 != cert_id) {
+			X509* cert = get_cert(sess, cert_id);
+			char nickname[256];
+
+			if (NULL != cert) {
+				rc = maemosec_certman_get_nickname(cert, nickname, sizeof(nickname));
+				MAEMOSEC_DEBUG(1, "%s: check for private key of '%s'", __func__, nickname);
+				if (has_private_key(cert)) {
+					MAEMOSEC_DEBUG(1, "%s: '%s' has private key", nickname);
+					if (found < ulMaxObjectCount) {
+						phObject[found++] = cert_id + PKEY_LIMIT;
+					}
+				}
 			} else {
-				/*
-				 * No more objects fit in the answer.
-				 * Remember where to Continue the search 
-				 * in the next call.
-				 */
-				sess->find_point = i;
-				break;
+				MAEMOSEC_DEBUG(1, "Can't find certificate '%d'", cert_id);
 			}
+		}
+	} else {
+		if (NULL != type_attr_ptr) {
+			MAEMOSEC_DEBUG(1, "Unsupported object type '%s'", 
+						   attr_value(type_attr_ptr->type, 
+									  type_attr_ptr->pValue,
+									  type_attr_ptr->ulValueLen));
+		} else {
+			MAEMOSEC_ERROR("Object type not defined, cannot search");
 		}
 	}
+		
 	*pulObjectCount = found;
 	MAEMOSEC_DEBUG(1, "found %d of %d", found, nbrof_certs);
 
@@ -1439,20 +1526,37 @@ attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned len)
 			break;
 #endif
 
-#if 0
 		case CKA_SUBJECT:
 		case CKA_ISSUER:
 			{
-				X509_NAME* xn;
-
-				xn = d2i_X509_NAME(NULL, val, len);
-				if (xn) {
+				void* buf = (void*)val;
+				X509_NAME *xn = d2i_X509_NAME(NULL, (void*)&buf, (long)len);
+				if (xn)
 					X509_NAME_oneline(xn, (char*)dhbuf, dhlen);
-					X509_NAME_free(xn);
+#if 0
+				{
+					int i;
+					MAEMOSEC_DEBUG(2, "%s: %s", __func__, dhbuf);
+					for (i = 0; i < sk_X509_NAME_ENTRY_num(xn->entries); i++) {
+						X509_NAME_ENTRY *ne = sk_X509_NAME_ENTRY_value(xn->entries, i);
+						ASN1_STRING *asn1_string = NULL;
+						unsigned char *utf8_string = NULL;
+						
+						if (NULL != ne)
+							asn1_string = ne->value;
+						if (NULL != asn1_string) 
+							ASN1_STRING_to_UTF8(&utf8_string, asn1_string);
+						if (NULL != utf8_string) {
+							MAEMOSEC_DEBUG(2, "%s: UTF8 string='%s'", __func__, utf8_string);
+							OPENSSL_free(utf8_string);
+						}
+					}
 				}
+#endif
 			}
 			break;
 
+#if 0
 		case CKA_SERIAL_NUMBER:
 			{
 				ASN1_INTEGER* ival;
