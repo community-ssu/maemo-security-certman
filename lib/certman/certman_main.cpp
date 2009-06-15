@@ -299,7 +299,7 @@ local_storage_dir(string& to_this, const char* subarea)
 	}
 	to_this.append(curbinname);
 #endif
-	MAEMOSEC_DEBUG(1, "\nlocal cert dir = '%s'", to_this.c_str());
+	// MAEMOSEC_DEBUG(1, "local cert dir = '%s'", to_this.c_str());
 }
 
 
@@ -455,15 +455,12 @@ return_pem_password(char* to_buf, int size, int rwflag, void* userdata)
 
 extern "C" {
 int
-has_private_key(X509* cert)
+has_private_key_by_id(maemosec_key_id key_id)
 {
-	maemosec_key_id key_id;
 	string storage_file_name;
 	struct stat fs;
 	int rc;
 
-	if (NULL == cert || (0 != maemosec_certman_get_key_id(cert, key_id)))
-		return(0);
 	local_storage_dir(storage_file_name, priv_keys_dir);
 	append_hex(storage_file_name, key_id, MAEMOSEC_KEY_ID_LEN);
 	storage_file_name.append(".pem");
@@ -475,6 +472,17 @@ has_private_key(X509* cert)
 		MAEMOSEC_DEBUG(1, "Does not have a private key");
 		return(0);
 	}
+}
+
+int
+has_private_key(X509* cert)
+{
+	maemosec_key_id key_id;
+
+	if (NULL == cert || (0 != maemosec_certman_get_key_id(cert, key_id)))
+		return(0);
+	else
+		return(has_private_key_by_id(key_id));
 }
 } // extern "C"
 

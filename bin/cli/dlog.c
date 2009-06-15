@@ -139,7 +139,7 @@ main(int argc, char* argv[])
 
 		printf("Listening %d.%d.%d.%d:%d...\n", i1, i2, i3, i4, port);
 
-#define ONBR_OFF 4
+#define ONBR_OFF sizeof(long)
 
 		while (!interrupted) {
 			slen = sizeof(struct sockaddr_in);

@@ -85,7 +85,7 @@ extern "C" {
 		}
 
 		for (int i = 0; i < cnode->nbrof_children(); i++) {
-			tagname = string(cnode->child(i)->attribute("path", true, ""));
+			tagname = string(cnode->child(i)->attribute("path", false, ""));
 			if ("application" == string(cnode->child(i)->name())
 				&& (appname == tagname || "*" == tagname))
 			{

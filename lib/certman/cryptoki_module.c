@@ -51,6 +51,7 @@
  * TODO: Fix this
  */
 int has_private_key(X509* cert);
+int has_private_key_by_id(maemosec_key_id key_id);
 
 static X509_STORE* root_certs;
 
@@ -399,15 +400,19 @@ access_attribute(SESSION sess,
 
 		case CKA_ID:
 			{
-				CK_ULONG cert_id = cert_number;
-				rv = callback(&cert_id, sizeof(cert_id), attr);
+				int rc;
+				maemosec_key_id key_id;
+				rc = maemosec_certman_get_key_id(cert, key_id);
+				if (0 == rc)
+					rv = callback(key_id, sizeof(key_id), attr);
+				else
+					rc = CKR_FUNCTION_FAILED;
 			}
 			break;
 
 #if INCL_NETSCAPE_VDE
 
 		case CKA_TRUST_SERVER_AUTH:
-		case CKA_TRUST_EMAIL_PROTECTION:
 		case CKA_TRUST_CODE_SIGNING:
 			{
 				CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
@@ -416,11 +421,13 @@ access_attribute(SESSION sess,
 				rv = callback(&trust, sizeof(trust), attr);
 			}
 			break;
+		case CKA_TRUST_EMAIL_PROTECTION:
 		case CKA_TRUST_CLIENT_AUTH:
 			{
 				CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
 				if (!X509_check_ca(cert))
-					 trust = CKT_NSS_TRUSTED;
+					// trust = CKT_NSS_TRUSTED;
+					trust = CKT_NSS_TRUSTED_DELEGATOR;
 				rv = callback(&trust, sizeof(trust), attr);
 			}
 			break;
@@ -887,10 +894,12 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	CK_ATTRIBUTE_PTR attr;
 	int is_pkey = 0;
 
-	MAEMOSEC_DEBUG(1, "get %ld attributes of object %d", ulCount, (int)hObject);
 	GET_SESSION(hSession, sess);
+	MAEMOSEC_DEBUG(1, "get %ld attributes of object %s:%d", ulCount, 
+				   sess->domain_name, (int)hObject);
 
-	if (hObject > PKEY_LIMIT) {
+	if (hObject >= PKEY_LIMIT) {
+		MAEMOSEC_DEBUG(1, "Object is private key");
 		hObject -= PKEY_LIMIT;
 		is_pkey = 1;
 	}
@@ -901,10 +910,17 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 			attr = &pTemplate[i];
 			MAEMOSEC_DEBUG(1, "get %s", attr_name(attr->type));
 			rv = access_attribute(sess, cert, (int)hObject, attr, copy_attribute);
-			if (is_pkey && CKA_CLASS == attr->type)
-				*(int*)attr->pValue = CKO_PRIVATE_KEY;
-			if (rv != CKR_OK) {
-				break;
+			if (is_pkey) {
+				if (CKA_CLASS == attr->type) {
+					*(int*)attr->pValue = CKO_PRIVATE_KEY;
+				} else if (CKA_VALUE == attr->type) {
+					// TODO: How to ask for password?
+					MAEMOSEC_DEBUG(1, "Read value of private key %d", 
+								   hObject + PKEY_LIMIT);
+				}
+				if (rv != CKR_OK) {
+					break;
+				}
 			}
 		}
 	} else
@@ -958,7 +974,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 	CK_OBJECT_CLASS objtype = (CK_OBJECT_CLASS)-1;
 	SESSION sess;
 	CK_ULONG i, j;
-	int rc, found = 0, nbrof_certs = 0;
+	int found = 0, nbrof_certs = 0;
 
 	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
 	GET_SESSION(hSession, sess);
@@ -969,8 +985,10 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 
 	/*
 	 * Check what kind of an object we are searching for.
-	 * Supported types are certificates and private keys.
+	 * Supported types are certificates and private keys,
+	 * certificate being default.
 	 */
+	objtype = CKO_CERTIFICATE;
 	for (i = 0; i < sess->find_count; i++) {
 		if (CKA_CLASS == sess->find_template[i].type) {
 			objtype = *(CK_OBJECT_CLASS*)sess->find_template[i].pValue;
@@ -1027,33 +1045,35 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			}
 		}
 	} else if (CKO_PRIVATE_KEY == objtype) {
-		int cert_id = -1;
+		maemosec_key_id key_id;
+		int id_is_defined = 0;
 		/*
 		 * Do not search but get the key according to the given id.
 		 */
 		MAEMOSEC_DEBUG(1, "Searching for a private key.");
 		for (i = 0; i < sess->find_count; i++) {
 			if (CKA_ID == sess->find_template[i].type) {
-				cert_id = *(int*)sess->find_template[i].pValue;
+				if (sess->find_template[i].ulValueLen != MAEMOSEC_KEY_ID_LEN) {
+					MAEMOSEC_ERROR("key id len mismatch %d != %d", 
+								   sess->find_template[i].ulValueLen, 
+								   MAEMOSEC_KEY_ID_LEN);
+					goto out;
+				} else {
+					memcpy(key_id, sess->find_template[i].pValue, MAEMOSEC_KEY_ID_LEN);
+					id_is_defined = 1;
+				}
 				break;
 			}
 		}
-		if (-1 != cert_id) {
-			X509* cert = get_cert(sess, cert_id);
-			char nickname[256];
-
-			if (NULL != cert) {
-				rc = maemosec_certman_get_nickname(cert, nickname, sizeof(nickname));
-				MAEMOSEC_DEBUG(1, "%s: check for private key of '%s'", __func__, nickname);
-				if (has_private_key(cert)) {
-					MAEMOSEC_DEBUG(1, "%s: '%s' has private key", nickname);
-					if (found < ulMaxObjectCount) {
-						phObject[found++] = cert_id + PKEY_LIMIT;
-					}
+		if (id_is_defined) {
+			if (has_private_key_by_id(key_id)) {
+				MAEMOSEC_DEBUG(1, "%s: has private key", __func__);
+				if (found < ulMaxObjectCount) {
+					phObject[found++] = PKEY_LIMIT;
 				}
-			} else {
-				MAEMOSEC_DEBUG(1, "Can't find certificate '%d'", cert_id);
 			}
+		} else {
+			MAEMOSEC_ERROR("Free private key search");
 		}
 	} else {
 		if (NULL != type_attr_ptr) {
