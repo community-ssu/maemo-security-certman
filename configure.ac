@@ -12,7 +12,9 @@ PKG_CHECK_MODULES(OPENSSL, [ openssl >= 0.9.8 ])
 AC_SUBST(OPENSSL_CFLAGS)
 AC_SUBST(OPENSSL_LIBS)
 
-PKG_CHECK_MODULES(NSS, [ nss >= 1.0.1 ])
+dnl Scratchbox uses a different naming convention
+dnl than the rest of the world
+PKG_CHECK_MODULES(NSS, [ mozilla-nss >= 1.0.1 ])
 NSS_CFLAGS=`echo $NSS_CFLAGS | sed 's/\/stable/\/nspr/'`
 AC_SUBST(NSS_CFLAGS)
 AC_SUBST(NSS_LIBS)
