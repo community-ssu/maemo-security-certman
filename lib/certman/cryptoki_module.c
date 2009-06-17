@@ -200,6 +200,7 @@ read_attribute(CK_ATTRIBUTE_PTR p,
 
 static CK_RV
 access_attribute(SESSION sess,
+				 CK_OBJECT_CLASS objtype,
 				 X509* cert,
 				 int cert_number,
 				 CK_ATTRIBUTE_PTR attr,
@@ -211,8 +212,8 @@ access_attribute(SESSION sess,
 		{
 		case CKA_CLASS:
 			{
-				CK_OBJECT_CLASS objtype = CKO_CERTIFICATE;
-				rv = callback(&objtype, sizeof(objtype), attr);
+				CK_OBJECT_CLASS tmp = objtype;
+				rv = callback(&tmp, sizeof(tmp), attr);
 			}
 			break;
 
@@ -227,7 +228,19 @@ access_attribute(SESSION sess,
 			{
 				unsigned char* obuf = NULL;
 				int len;
-				
+
+				if (CKO_PRIVATE_KEY == objtype) {
+					MAEMOSEC_DEBUG(1, "*** Trying to read value of private key"); 
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+
+				if (CKO_PUBLIC_KEY == objtype) {
+					MAEMOSEC_DEBUG(1, "*** Trying to read value of public key");
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+
 				len = i2d_X509(cert, &obuf);
 				if (len <= 0) {
 					MAEMOSEC_ERROR("Cannot encode cert (%d)", len);
@@ -249,10 +262,18 @@ access_attribute(SESSION sess,
 			}
 			break;
 
-		case CKA_PRIVATE:
 		case CKA_MODIFIABLE:
 			{
 				CK_BBOOL avalue = CK_FALSE;
+				rv = callback(&avalue, sizeof(avalue), attr);
+			}
+			break;
+
+		case CKA_PRIVATE:
+			{
+				CK_BBOOL avalue = CK_FALSE;
+				if (CKO_PRIVATE_KEY == objtype)
+					avalue = CK_TRUE;
 				rv = callback(&avalue, sizeof(avalue), attr);
 			}
 			break;
@@ -311,16 +332,22 @@ access_attribute(SESSION sess,
 				rv = callback(&avalue, sizeof(avalue), attr);
 			}
 			break;
+
+		case CKA_KEY_TYPE:
+			{
+				/*
+				 * TODO: Key type is not always RSA, of course
+				 */
+				CK_KEY_TYPE key_type = CKK_RSA;
+				rv = callback(&key_type, sizeof(key_type), attr);
+			}
+			break;
 #if 0
 		case CKA_MODULUS_BITS:
 			break;
 		case CKA_MODULUS:
 			break;
 		case CKA_PUBLIC_EXPONENT:
-			break;
-		case CKA_KEY_TYPE:
-			break;
-		case CKA_CLASS:
 			break;
 #endif
 		case CKA_SUBJECT:
@@ -467,6 +494,7 @@ access_attribute(SESSION sess,
 
 static CK_RV
 set_attribute(SESSION sess,
+			  CK_OBJECT_CLASS objtype,
 			  X509** cert,
 			  CK_ATTRIBUTE_PTR attr
 ) {
@@ -476,9 +504,9 @@ set_attribute(SESSION sess,
 	switch (attr->type) {
 	case CKA_CLASS:
 		{
-			CK_OBJECT_CLASS objtype;
-			rv = read_attribute(attr, &objtype, sizeof(objtype), &val_len);
-			if (CKR_OK == rv && CKO_CERTIFICATE != objtype)
+			CK_OBJECT_CLASS tmp;
+			rv = read_attribute(attr, &tmp, sizeof(objtype), &val_len);
+			if (CKR_OK == rv && CKO_CERTIFICATE != tmp)
 				rv = CKR_FUNCTION_NOT_SUPPORTED;
 		}
 		break;
@@ -495,6 +523,19 @@ set_attribute(SESSION sess,
 	case CKA_VALUE:
 		{
 			unsigned char* buf = attr->pValue;
+			
+			if (CKO_PRIVATE_KEY == objtype) {
+				MAEMOSEC_DEBUG(1, "*** Trying to set value of private key"); 
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
+			}
+
+			if (CKO_PUBLIC_KEY == objtype) {
+				MAEMOSEC_DEBUG(1, "*** Trying to set value of public key");
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
+			}
+
 			*cert = d2i_X509(NULL, (void*)&buf, attr->ulValueLen);
 			if (*cert) {
 				MAEMOSEC_DEBUG(1, "created new certificate");
@@ -587,6 +628,7 @@ set_attribute(SESSION sess,
 		MAEMOSEC_DEBUG(1, "unsupported attribute id %x", (int)attr->type);
 		break;
 	}
+  out:
 	return(rv);
 }
 
@@ -839,14 +881,14 @@ CK_DECLARE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession,
 
 	for (i = 0; i < ulCount; i++) {
 		MAEMOSEC_DEBUG(1, "set %s", attr_name(pTemplate[i].type));
-		rv = set_attribute(sess, &cert, &pTemplate[i]);
+		rv = set_attribute(sess, CKO_CERTIFICATE, &cert, &pTemplate[i]);
 		if (CKR_OK != rv)
 			break;
 	}
 	if (CKR_OK == rv && NULL != cert) {
 		rv = add_cert(sess, cert, &cert_nbr);
 		if (CKR_OK == rv)
-			*phObject = (CK_OBJECT_HANDLE)cert_nbr;
+			*phObject = (CK_OBJECT_HANDLE)cert_nbr + 1;
 	}
 	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return(rv);
@@ -882,6 +924,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetObjectSize)(CK_SESSION_HANDLE hSession,
 
 
 #define PKEY_LIMIT 10000
+#define PPKEY_LIMIT 20000
 
 
 CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
@@ -892,35 +935,36 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetAttributeValue)(CK_SESSION_HANDLE hSession,
 	SESSION sess;
 	X509* cert;
 	CK_ATTRIBUTE_PTR attr;
-	int is_pkey = 0;
+	CK_OBJECT_CLASS objtype = CKO_CERTIFICATE;
 
 	GET_SESSION(hSession, sess);
 	MAEMOSEC_DEBUG(1, "get %ld attributes of object %s:%d", ulCount, 
 				   sess->domain_name, (int)hObject);
 
-	if (hObject >= PKEY_LIMIT) {
-		MAEMOSEC_DEBUG(1, "Object is private key");
-		hObject -= PKEY_LIMIT;
-		is_pkey = 1;
+	/*
+	 * TODO: If public keys are also accessed this way,
+	 * need to reserve an area for them, too
+	 */
+	if (hObject > PKEY_LIMIT) {
+		if (hObject > PPKEY_LIMIT) {
+			MAEMOSEC_DEBUG(1, "Object is private key");
+			hObject -= PPKEY_LIMIT;
+			objtype = CKO_PRIVATE_KEY;
+		} else {
+			MAEMOSEC_DEBUG(1, "Object is public key");
+			hObject -= PKEY_LIMIT;
+			objtype = CKO_PUBLIC_KEY;
+		}
 	}
 
-	cert = get_cert(sess, hObject);
+	cert = get_cert(sess, hObject - 1);
 	if (cert) {
 		for (i = 0; i < ulCount; i++) {
 			attr = &pTemplate[i];
 			MAEMOSEC_DEBUG(1, "get %s", attr_name(attr->type));
-			rv = access_attribute(sess, cert, (int)hObject, attr, copy_attribute);
-			if (is_pkey) {
-				if (CKA_CLASS == attr->type) {
-					*(int*)attr->pValue = CKO_PRIVATE_KEY;
-				} else if (CKA_VALUE == attr->type) {
-					// TODO: How to ask for password?
-					MAEMOSEC_DEBUG(1, "Read value of private key %d", 
-								   hObject + PKEY_LIMIT);
-				}
-				if (rv != CKR_OK) {
-					break;
-				}
+			rv = access_attribute(sess, objtype, cert, (int)hObject - 1, attr, copy_attribute);
+			if (rv != CKR_OK) {
+				break;
 			}
 		}
 	} else
@@ -997,8 +1041,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 		}
 	}
 
-	if (CKO_CERTIFICATE == objtype || CKO_NSS_TRUST == objtype) {
-		MAEMOSEC_DEBUG(1, "Searching for a certificate");
+	if (CKO_CERTIFICATE == objtype || CKO_NSS_TRUST == objtype || CKO_PUBLIC_KEY == objtype) {
+		MAEMOSEC_DEBUG(1, "Searching for a certificate, trust or public key");
 		/*
 		 * Iterate through all data objects and compare their 
 		 * attributes with the given template. If all attributes
@@ -1016,7 +1060,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			int is_match = 1;
 			X509* cert = get_cert(sess, i);
 			for (j = 0; j < sess->find_count; j++) {
-				CK_RV tst = access_attribute(sess, cert, i, 
+				CK_RV tst = access_attribute(sess, objtype, cert, i, 
 											 &sess->find_template[j],
 											 match_attribute);
 				if (tst != CKR_OK) {
@@ -1032,10 +1076,14 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			if (is_match) {
 				MAEMOSEC_DEBUG(2, "cert %ld matches", i);
 				if (found < ulMaxObjectCount) {
-					phObject[found++] = i;
+					if (CKO_PUBLIC_KEY == objtype) {
+						phObject[found++] = i + 1 + PKEY_LIMIT;
+						MAEMOSEC_DEBUG(2, "object %d is public key", 1 + PKEY_LIMIT);
+					} else
+						phObject[found++] = i + 1;
 				} else {
 					/*
-					 * No more objects fit in the answer.
+					 * No more objects fit in the answer.o
 					 * Remember where to Continue the search 
 					 * in the next call.
 					 */
@@ -1069,7 +1117,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			if (has_private_key_by_id(key_id)) {
 				MAEMOSEC_DEBUG(1, "%s: has private key", __func__);
 				if (found < ulMaxObjectCount) {
-					phObject[found++] = PKEY_LIMIT;
+					phObject[found++] = PPKEY_LIMIT + 1;
+					MAEMOSEC_DEBUG(2, "object %d is private key", 1 + PPKEY_LIMIT);
 				}
 			}
 		} else {
@@ -1137,7 +1186,18 @@ CK_DECLARE_FUNCTION(CK_RV, C_SetOperationState)(CK_SESSION_HANDLE hSession,
 CK_DECLARE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession,
 	CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	SESSION sess;
+	unsigned char password [100];
+	GET_SESSION(hSession, sess);
+	if (sizeof(password) > ulPinLen) {
+		memcpy(password, pPin, ulPinLen);
+		password[ulPinLen] = '\0';
+	} else {
+		memcpy(password, pPin, sizeof(password));
+		password[sizeof(password) - 1] = '\0';
+	}
+	MAEMOSEC_DEBUG(1, "%s: %s password %s", __func__, sess->domain_name, password);
+	return CKR_OK;
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession)
@@ -1426,6 +1486,7 @@ attr_name(CK_ATTRIBUTE_TYPE of_a)
 		RETATTR(CKA_SERIAL_NUMBER,"CKA_SERIAL_NUMBER");
 		RETATTR(CKA_LABEL,"CKA_LABEL");
 		RETATTR(CKA_ID,"CKA_ID");
+		RETATTR(CKA_KEY_TYPE,"CKA_KEY_TYPE");
 #if INCL_NETSCAPE_VDE
 		RETATTR(CKA_TRUST_SERVER_AUTH,"CKA_TRUST_SERVER_AUTH");
 		RETATTR(CKA_TRUST_CLIENT_AUTH,"CKA_TRUST_CLIENT_AUTH");
@@ -1505,11 +1566,24 @@ attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned len)
 		case CKA_TOKEN:
 		case CKA_PRIVATE:
 		case CKA_MODIFIABLE:
-			if (*(int*)val)
+		{
+			CK_BBOOL bval = *(CK_BBOOL*)val;
+			if (CK_TRUE == bval)
 				return("True");
 			else
 				return("False");
 			break;
+		}
+
+		case CKA_KEY_TYPE:
+			switch(*(int*)val) {
+			case CKK_RSA: return("RSA");
+			case CKK_DSA: return("DSA");
+			case CKK_DH: return("DH");
+			case CKK_KEA: return("KEA");
+			case CKK_EC: return("EC");
+			default: return("(Unknown)");
+			}
 
 #if INCL_NETSCAPE_VDE 
 		case CKA_TRUST_STEP_UP_APPROVED:
