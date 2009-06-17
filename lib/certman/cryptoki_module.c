@@ -342,10 +342,71 @@ access_attribute(SESSION sess,
 				rv = callback(&key_type, sizeof(key_type), attr);
 			}
 			break;
+
+		case CKA_MODULUS:
+			if (CKO_PRIVATE_KEY == objtype) {
+				int rc;
+				EVP_PKEY* ppkey = NULL;
+				struct rsa_st *rsak = NULL;
+				maemosec_key_id key_id;
+				ASN1_INTEGER* ival = NULL;
+				unsigned char* buf = NULL;
+				int len;
+
+				if (0 == strlen(sess->password)) {
+					rv = CKR_USER_NOT_LOGGED_IN;
+					goto out;
+				}
+				rc = maemosec_certman_get_key_id(cert, key_id);
+				if (0 != rc) {
+					MAEMOSEC_ERROR("Cannot get key id (%d)", rc);
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+				MAEMOSEC_DEBUG(1, "%s: got key id", __func__);
+				rc = maemosec_certman_retrieve_key(key_id, &ppkey, sess->password);
+				if (0 != rc) {
+					MAEMOSEC_ERROR("Cannot open private key (%d)", rc);
+					rv = CKR_USER_NOT_LOGGED_IN;
+					// rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+				MAEMOSEC_DEBUG(1, "%s: got private key", __func__);
+				/*
+				 * Assume RSA keytype for a while
+				 */
+				rsak = EVP_PKEY_get1_RSA(ppkey);
+				if (NULL == rsak) {
+					MAEMOSEC_ERROR("Cannot extract RSA");
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+				MAEMOSEC_DEBUG(1, "%s: got RSA", __func__);
+				ival = BN_to_ASN1_INTEGER(rsak->n, NULL);
+				if (NULL == rsak) {
+					MAEMOSEC_ERROR("Cannot convert to ASN1_INTEGER");
+					rv = CKR_FUNCTION_FAILED;
+					goto out;
+				}
+				len = i2d_ASN1_INTEGER(ival, &buf);
+				if (len > 0) {
+					rv = callback(buf, len, attr);
+				} else {
+					MAEMOSEC_ERROR("Cannot encode");
+					rv = CKR_FUNCTION_FAILED;
+				}
+				if (buf)
+					OPENSSL_free(buf);
+				if (ival)
+					ASN1_INTEGER_free(ival);
+				if (ppkey)
+					EVP_PKEY_free(ppkey);
+			} else {
+				MAEMOSEC_ERROR("%s: cannot ask modulus from anything but a private key", __func__);
+			}
+			break;
 #if 0
 		case CKA_MODULUS_BITS:
-			break;
-		case CKA_MODULUS:
 			break;
 		case CKA_PUBLIC_EXPONENT:
 			break;
@@ -853,7 +914,10 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 		/*
 		 * TODO: Read only or read-write?
 		 */
-		pInfo->state = CKS_RO_PUBLIC_SESSION;
+		if (0 == strlen(sess->password))
+			pInfo->state = CKS_RO_PUBLIC_SESSION;
+		else
+			pInfo->state = CKS_RO_USER_FUNCTIONS;
 		pInfo->flags = CKF_SERIAL_SESSION;
 	} else {
 		rv = CKR_ARGUMENTS_BAD;
@@ -1187,16 +1251,17 @@ CK_DECLARE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession,
 	CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
 	SESSION sess;
-	unsigned char password [100];
 	GET_SESSION(hSession, sess);
-	if (sizeof(password) > ulPinLen) {
-		memcpy(password, pPin, ulPinLen);
-		password[ulPinLen] = '\0';
+	if (sizeof(sess->password) > ulPinLen) {
+		memcpy(sess->password, pPin, ulPinLen);
+		sess->password[ulPinLen] = '\0';
 	} else {
-		memcpy(password, pPin, sizeof(password));
-		password[sizeof(password) - 1] = '\0';
+		memcpy(sess->password, pPin, sizeof(sess->password));
+		sess->password[sizeof(sess->password) - 1] = '\0';
 	}
-	MAEMOSEC_DEBUG(1, "%s: %s password %s", __func__, sess->domain_name, password);
+	MAEMOSEC_DEBUG(1, "%s: %s password %s", 
+				   __func__, sess->domain_name, 
+				   sess->password);
 	return CKR_OK;
 }
 
@@ -1291,14 +1356,106 @@ CK_DECLARE_FUNCTION(CK_RV, C_DigestFinal)(CK_SESSION_HANDLE hSession,
 CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 	CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	int rc;
+	CK_RV rv = CKR_OK;
+	SESSION sess;
+	maemosec_key_id key_id;
+	EVP_PKEY *ppkey;
+	X509 *cert;
+
+	if (NULL == pMechanism)
+		return(CKR_ARGUMENTS_BAD);
+
+	MAEMOSEC_DEBUG(1, "Enter %s, mechanism=0x%x", __func__, pMechanism->mechanism);
+
+	GET_SESSION(hSession, sess);
+
+	sess->signing_algorithm = pMechanism->mechanism;
+
+	if (hKey <= PPKEY_LIMIT) {
+		MAEMOSEC_ERROR("%s: %d is not a private key handle", __func__, hKey);
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+
+	if (0 == strlen(sess->password)) {
+		MAEMOSEC_ERROR("%s: no password available", __func__);
+		rv = CKR_USER_NOT_LOGGED_IN;
+		goto out;
+	}
+
+	cert = get_cert(sess, hKey - PPKEY_LIMIT - 1);
+	if (!cert) {
+		MAEMOSEC_ERROR("%s: cannot get cert", __func__);
+		rv = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+	MAEMOSEC_DEBUG(1, "%s: got cert", __func__);
+
+	rc = maemosec_certman_get_key_id(cert, key_id);
+	if (0 != rc) {
+		MAEMOSEC_ERROR("%s: cannot get key id (%d)", __func__, rc);
+		rv = CKR_FUNCTION_FAILED;
+		goto out;
+	}
+	MAEMOSEC_DEBUG(1, "%s: got key id", __func__);
+
+	rc = maemosec_certman_retrieve_key(key_id, &ppkey, sess->password);
+	if (0 != rc) {
+		MAEMOSEC_ERROR("Cannot open private key (%d)", rc);
+		rv = CKR_USER_NOT_LOGGED_IN;
+		// rv = CKR_FUNCTION_FAILED;
+		goto out;
+	}
+	MAEMOSEC_DEBUG(1, "%s: got private key", __func__);
+
+	sess->signing_key = ppkey;
+	
+ out:
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_Sign)(CK_SESSION_HANDLE hSession,
 	CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
 	CK_ULONG_PTR pulSignatureLen)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	int rc;
+	CK_RV rv = CKR_OK;
+	SESSION sess;
+	EVP_MD_CTX signctx;
+	unsigned signature_len = 0;
+
+	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+
+	GET_SESSION(hSession, sess);
+	if (NULL == sess->signing_key) {
+		return(CKR_ARGUMENTS_BAD);
+	}
+
+	switch (sess->signing_algorithm) {
+	case CKM_SHA1_RSA_PKCS:
+		signature_len = EVP_MD_size(EVP_sha1());
+		rc = EVP_SignInit(&signctx, EVP_sha1());
+		break;
+	default:
+		MAEMOSEC_ERROR("%s: %d is not a supported mechanism", 
+					   __func__, sess->signing_algorithm);
+		return(CKR_FUNCTION_NOT_SUPPORTED);
+		goto out;
+	}
+
+
+	if (signature_len > *pulSignatureLen) {
+		rv = CKR_DATA_LEN_RANGE;
+		goto out;
+	}
+		
+	rc = EVP_SignUpdate(&signctx, pData, ulDataLen);
+	rc = EVP_SignFinal(&signctx, pSignature, (unsigned*)pulSignatureLen, sess->signing_key);
+
+ out:
+	EVP_MD_CTX_cleanup(&signctx);
+	return(rv);
 }
 
 CK_DECLARE_FUNCTION(CK_RV, C_SignUpdate)(CK_SESSION_HANDLE hSession,
@@ -1487,6 +1644,7 @@ attr_name(CK_ATTRIBUTE_TYPE of_a)
 		RETATTR(CKA_LABEL,"CKA_LABEL");
 		RETATTR(CKA_ID,"CKA_ID");
 		RETATTR(CKA_KEY_TYPE,"CKA_KEY_TYPE");
+		RETATTR(CKA_MODULUS,"CKA_MODULUS");
 #if INCL_NETSCAPE_VDE
 		RETATTR(CKA_TRUST_SERVER_AUTH,"CKA_TRUST_SERVER_AUTH");
 		RETATTR(CKA_TRUST_CLIENT_AUTH,"CKA_TRUST_CLIENT_AUTH");

@@ -1,4 +1,4 @@
-/* -*- mode:c; tab-width:4; c-basic-offset:4;
+/* -*- mode:c; tab-width:4; c-basic-offset:4; -*-
  *
  * This file is part of maemo-security-certman
  *
@@ -61,6 +61,9 @@ typedef struct session {
 	int find_point;
 	int state;
 	int read_only;
+	char password [256];
+	EVP_PKEY* signing_key;
+	int signing_algorithm;
 } *SESSION;
 
 typedef enum {sstat_base, sstat_search} session_state;
