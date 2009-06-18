@@ -61,7 +61,6 @@ typedef struct session {
 	int find_point;
 	int state;
 	int read_only;
-	char password [256];
 	EVP_PKEY* signing_key;
 	int signing_algorithm;
 } *SESSION;

@@ -47,6 +47,8 @@
 #include <../nss/pkcs11n.h>
 #endif
 
+static char g_password [256] = "";
+
 /*
  * TODO: Fix this
  */
@@ -353,7 +355,7 @@ access_attribute(SESSION sess,
 				unsigned char* buf = NULL;
 				int len;
 
-				if (0 == strlen(sess->password)) {
+				if (0 == strlen(g_password)) {
 					rv = CKR_USER_NOT_LOGGED_IN;
 					goto out;
 				}
@@ -364,7 +366,7 @@ access_attribute(SESSION sess,
 					goto out;
 				}
 				MAEMOSEC_DEBUG(1, "%s: got key id", __func__);
-				rc = maemosec_certman_retrieve_key(key_id, &ppkey, sess->password);
+				rc = maemosec_certman_retrieve_key(key_id, &ppkey, g_password);
 				if (0 != rc) {
 					MAEMOSEC_ERROR("Cannot open private key (%d)", rc);
 					rv = CKR_USER_NOT_LOGGED_IN;
@@ -866,7 +868,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 {
 	CK_RV rv = CKR_OK;
 
-	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Enter %s, slot=%d, flags=0x%x", __func__, slotID, flags);
 	if (!phSession) {
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
@@ -914,7 +916,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_GetSessionInfo)(CK_SESSION_HANDLE hSession,
 		/*
 		 * TODO: Read only or read-write?
 		 */
-		if (0 == strlen(sess->password))
+		if (0 == strlen(g_password))
 			pInfo->state = CKS_RO_PUBLIC_SESSION;
 		else
 			pInfo->state = CKS_RO_USER_FUNCTIONS;
@@ -1252,16 +1254,16 @@ CK_DECLARE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession,
 {
 	SESSION sess;
 	GET_SESSION(hSession, sess);
-	if (sizeof(sess->password) > ulPinLen) {
-		memcpy(sess->password, pPin, ulPinLen);
-		sess->password[ulPinLen] = '\0';
+	if (sizeof(g_password) > ulPinLen) {
+		memcpy(g_password, pPin, ulPinLen);
+		g_password[ulPinLen] = '\0';
 	} else {
-		memcpy(sess->password, pPin, sizeof(sess->password));
-		sess->password[sizeof(sess->password) - 1] = '\0';
+		memcpy(g_password, pPin, sizeof(g_password));
+		g_password[sizeof(g_password) - 1] = '\0';
 	}
 	MAEMOSEC_DEBUG(1, "%s: %s password %s", 
 				   __func__, sess->domain_name, 
-				   sess->password);
+				   g_password);
 	return CKR_OK;
 }
 
@@ -1378,7 +1380,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 		goto out;
 	}
 
-	if (0 == strlen(sess->password)) {
+	if (0 == strlen(g_password)) {
 		MAEMOSEC_ERROR("%s: no password available", __func__);
 		rv = CKR_USER_NOT_LOGGED_IN;
 		goto out;
@@ -1400,7 +1402,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 	}
 	MAEMOSEC_DEBUG(1, "%s: got key id", __func__);
 
-	rc = maemosec_certman_retrieve_key(key_id, &ppkey, sess->password);
+	rc = maemosec_certman_retrieve_key(key_id, &ppkey, g_password);
 	if (0 != rc) {
 		MAEMOSEC_ERROR("Cannot open private key (%d)", rc);
 		rv = CKR_USER_NOT_LOGGED_IN;
@@ -1433,17 +1435,42 @@ CK_DECLARE_FUNCTION(CK_RV, C_Sign)(CK_SESSION_HANDLE hSession,
 	}
 
 	switch (sess->signing_algorithm) {
+		
+	case CKM_RSA_PKCS:
+		{
+			int rc;
+			struct rsa_st *rsak = EVP_PKEY_get1_RSA(sess->signing_key);
+			if (NULL == rsak) {
+				MAEMOSEC_ERROR("Cannot extract RSA");
+				rv = CKR_FUNCTION_FAILED;
+				goto out;
+			}
+			if (*pulSignatureLen < RSA_size(rsak)) {
+				rv = CKR_DATA_LEN_RANGE;
+				goto out;
+			}
+			rc = RSA_private_encrypt(ulDataLen, pData, 
+									 pSignature, rsak, 
+									 RSA_PKCS1_PADDING);
+			MAEMOSEC_DEBUG(1, "RSA_private_encrypt returned %d", rc);
+			if (0 >= rc)
+				rv = CKR_FUNCTION_FAILED;
+			else
+				*pulSignatureLen = rc;
+			goto out;
+		}
+		
 	case CKM_SHA1_RSA_PKCS:
 		signature_len = EVP_MD_size(EVP_sha1());
 		rc = EVP_SignInit(&signctx, EVP_sha1());
 		break;
+
 	default:
 		MAEMOSEC_ERROR("%s: %d is not a supported mechanism", 
 					   __func__, sess->signing_algorithm);
 		return(CKR_FUNCTION_NOT_SUPPORTED);
 		goto out;
 	}
-
 
 	if (signature_len > *pulSignatureLen) {
 		rv = CKR_DATA_LEN_RANGE;
@@ -1452,9 +1479,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_Sign)(CK_SESSION_HANDLE hSession,
 		
 	rc = EVP_SignUpdate(&signctx, pData, ulDataLen);
 	rc = EVP_SignFinal(&signctx, pSignature, (unsigned*)pulSignatureLen, sess->signing_key);
+	EVP_MD_CTX_cleanup(&signctx);
 
  out:
-	EVP_MD_CTX_cleanup(&signctx);
 	return(rv);
 }
 

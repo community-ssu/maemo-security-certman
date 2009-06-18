@@ -271,7 +271,6 @@ extern "C" {
 		new_session->domain_name = strdup(slot_info->domain.c_str());
 		new_session->read_only = !slot_info->is_writable;
 		new_session->state = sstat_base;
-		strcpy(new_session->password, "");
 		new_session->signing_key = NULL;
 		new_session->signing_algorithm = NULL;
 		sessions.push_back(new_session);
