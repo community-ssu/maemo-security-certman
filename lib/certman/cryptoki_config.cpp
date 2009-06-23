@@ -196,6 +196,7 @@ extern "C" {
 			} else
 				pInfo->ulMaxRwSessionCount = 1;
 
+#if 0
 			/*
 			 * TODO: A terrible hack to test the master
 			 * login for a domain with private keys
@@ -204,6 +205,7 @@ extern "C" {
 				pInfo->flags |= CKF_LOGIN_REQUIRED;
 				pInfo->flags |= CKF_USER_PIN_INITIALIZED;
 			}
+#endif
 
 			pInfo->ulMaxSessionCount = 1;
 			pInfo->ulSessionCount = 1;

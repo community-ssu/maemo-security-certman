@@ -356,8 +356,13 @@ access_attribute(SESSION sess,
 				int len;
 
 				if (0 == strlen(g_password)) {
+#if 0
 					rv = CKR_USER_NOT_LOGGED_IN;
 					goto out;
+#else
+					MAEMOSEC_ERROR("%s: no password available, using default password", __func__);
+					strcpy(g_password, "nixu-jum");
+#endif
 				}
 				rc = maemosec_certman_get_key_id(cert, key_id);
 				if (0 != rc) {
@@ -1381,9 +1386,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 	}
 
 	if (0 == strlen(g_password)) {
-		MAEMOSEC_ERROR("%s: no password available", __func__);
+		MAEMOSEC_ERROR("%s: no password available, using default password", __func__);
+#if 0		
 		rv = CKR_USER_NOT_LOGGED_IN;
 		goto out;
+#else
+		strcpy(g_password, "nixu-jum");
+#endif
 	}
 
 	cert = get_cert(sess, hKey - PPKEY_LIMIT - 1);
