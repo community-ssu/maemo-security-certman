@@ -1,4 +1,4 @@
-INCLUDES = -I../../include -I../security ${NSS_CFLAGS} ${OPENSSL_CFLAGS}
+INCLUDES = -I../../include -I../security ${NSS_CFLAGS} ${OPENSSL_CFLAGS} ${OSSO_CFLAGS} ${GLIB_CFLAGS}
 
 lib_LTLIBRARIES = libmaemosec_certman.la
 
@@ -10,5 +10,5 @@ libmaemosec_certman_la_SOURCES = \
 
 # Include all necessary libraries in the .so so that it can be used
 # as a PCKS#11 plugin
-libmaemosec_certman_la_LIBADD = ${OPENSSL_LIBS} \
+libmaemosec_certman_la_LIBADD = ${OPENSSL_LIBS} ${OSSO_LIBS} ${GLIB_LIBS} \
  -L../security/.libs -lmaemosec

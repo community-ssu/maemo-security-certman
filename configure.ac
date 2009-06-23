@@ -19,6 +19,14 @@ PKG_CHECK_MODULES(NSS, [ mozilla-nss >= 1.0.1 ])
 AC_SUBST(NSS_CFLAGS)
 AC_SUBST(NSS_LIBS)
 
+PKG_CHECK_MODULES(GLIB, glib-2.0 >= 2.6.0)
+AC_SUBST(GLIB_LIBS)
+AC_SUBST(GLIB_CFLAGS)
+                                                                                
+PKG_CHECK_MODULES(OSSO, libosso >= 1.0.0)
+AC_SUBST(OSSO_LIBS)
+AC_SUBST(OSSO_CFLAGS)
+
 AC_CHECK_HEADER(unistd.h)
 AC_CHECK_HEADERS(openssl/conf.h)
 AC_CONFIG_FILES(pkgconfig/maemosec.pc:pkgconfig/maemosec.pc.in)

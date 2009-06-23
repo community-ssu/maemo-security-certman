@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <string.h>
+#include <libosso.h>
 #include <maemosec_common.h>
 #include <maemosec_certman.h>
 #include "cryptoki_config.h"
@@ -123,6 +124,84 @@ static CK_SLOT_ID slot_lst[10];
 /*
  * Helper functions
  */
+
+static int
+get_private_key_password(const char* key_id_as_str, const char* cert_name)
+{
+	osso_context_t *osso;
+	osso_return_t rc;
+	osso_rpc_t retval;
+
+    MAEMOSEC_DEBUG(1, "%s: enter", __func__);
+	osso = osso_initialize("maemosec_cryptoki", "0.1.1", FALSE, NULL);
+
+	if (NULL == osso) {
+		MAEMOSEC_ERROR("%s: couldnt do osso_initialize", __func__);
+		return(0);
+	}
+
+#if 0
+	/*
+	 * TODO: What is the unit of the timeout? Milliseconds?
+	 * Default is that there is no timeout?
+	 */
+	rc = osso_rpc_set_timeout(osso, 180000);
+	if (0 == rc)
+		MAEMOSEC_DEBUG(1, "%s: osso_rpc_set_timeout to 3 min", __func__);
+	else
+		MAEMOSEC_ERROR("%s: osso_rpc_set_timeout returned %d", __func__, rc);
+#endif
+
+	rc = osso_rpc_run(osso, 
+					  "com.nokia.certman", 
+					  "/com/nokia/certman", 
+					  "com.nokia.certman", 
+					  "get_key_password", 
+					  &retval,
+					  DBUS_TYPE_STRING,
+					  key_id_as_str,
+					  DBUS_TYPE_STRING,
+					  cert_name,
+					  DBUS_TYPE_INVALID);
+					  
+    MAEMOSEC_DEBUG(1, "%s: osso_rpc_run returned %d", __func__, rc);
+
+	if (0 == rc && DBUS_TYPE_STRING == retval.type && NULL != retval.value.s) {
+		MAEMOSEC_DEBUG(1, "%s: osso_rpc_run seemed to return '%s'", 
+					   __func__, retval.value.s);
+		strncpy(g_password, retval.value.s, sizeof(g_password));
+		g_password[sizeof(g_password) - 1] = '\0';
+		osso_rpc_free_val(&retval);
+	} else
+		strcpy(g_password, "");
+
+	osso_deinitialize(osso);
+	return(1);
+
+#if 0
+	/*
+	 * Doing this in the dbus level is much too much work?
+	 */
+	DBusConnection *connection;
+	DBusError error;
+	DBusMessage *message;
+
+	dbus_error_init (&error);
+	connection = dbus_bus_get (DBUS_BUS_SESSION, &error);
+	if (NULL == connection) {
+		MAEMOSEC_ERROR("%s: couldnt get session dbus (%s:%s)", error->name, error->message);
+		return(0);
+	}
+
+	message = dbus_message_new_method_call (NULL,
+											"/com/nokia/certman",
+											name,
+											last_dot + 1);
+	dbus_message_set_auto_start (message, TRUE);
+#endif
+}
+
+
 static CK_RV
 copy_attribute(const void* value, CK_ULONG size, CK_ATTRIBUTE_PTR p)
 {
@@ -351,36 +430,47 @@ access_attribute(SESSION sess,
 				EVP_PKEY* ppkey = NULL;
 				struct rsa_st *rsak = NULL;
 				maemosec_key_id key_id;
+				char key_str[MAEMOSEC_KEY_ID_STR_LEN];
+				char cert_name[100];
 				ASN1_INTEGER* ival = NULL;
 				unsigned char* buf = NULL;
 				int len;
 
-				if (0 == strlen(g_password)) {
-#if 0
-					rv = CKR_USER_NOT_LOGGED_IN;
-					goto out;
-#else
-					MAEMOSEC_ERROR("%s: no password available, using default password", __func__);
-					strcpy(g_password, "nixu-jum");
-#endif
-				}
 				rc = maemosec_certman_get_key_id(cert, key_id);
 				if (0 != rc) {
 					MAEMOSEC_ERROR("Cannot get key id (%d)", rc);
 					rv = CKR_FUNCTION_FAILED;
 					goto out;
 				}
-				MAEMOSEC_DEBUG(1, "%s: got key id", __func__);
-				rc = maemosec_certman_retrieve_key(key_id, &ppkey, g_password);
-				if (0 != rc) {
-					MAEMOSEC_ERROR("Cannot open private key (%d)", rc);
-					rv = CKR_USER_NOT_LOGGED_IN;
-					// rv = CKR_FUNCTION_FAILED;
-					goto out;
-				}
+				maemosec_certman_key_id_to_str(key_id, key_str, sizeof(key_str));
+				MAEMOSEC_DEBUG(1, "%s: key id '%s'", __func__, key_str);
+
+				maemosec_certman_get_nickname(cert, cert_name, sizeof(cert_name));
+				MAEMOSEC_DEBUG(1, "%s: cert name '%s'", __func__, cert_name);
+
+				/*
+				 * Try first current password, if one has been given.
+				 * Otherwise ask a new one. Fail, if none is given.
+				 */
+
+				do {
+					if (0 == strlen(g_password))
+						get_private_key_password(key_str, cert_name);
+					if (0 == strlen(g_password)) {
+						MAEMOSEC_DEBUG(1, "%s: no password", __func__);
+						rv = CKR_USER_NOT_LOGGED_IN;
+						goto out;
+					}
+					rc = maemosec_certman_retrieve_key(key_id, &ppkey, g_password);
+					if (0 != rc) {
+						strcpy(g_password, "");
+					}
+				} while (0 != rc);
+
 				MAEMOSEC_DEBUG(1, "%s: got private key", __func__);
 				/*
-				 * Assume RSA keytype for a while
+				 * TODO: Assume RSA keytype for a while. Add support
+				 * for other keytypes later.
 				 */
 				rsak = EVP_PKEY_get1_RSA(ppkey);
 				if (NULL == rsak) {
@@ -1387,12 +1477,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 
 	if (0 == strlen(g_password)) {
 		MAEMOSEC_ERROR("%s: no password available, using default password", __func__);
-#if 0		
 		rv = CKR_USER_NOT_LOGGED_IN;
 		goto out;
-#else
-		strcpy(g_password, "nixu-jum");
-#endif
 	}
 
 	cert = get_cert(sess, hKey - PPKEY_LIMIT - 1);
