@@ -1,11 +1,14 @@
 maemo-security-certman (0.1.1) unstable; urgency=low
 
+  * Restored nsscfg and calling it in maemosec-certman-tools.postinstall
+    for modest mail.
+      Fixes: NB#118432
   * Implemented verification of certificate chains longer than one
     certificate in "cmcli -v".
   * Removed libbb5.so library and included the functionality inside
     libmaemosec.so.
 
- -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 05 Jun 2009 15:05:31 +0300
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Thu, 24 Jun 2009 15:05:31 +0300
 
 maemo-security-certman (0.1.0) unstable; urgency=low
 
