@@ -45,7 +45,7 @@
 
 #if INCL_NETSCAPE_VDE
 #define PR_CALLBACK
-#include <../nss/pkcs11n.h>
+#include <pkcs11n.h>
 #endif
 
 static char g_password [256] = "";
@@ -98,7 +98,7 @@ static const CK_FUNCTION_LIST function_list = {
 	#undef CK_NEED_ARG_LIST
 	#define CK_PKCS11_FUNCTION_INFO(name) \
 		.name = name,
-	#include <../nss/pkcs11f.h>
+	#include <pkcs11f.h>
 	#undef CK_PKCS11_FUNCTION_INFO
 };
 
