@@ -2,5 +2,7 @@
 # Do not set this yet, until user-signing
 # keys have been added too.
 # chmod 400 /etc/certs/trusted/root.key
+# Fake for a while libbb5.so.0
+ln -sf /usr/lib/libmaemosec.so.0 /usr/lib/libbb5.so.0
 ldconfig
 #DEBHELPER#
