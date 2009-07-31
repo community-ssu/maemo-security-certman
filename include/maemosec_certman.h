@@ -320,6 +320,12 @@ extern "C" {
 	 */
 	int maemosec_certman_get_nickname(X509* of_cert, char* to_buf, unsigned buf_len);
 
+	/*
+	 * TODO: Document
+	 */
+	int has_private_key(X509* cert);
+	int has_private_key_by_id(maemosec_key_id key_id);
+
 //@}
 
 #ifdef	__cplusplus

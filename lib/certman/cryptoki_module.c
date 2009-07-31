@@ -50,12 +50,6 @@
 
 static char g_password [256] = "";
 
-/*
- * TODO: Fix this
- */
-int has_private_key(X509* cert);
-int has_private_key_by_id(maemosec_key_id key_id);
-
 static X509_STORE* root_certs;
 
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
