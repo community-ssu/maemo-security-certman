@@ -1196,6 +1196,12 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 		}
 	}
 
+	nbrof_certs = maemosec_certman_nbrof_certs(sess->cmdomain);
+	if (0 > nbrof_certs) {
+		MAEMOSEC_ERROR("Nonexistent domain (race?)");
+		goto out;
+	}
+
 	if (CKO_CERTIFICATE == objtype || CKO_NSS_TRUST == objtype || CKO_PUBLIC_KEY == objtype) {
 		MAEMOSEC_DEBUG(1, "Searching for a certificate, trust or public key");
 		/*
@@ -1205,12 +1211,6 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 		 * given in the search template, all objects are considered
 		 * a match.
 		 */
-		nbrof_certs = maemosec_certman_nbrof_certs(sess->cmdomain);
-		if (0 > nbrof_certs) {
-			MAEMOSEC_ERROR("Nonexistent domain (race?)");
-			goto out;
-		}
-
 		for (i = sess->find_point; i < nbrof_certs; i++) {
 			int is_match = 1;
 			X509* cert = get_cert(sess, i);
@@ -1252,6 +1252,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 		int id_is_defined = 0;
 		/*
 		 * Do not search but get the key according to the given id.
+		 * If none is given, return error.
 		 */
 		MAEMOSEC_DEBUG(1, "Searching for a private key.");
 		for (i = 0; i < sess->find_count; i++) {
@@ -1272,8 +1273,21 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			if (has_private_key_by_id(key_id)) {
 				MAEMOSEC_DEBUG(1, "%s: has private key", __func__);
 				if (found < ulMaxObjectCount) {
-					phObject[found++] = PPKEY_LIMIT + 1;
-					MAEMOSEC_DEBUG(2, "object %d is private key", 1 + PPKEY_LIMIT);
+					/*
+					 * The handle idenfifies the certificate, so has to check
+					 * which is the right one.
+					 */
+					for (j = 0; j < nbrof_certs; j++) {
+						maemosec_key_id ref_key;
+						X509* find_cert = get_cert(sess, j);
+
+						if (find_cert && 0 == maemosec_certman_get_key_id(find_cert, ref_key)) {
+							if (0 == memcmp(key_id, ref_key, MAEMOSEC_KEY_ID_LEN)) {
+								phObject[found++] = PPKEY_LIMIT + j + 1;
+								MAEMOSEC_DEBUG(2, "%s: object %d is private key", __func__, PPKEY_LIMIT + j + 1);
+							}
+						}
+					}
 				}
 			}
 		} else {
