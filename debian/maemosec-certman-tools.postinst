@@ -1,9 +1,8 @@
 #!/bin/sh
 echo Setting up NSS
-# This is not needed as the library is made available for the browser by
-# overwriting libnssckbi.so by a symbolic link to libmaemosec_certman.
-# nsscfg -c /home/user/.mozilla/microb -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
-# This is still needed, though
-nsscfg -c /home/user/.modest/cache   -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0.0.0
+# Configure modest to use maemosec-certman as a PKCS#11 module.
+# Make the change in both the home directory and in /etc/skel
+nsscfg -c /home/user/.modest/cache   -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0
+nsscfg -c /etc/skel/.modest/cache   -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0
 echo Done
 #DEBHELPER#
