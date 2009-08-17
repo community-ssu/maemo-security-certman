@@ -409,6 +409,100 @@ load_cert_from_file(const char* from_file)
 	return(cert);
 }
 
+#define MAX_TRIES 100
+
+typedef enum hash_status {hash_not_exists, hash_already_exists, hash_error};
+
+static hash_status
+make_hash_filename(X509* of_cert, const char* in_dir, const char* to_certfile, string &result)
+{
+	X509* lcert = of_cert;
+	char hash_file_name[20];
+	string full_name;
+	long hash;
+	int i, rc;
+
+	MAEMOSEC_DEBUG(1, "%s: make hash to '%s'", __func__, to_certfile);
+	if (NULL == lcert) {
+		lcert = load_cert_from_file(to_certfile);
+		if (NULL == lcert) {
+			MAEMOSEC_ERROR("%s: can't load '%s'",
+						   __func__, to_certfile);
+			return(hash_error);
+		}
+	}
+	hash = X509_subject_name_hash(lcert);
+	if (of_cert != lcert)
+		X509_free(lcert);
+	
+	for (i = 0; i < MAX_TRIES; i++) {
+		snprintf(hash_file_name, sizeof(hash_file_name), "%08lx.%d", hash, i);
+		full_name = in_dir;
+		full_name.append("/");
+		full_name.append(hash_file_name);
+		if (file_exists(full_name.c_str())) {
+			string points_to;
+			absolute_pathname(full_name.c_str(), points_to);
+			MAEMOSEC_DEBUG(1, "%s: %s already points to '%s'", __func__, 
+						   full_name.c_str(), points_to.c_str());
+			if (points_to == to_certfile) {
+				MAEMOSEC_DEBUG(1, "%s: hash file already exists for '%s'", __func__, 
+							   to_certfile);
+				result = full_name;
+				return(hash_already_exists);
+				break;
+			}
+		} else {
+			result = full_name;
+			return(hash_not_exists);
+			break;
+		}
+	}
+	if (MAX_TRIES == i) {
+		MAEMOSEC_ERROR("%s: %d colliding hash files for '%s'???",
+					   __func__, i, to_certfile);
+	}
+	return(hash_error);
+	
+}
+
+
+static void
+add_openssl_hash_file(X509* of_cert, const char* in_dir, const char* to_certfile)
+{
+	string link_file_name;
+
+	if (hash_not_exists == make_hash_filename(of_cert, in_dir, to_certfile, link_file_name)) {
+		const char* local_filename = strrchr(to_certfile, '/');
+		if (NULL == local_filename)
+			local_filename = to_certfile;
+		else
+			local_filename++;
+		if (0 > symlink(local_filename, link_file_name.c_str()))
+			MAEMOSEC_ERROR("%s: cannot create symlink '%s' to '%s' (%s)",
+						   __func__, link_file_name.c_str(), local_filename, strerror(errno));
+		else
+			MAEMOSEC_DEBUG(1, "%s: made sysymlink '%s' to '%s'",
+						   __func__, link_file_name.c_str(), local_filename);
+	}
+}
+
+
+static void
+rm_openssl_hash_file(const char* in_dir, const char* to_certfile)
+{
+	string link_file_name;
+
+	if (hash_already_exists == make_hash_filename(NULL, in_dir, to_certfile, link_file_name)) {
+		if (0 > unlink(link_file_name.c_str()))
+			MAEMOSEC_ERROR("%s: cannot remove symlink '%s' (%s)",
+						   __func__, link_file_name.c_str(), strerror(errno));
+		else
+			MAEMOSEC_DEBUG(1, "%s: removed symlink '%s'",
+						   __func__, link_file_name.c_str());
+	}
+}
+
 
 static int
 store_key_to_file(maemosec_key_id key_id, EVP_PKEY* key, char* passwd)
@@ -641,6 +735,7 @@ extern "C" {
 	{
 		X509* bb5cert;
 
+		MAEMOSEC_DEBUG(1, "%s: enter", __func__);
 		maemosec_certman_int_init();
 		bb5_init();
 		if (my_cert_store)
@@ -652,6 +747,7 @@ extern "C" {
 		if (bb5cert)
 			X509_STORE_add_cert(*my_cert_store, bb5cert);
 #endif
+		MAEMOSEC_DEBUG(1, "%s: exit", __func__);
 		return(0);
 	}
 
@@ -731,9 +827,13 @@ extern "C" {
 	{
 		AUTOINIT;
 
-		if (my_cert_store)
+		MAEMOSEC_DEBUG(1, "%s: enter", __func__);
+		if (my_cert_store) {
+			MAEMOSEC_DEBUG(1, "%s: release %p", __func__, my_cert_store);
 			X509_STORE_free(my_cert_store);
+		}
 		bb5_finish();
+		MAEMOSEC_DEBUG(1, "%s: exit", __func__);
 		return(0);
 	}
 
@@ -889,6 +989,7 @@ extern "C" {
 			rc = errno;
 
 		if (0 == rc) {
+			add_openssl_hash_file(cert, mydomain->dirname.c_str(), filename.c_str());
 			mydomain->index->add_file(filename.c_str());
 			mydomain->index->commit();
 		}
@@ -961,6 +1062,7 @@ extern "C" {
 		if (mydomain->index->contains_file(filename.c_str())) {
 			MAEMOSEC_DEBUG(1, "Remove cert file '%s'", filename.c_str());
 			mydomain->index->remove_file(filename.c_str());
+			rm_openssl_hash_file(mydomain->dirname.c_str(), filename.c_str());
 			unlink(filename.c_str());
 			/*
 			 * TODO: Never remove keys in case it is used for another

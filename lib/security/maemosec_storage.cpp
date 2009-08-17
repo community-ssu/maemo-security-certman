@@ -142,7 +142,15 @@ get_storage_directory(storage::visibility_t visibility,
 
 		dir_name.append(PATH_SEP);
 		dir_name.append(sec_private_root);
-		access_mode = 0700;
+		if (0 == getuid())
+			/*
+			 * When creating a directory in /home as root,
+			 * make it world-writable or otherwise the user
+			 * account is not able to use it.
+			 */
+			access_mode = 0777;
+		else
+			access_mode = 0700;
 	}
 
 	dir_name.append(PATH_SEP);

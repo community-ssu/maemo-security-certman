@@ -116,6 +116,7 @@ extern "C" {
 	{
 		struct timeval now;
 
+		MAEMOSEC_DEBUG(1, "%s: enter", __func__);
 		// CRYPTO_malloc_init()) -- Not needed but in Win32
 		// OPENSSL_config(NULL);
 		ERR_load_crypto_strings();
@@ -133,22 +134,31 @@ extern "C" {
 
 		gettimeofday(&now, NULL);
 		srand(now.tv_usec);
+		MAEMOSEC_DEBUG(1, "%s: exit", __func__);
 	}
 
 
 	void
 	bb5_finish(void)
 	{
-		if (root_key)
+		MAEMOSEC_DEBUG(1, "%s: enter", __func__);
+		if (root_key) {
 			EVP_PKEY_free(root_key);
-		if (root_store)
+			root_key = NULL;
+		}
+		if (root_store) {
 			X509_STORE_free(root_store);
+			root_store = NULL;
+			root_crt = NULL;
+		}
+		MAEMOSEC_DEBUG(1, "%s: middle", __func__);
 		RAND_cleanup();
 		EVP_cleanup();
 		X509_TRUST_cleanup();
 		CRYPTO_cleanup_all_ex_data();
 		ERR_remove_state(0);
 		ERR_free_strings();
+		MAEMOSEC_DEBUG(1, "%s: exit", __func__);
 	}
 
 

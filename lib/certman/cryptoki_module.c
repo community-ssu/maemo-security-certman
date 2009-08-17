@@ -50,7 +50,7 @@
 
 static char g_password [256] = "";
 
-static X509_STORE* root_certs;
+static X509_STORE* root_certs = NULL;
 
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
 static const char* attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned val_len);
@@ -806,10 +806,13 @@ CK_DECLARE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 CK_DECLARE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "%s: enter", __func__);
 	release_config();
-	maemosec_certman_close(root_certs);
-	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
+	if (NULL != root_certs) {
+		maemosec_certman_close(root_certs);
+		root_certs = NULL;
+	}
+	MAEMOSEC_DEBUG(1, "%s: exit", __func__);
 	return(rv);
 }
 
@@ -984,9 +987,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "%s: Enter", __func__);
 	rv = close_all_sessions(slotID);
-	MAEMOSEC_DEBUG(1, "exit %ld", rv);
+	MAEMOSEC_DEBUG(1, "%s: exit %ld", __func__, rv);
 	return(rv);
 }
 

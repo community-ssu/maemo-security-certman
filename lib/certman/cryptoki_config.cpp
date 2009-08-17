@@ -45,6 +45,8 @@ typedef struct int_slot_info {
 }* I_SLOT_INFO;
 
 static vector<I_SLOT_INFO> slots;
+static vector<SESSION> sessions;
+static CK_SESSION_HANDLE last_session = 0;
 
 extern "C" {
 
@@ -64,6 +66,21 @@ extern "C" {
 		// *(to + blen - 1) = '\0';
 	}
 
+
+	void
+	release_config(void)
+	{
+		while (slots.size()) {
+			close_all_sessions(slots[0]->nr);
+			delete(slots[0]);
+			slots.erase(slots.begin());
+		}
+		if (sessions.size()) {
+			MAEMOSEC_ERROR("%s: %d leftover sessions", __func__, sessions.size());
+		}
+	}
+
+
 	CK_RV 
 	read_config(CK_ULONG* nrof_slots, 
 				CK_SLOT_ID_PTR slot_list,
@@ -74,6 +91,11 @@ extern "C" {
 		string cfilename;
 		string appname;
 		string tagname;
+
+		/*
+		 * Discard old config if this is all called multiple times
+		 */
+		release_config();
 
 		process_name(appname);
 		MAEMOSEC_DEBUG(1, "Init PKCS11 for '%s'", appname.c_str());
@@ -126,14 +148,6 @@ extern "C" {
 		return(CKR_OK);
 	}
 
-	void
-	release_config(void)
-	{
-		for (int i = 0; i < slots.size(); i++) {
-			slots.erase(slots.begin() + i);
-			delete(slots[i]);
-		}
-	}
 
 	extern CK_RV get_slot_info(CK_SLOT_ID slotID,
 							   CK_SLOT_INFO_PTR pInfo)
@@ -228,9 +242,6 @@ extern "C" {
 			return(CKR_ARGUMENTS_BAD);
 	}
 	
-	static CK_SESSION_HANDLE last_session = 0;
-	static vector<SESSION> sessions;
-	typedef vector<SESSION>::iterator siter;
 
 	CK_SESSION_HANDLE 
 	open_session(CK_SLOT_ID slot_id)
@@ -366,6 +377,7 @@ extern "C" {
 						X509_free((*certs)[j]);
 					}
 					delete(certs);
+					sess->certs = NULL;
 				}
 				if (sess->cmdomain != MAEMOSEC_CERTMAN_DOMAIN_NONE)
 					maemosec_certman_close_domain(sess->cmdomain);
@@ -386,6 +398,11 @@ extern "C" {
 		for (size_t i = 0; i < sessions.size(); i++) {
 			if (sessions[i]->slot == slot_id) {
 				close_session(sessions[i]->session_id);
+				/*
+				 * close_session erases the element, so has to
+				 * go backwards one step.
+				 */
+				i--;
 			}
 		}
 		MAEMOSEC_DEBUG(1, "closed all sessions for slot %d", slot_id);

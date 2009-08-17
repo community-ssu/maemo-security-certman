@@ -96,7 +96,7 @@ extern "C"
 
 		rc = lstat(pathname, &fs);
 		if (rc == -1) {
-			MAEMOSEC_ERROR("cannot stat '%s' (%d)", pathname, errno);
+			MAEMOSEC_ERROR("cannot stat '%s' (%s)", pathname, strerror(errno));
 			return(false);
 		}
 
@@ -113,7 +113,31 @@ extern "C"
 			} else {
 				*(tgtname + rv) = '\0';
 			}
+			MAEMOSEC_DEBUG(1, "%s: '%s' is a link pointing to '%s'", __func__,
+						   pathname, tgtname);
+			if ('/' != *tgtname) {
+				/*
+				 * Relative link. Append its contents to the directory of the
+				 * linkfile.
+				 */
+				const char* dirsep = strrchr(pathname, '/');
+				if (dirsep) {
+					dirsep++;
+					if (PATH_MAX <= strlen(tgtname) + (dirsep - pathname)) {
+						MAEMOSEC_ERROR("%s: too long pathname '%s' + '%s'", __func__, pathname, tgtname);
+						goto fail;
+					}
+					memmove(tgtname + (dirsep - pathname), tgtname, strlen(tgtname) + 1);
+					memcpy(tgtname, pathname, dirsep - pathname);
+					MAEMOSEC_DEBUG(1, "%s: normalized relative link to '%s'", __func__, tgtname);
+				}
+			}
 			pathname = tgtname;
+			rc = lstat(pathname, &fs);
+			if (rc == -1) {
+				MAEMOSEC_ERROR("cannot stat '%s' (%s)", pathname, strerror(errno));
+				return(false);
+			}
 		}
 
 		if (!S_ISDIR(fs.st_mode)) {
@@ -130,14 +154,14 @@ extern "C"
 			// Take a handle to the current directory
 			curdirh = open(".", O_RDONLY);
 			if (curdirh == -1) {
-				MAEMOSEC_ERROR("cannot open current directory (%d)", errno);
+				MAEMOSEC_ERROR("cannot open current directory (%s)", strerror(errno));
 				goto fail;
 			}
 
 			// Change into the given directory
 			rc = chdir(dirname.c_str());
 			if (rc == -1) {
-				MAEMOSEC_ERROR("cannot change into '%s' (%d)", dirname.c_str(), errno);
+				MAEMOSEC_ERROR("cannot change into '%s' (%s)", dirname.c_str(), strerror(errno));
 				goto fail;
 			}
 		}
@@ -160,7 +184,7 @@ extern "C"
 			// Change back to original working dir
 			rc = fchdir(curdirh);
 			if (rc == -1) {
-				MAEMOSEC_ERROR("cannot change back (%d)", errno);
+				MAEMOSEC_ERROR("cannot change back (%s)", strerror(errno));
 			}
 			close(curdirh);
 		}
