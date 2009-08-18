@@ -2,13 +2,18 @@ maemo-security-certman (0.1.3) unstable; urgency=low
 
   * Corrected the searching of a private key in the cryptoki module
       Fixes: NB#131107
+      Fixes: NB#107774
   * Corrected jamming when cryptoki module was loaded multiple times
     by the same application, and errors in releasing cryptoki memory
     found in code review.
       Fixes: NB#123365
-  * 
+  * Implemented hash files for OpenSSL compatibility. No solution for
+    global SSL_CERT_DIR setting yet, though.
+      Fixes: NB#132669
+  * Added initialization of modest secmod configuration also in /etc/skel.
+      Fixes: NB#118432
 
- -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Wed, 19 Aug 2009 18:47:09 +0300
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Wed, 18 Aug 2009 19:10:00 +0300
 
 maemo-security-certman (0.1.2) unstable; urgency=low
 
