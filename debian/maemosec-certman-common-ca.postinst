@@ -1,0 +1,3 @@
+#!/bin/sh
+c_rehash /etc/certs/common-ca
+#DEBHELPER#
