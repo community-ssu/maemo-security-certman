@@ -71,8 +71,8 @@ extern "C" {
 	release_config(void)
 	{
 		while (slots.size()) {
-			close_all_sessions(slots[slots.begin()]->nr);
-			delete(slots[slots.begin()]);
+			close_all_sessions(slots[0]->nr);
+			delete(slots[0]);
 			slots.erase(slots.begin());
 		}
 		if (sessions.size()) {
