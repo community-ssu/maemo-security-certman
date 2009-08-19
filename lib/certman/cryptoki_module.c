@@ -125,6 +125,7 @@ get_private_key_password(const char* key_id_as_str, const char* cert_name)
 	osso_context_t *osso;
 	osso_return_t rc;
 	osso_rpc_t retval;
+	int res = 0;
 
     MAEMOSEC_DEBUG(1, "%s: enter", __func__);
 	osso = osso_initialize("maemosec_cryptoki", "0.1.1", FALSE, NULL);
@@ -133,18 +134,6 @@ get_private_key_password(const char* key_id_as_str, const char* cert_name)
 		MAEMOSEC_ERROR("%s: couldnt do osso_initialize", __func__);
 		return(0);
 	}
-
-#if 0
-	/*
-	 * TODO: What is the unit of the timeout? Milliseconds?
-	 * Default is that there is no timeout?
-	 */
-	rc = osso_rpc_set_timeout(osso, 180000);
-	if (0 == rc)
-		MAEMOSEC_DEBUG(1, "%s: osso_rpc_set_timeout to 3 min", __func__);
-	else
-		MAEMOSEC_ERROR("%s: osso_rpc_set_timeout returned %d", __func__, rc);
-#endif
 
 	rc = osso_rpc_run(osso, 
 					  "com.nokia.certman", 
@@ -166,33 +155,10 @@ get_private_key_password(const char* key_id_as_str, const char* cert_name)
 		strncpy(g_password, retval.value.s, sizeof(g_password));
 		g_password[sizeof(g_password) - 1] = '\0';
 		osso_rpc_free_val(&retval);
-	} else
-		strcpy(g_password, "");
-
-	osso_deinitialize(osso);
-	return(1);
-
-#if 0
-	/*
-	 * Doing this in the dbus level is much too much work?
-	 */
-	DBusConnection *connection;
-	DBusError error;
-	DBusMessage *message;
-
-	dbus_error_init (&error);
-	connection = dbus_bus_get (DBUS_BUS_SESSION, &error);
-	if (NULL == connection) {
-		MAEMOSEC_ERROR("%s: couldnt get session dbus (%s:%s)", error->name, error->message);
-		return(0);
+		res = 1;
 	}
-
-	message = dbus_message_new_method_call (NULL,
-											"/com/nokia/certman",
-											name,
-											last_dot + 1);
-	dbus_message_set_auto_start (message, TRUE);
-#endif
+	osso_deinitialize(osso);
+	return(res);
 }
 
 
@@ -444,24 +410,21 @@ access_attribute(SESSION sess,
 
 				/*
 				 * Try first current password, if one has been given.
-				 * Otherwise ask a new one. Fail, if none is given.
+				 * Otherwise ask a new one. Break, if the password 
+				 * dialog is exited by an error.
 				 */
-
 				do {
-					if (0 == strlen(g_password))
-						get_private_key_password(key_str, cert_name);
-					if (0 == strlen(g_password)) {
-						MAEMOSEC_DEBUG(1, "%s: no password", __func__);
-						rv = CKR_USER_NOT_LOGGED_IN;
-						goto out;
-					}
 					rc = maemosec_certman_retrieve_key(key_id, &ppkey, g_password);
-					if (0 != rc) {
-						strcpy(g_password, "");
-					}
+					if (0 != rc) 
+						rc = get_private_key_password(key_str, cert_name);
 				} while (0 != rc);
-
-				MAEMOSEC_DEBUG(1, "%s: got private key", __func__);
+				
+				if (NULL == ppkey) {
+					MAEMOSEC_DEBUG(1, "%s: no private key", __func__);
+					rv = CKR_USER_NOT_LOGGED_IN;
+					goto out;
+				} else
+					MAEMOSEC_DEBUG(1, "%s: got private key", __func__);
 				/*
 				 * TODO: Assume RSA keytype for a while. Add support
 				 * for other keytypes later.
@@ -1487,9 +1450,9 @@ CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 	}
 
 	if (0 == strlen(g_password)) {
-		MAEMOSEC_ERROR("%s: no password available, using default password", __func__);
-		rv = CKR_USER_NOT_LOGGED_IN;
-		goto out;
+		MAEMOSEC_DEBUG(1, "%s: no password available, using default password", __func__);
+		// rv = CKR_USER_NOT_LOGGED_IN;
+		// goto out;
 	}
 
 	cert = get_cert(sess, hKey - PPKEY_LIMIT - 1);
@@ -1512,7 +1475,6 @@ CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 	if (0 != rc) {
 		MAEMOSEC_ERROR("Cannot open private key (%d)", rc);
 		rv = CKR_USER_NOT_LOGGED_IN;
-		// rv = CKR_FUNCTION_FAILED;
 		goto out;
 	}
 	MAEMOSEC_DEBUG(1, "%s: got private key", __func__);
