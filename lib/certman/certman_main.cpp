@@ -72,11 +72,13 @@ static const char priv_cert_dir       [] = ".maemosec-certs";
 static const char priv_keys_dir       [] = ".maemosec-keys";
 
 /*
- * Directory access bits
+ * Directory access bits. When running as root, create
+ * private directories as world writable, otherwise user
+ * is not able to access them.
  */
 
 #define PUBLIC_DIR_MODE 0755
-#define PRIVATE_DIR_MODE 0700
+#define PRIVATE_DIR_MODE (0 == getuid() ? 0777 : 0700)
 
 
 // TODO: should this really be a public
