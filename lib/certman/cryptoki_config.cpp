@@ -286,7 +286,12 @@ extern "C" {
 		new_session->state = sstat_base;
 		new_session->signing_key = NULL;
 		new_session->signing_algorithm = NULL;
+		new_session->certs = NULL;
 		sessions.push_back(new_session);
+
+		MAEMOSEC_DEBUG(1, "%s: %d/%d for slot %d", __func__,
+					   new_session->session_id, sessions.size(), slot_id);
+
 		return(new_session->session_id);
 	}
 
@@ -307,7 +312,7 @@ extern "C" {
 	{
 		cstore* certs = (cstore*)sh;
 		certs->push_back(cert);
-		MAEMOSEC_DEBUG(1, "Read certificate");
+		MAEMOSEC_DEBUG(1, "%s: %p", __func__, cert);
 		return(-1);
 	}
 
@@ -323,7 +328,7 @@ extern "C" {
 										   cb_copy_cert,
 										   sess->certs);
 		} else {
-			certs = (cstore*)sess->certs;
+			certs = (cstore*)(sess->certs);
 		}
 		if (ord_nbr < certs->size()) {
 			return((*certs)[(size_t)ord_nbr]);
@@ -351,7 +356,7 @@ extern "C" {
 			certs = new(cstore);
 			sess->certs = certs;
 		} else {
-			certs = (cstore*)sess->certs;
+			certs = (cstore*)(sess->certs);
 		}
 
 		certs->push_back(cert);
@@ -370,10 +375,13 @@ extern "C" {
 		for (size_t i = 0; i < sessions.size(); i++) {
 			if (sessions[i]->session_id == sess_id) {
 				SESSION sess = sessions[i];
+				MAEMOSEC_DEBUG(1, "%s: session %d, %d/%d", __func__, 
+							   sess_id, i, sessions.size());
 				sessions.erase(sessions.begin() + i);
 				if (sess->certs) {
 					cstore* certs = (cstore*)sess->certs;
 					for (size_t j = 0; j < certs->size(); j++) {
+						MAEMOSEC_DEBUG(1, "%s: release cert %p", __func__, (*certs)[j]);
 						X509_free((*certs)[j]);
 					}
 					delete(certs);
@@ -384,19 +392,25 @@ extern "C" {
 				if (sess->domain_name)
 					free((void*)sess->domain_name);
 				delete(sess);
-				MAEMOSEC_DEBUG(1, "exit, closed session %d", sess_id);
+				MAEMOSEC_DEBUG(1, "%s: exit", __func__);
 				return(CKR_OK);
 			}
 		}
-		MAEMOSEC_DEBUG(1, "exit, session_not_found");
+		MAEMOSEC_DEBUG(1, "%s: exit, session_not_found", __func__);
 		return(CKR_SESSION_HANDLE_INVALID);
 	}
 
 	CK_RV 
 	close_all_sessions(CK_SLOT_ID slot_id)
 	{
+		MAEMOSEC_DEBUG(1, "%s: enter %d", __func__, slot_id);
 		for (size_t i = 0; i < sessions.size(); i++) {
+			cstore* tmp = (cstore*)(sessions[i]->certs);
+			MAEMOSEC_DEBUG(1, "%s: %d: slot_id=%d, session_id=%d, %d certs", __func__, 
+						   i, sessions[i]->slot, sessions[i]->session_id, 
+						   tmp?tmp->size():-1);
 			if (sessions[i]->slot == slot_id) {
+				MAEMOSEC_DEBUG(1, "%s: close session %d", __func__, sessions[i]->session_id);
 				close_session(sessions[i]->session_id);
 				/*
 				 * close_session erases the element, so has to
@@ -405,7 +419,7 @@ extern "C" {
 				i--;
 			}
 		}
-		MAEMOSEC_DEBUG(1, "closed all sessions for slot %d", slot_id);
+		MAEMOSEC_DEBUG(1, "%s: exit", __func__);
 		return(CKR_OK);
 	}
 } /* extern C */

@@ -69,6 +69,7 @@ Description: Debug symbols for maemo certificate manager runtime tools
 Package: maemosec-certman-common-ca
 Architecture: all
 Section: libs
+Depends: openssl
 Description: Common CA certificates
  The common CA certificate store.
 

@@ -547,7 +547,9 @@ install_pkcs12(PKCS12* cont)
 				if (0 == rc)
 					printf("Saved private key\n");
 				else
-					printf("ERROR: could not save private key (%d)\n", rc);
+					fprintf(stderr, "ERROR: could not save private key (%d)\n", rc);
+			} else {
+				fprintf(stderr, "ERROR: could not open private domain (%d)\n", rc);
 			}
 		}
 		X509_free(ucert);
@@ -580,6 +582,8 @@ install_pkcs12(PKCS12* cont)
 						   storename, rc);
 			}
 			maemosec_certman_close_domain(cas_domain);
+		} else {
+			fprintf(stderr, "ERROR: could not open private domain (%d)\n", rc);
 		}
 		sk_X509_free(cas);
 	}
@@ -591,7 +595,23 @@ install_pkcs12(PKCS12* cont)
 
 
 static int
-install_file(const char* filename)
+dont_change_private_stores_as_root(int argc, char* argv[])
+{
+	if (0 == getuid()) {
+		int i;
+		fprintf(stderr, "ERROR: do not modify private stores as root\n"
+				"use 'su <user-id> -c \"%s", argc?argv[0]:"cmcli...");
+		for (i = 1; i < argc; i++)
+			fprintf(stderr, " %s", argv[i]);
+		fprintf(stderr, "%s\n", "\"' in stead");
+		return(1);
+	}
+	return(0);
+}
+
+
+static int
+install_file(domain_handle into_domain, const char* filename)
 {
 	FILE* fp = fopen(filename, "r");
 	ft_filetype ft;
@@ -607,7 +627,15 @@ install_file(const char* filename)
 		{
 		case ft_x509_pem:
 		case ft_x509_der:
-			fprintf(stderr, "Use -a switch to add certificates\n");
+			if (NULL != into_domain) {
+				rc = maemosec_certman_add_cert(into_domain, (X509*)idata);
+				if (0 != rc) {
+					if (EACCES != rc || !dont_change_private_stores_as_root(0, NULL)) {
+						fprintf(stderr, "ERROR: cannot install certificate (%d)\n", rc);
+					}
+				}
+			} else
+				fprintf(stderr, "ERROR: must specify domain first\n");
 			X509_free((X509*)idata);
 			rc = EINVAL;
 			break;
@@ -653,6 +681,7 @@ usage(void)
 		" -f to force an operation despite warnings\n"
 		);
 }
+
 
 /**
  * \brief The main program
@@ -742,8 +771,10 @@ main(int argc, char* argv[])
 				flags = MAEMOSEC_CERTMAN_DOMAIN_PRIVATE;
 			rc = maemosec_certman_open_domain(optarg, flags, &my_domain);
 			if (0 != rc) {
-				fprintf(stderr, "ERROR: cannot open/create domain '%s' (%d)\n", 
-						optarg, rc);
+				if (EACCES != rc || !dont_change_private_stores_as_root(argc, argv)) {
+					fprintf(stderr, "ERROR: cannot open/create domain '%s' (%d)\n", 
+							optarg, rc);
+				}
 				return(-1);
 			}
 			break;
@@ -771,12 +802,18 @@ main(int argc, char* argv[])
 				}
 			}
 			rc = maemosec_certman_add_certs(my_domain, argv + optind - 1, argc - optind + 1);
-			printf("Added %d certificates\n", rc);
+			if (0 < rc) {
+				printf("Added %d certificates\n", rc);
+			} else if (0 != errno) {
+				if (EACCES != errno || !dont_change_private_stores_as_root(argc, argv)) {
+					fprintf(stderr, "ERROR: cannot add any certificates (%s)\n", strerror(errno));
+				}
+			}
 			goto end;
 			break;
 
 		case 'i':
-			install_file(optarg);
+			install_file(my_domain, optarg);
 			break;
 
 		case 'k':

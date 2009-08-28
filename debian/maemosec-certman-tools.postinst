@@ -1,8 +1,6 @@
 #!/bin/sh
 echo Setting up NSS
 # Configure modest to use maemosec-certman as a PKCS#11 module.
-# Make the change in both the home directory and in /etc/skel
-nsscfg -c /home/user/.modest/cache   -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0
 nsscfg -c /etc/skel/.modest/cache   -m "Maemosec certificates" -l /usr/lib/libmaemosec_certman.so.0
 echo Done
 #DEBHELPER#

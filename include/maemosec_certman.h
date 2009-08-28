@@ -234,7 +234,7 @@ extern "C" {
 	 *        are to be added
 	 * \param count (in) how many file names there are in the list. A NULL also
 	 *        terminates the list
-	 * \return The number of certificates successfully added.
+	 * \return The number of certificates successfully added or -1.
 	 */
 	int maemosec_certman_add_certs(domain_handle to_domain, char* cert_files[], unsigned count);
 

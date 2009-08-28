@@ -58,6 +58,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifndef MAEMOSEC_DEBUG_ENABLED
+#include <syslog.h>
+#endif
+
 #ifdef	__cplusplus
 #include <string>
 
@@ -180,11 +184,18 @@ extern "C" {
  * \param format,args Format string and a list of optional arguments
  * as in "printf".
  */
+#ifdef MAEMOSEC_DEBUG_ENABLED
 #define MAEMOSEC_ERROR(format,args...) \
 	do {\
 	  dlog_message("<0>%s(%d)[%d]: ERROR " format, bare_file_name(__FILE__), __LINE__, \
 					 getpid() ,##args);\
 	} while (0)
+#else
+#define MAEMOSEC_ERROR(format,args...) \
+	do {\
+		syslog(LOG_ERR, "%s(%d): ERROR " format, bare_file_name(__FILE__), __LINE__ ,##args);\
+	} while (0)
+#endif
 
 /**
  * \def MAEMOSEC_DEBUG
@@ -195,15 +206,14 @@ extern "C" {
  * \param format,args (in) Format string and a list of optional arguments
  * as in "printf".
  */
+#ifdef MAEMOSEC_DEBUG_ENABLED
 #define MAEMOSEC_DEBUG(level,format,args...)	\
 	do { \
 	  dlog_message("<%d>%s(%d)[%d]: " format, level, bare_file_name(__FILE__), __LINE__, \
 					 getpid() ,##args);							\
     } while (0)
-
-#ifdef ULOG_DEBUG
-#undef ULOG_DEBUG
-#define ULOG_DEBUG(args...) MAEMOSEC_DEBUG(2 ,##args)
+#else
+#define MAEMOSEC_DEBUG(level,format,args...)
 #endif
 
 /**

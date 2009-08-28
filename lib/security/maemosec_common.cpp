@@ -299,6 +299,19 @@ extern "C"
 		rc = stat(dir, &fs);
 		if (0 > rc) {
 			if (ENOENT == errno) {
+				/*
+				 * Never create directories in /home when 
+				 * running as root.
+				 */
+#define HOME "/home"
+				if (0 == getuid() 
+					&& strlen(dir) >= strlen(HOME) 
+					&& 0 == memcmp(dir, HOME, strlen(HOME))) 
+				{
+					MAEMOSEC_ERROR("modifying private storage '%s' as root", dir);
+					return(EACCES);
+				}
+#undef HOME
 				MAEMOSEC_DEBUG(2, "Create '%s'", dir);
 				rc = mkdir(dir, mode);
 				if (0 == rc) {

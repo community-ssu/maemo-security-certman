@@ -78,7 +78,7 @@ static const char priv_keys_dir       [] = ".maemosec-keys";
  */
 
 #define PUBLIC_DIR_MODE 0755
-#define PRIVATE_DIR_MODE (0 == getuid() ? 0777 : 0700)
+#define PRIVATE_DIR_MODE 0700
 
 
 // TODO: should this really be a public
@@ -95,6 +95,7 @@ namespace maemosec
 	{
 		storage* index;    ///< The secure storage containing the files
 		string   dirname;  ///< The directory in which the actual files are
+		int      domflags; ///< Type of the domain
 	};
 }
 
@@ -765,6 +766,17 @@ extern "C" {
 	} while (0)
 	
 
+	static int
+	dont_change_private_stores_as_root(struct local_domain* in_domain)
+	{
+		if (0 == getuid() && MAEMOSEC_CERTMAN_DOMAIN_PRIVATE == in_domain->domflags) {
+			MAEMOSEC_ERROR("changing private store '%s' as root", 
+						   in_domain->dirname.c_str());
+			return(1);
+		} else
+			return(0);
+	}
+
 
 	int maemosec_certman_collect(const char* domain, int shared, X509_STORE* my_cert_store)
 	{
@@ -854,6 +866,7 @@ extern "C" {
 		AUTOINIT;
 
 		*handle = NULL;
+		mydomain.domflags = flags;
 		decide_storage_name(domain_name, flags, mydomain.dirname, storename);
 
 		if (MAEMOSEC_CERTMAN_DOMAIN_PRIVATE == flags) {
@@ -964,6 +977,8 @@ extern "C" {
 
 		if (!to_domain || !cert)
 			return(EINVAL);
+		if (dont_change_private_stores_as_root(mydomain))
+			return(EACCES);
 
 #if 0
 		pos = maemosec_certman_iterate_certs(to_domain, x509_equals, cert);
@@ -1010,6 +1025,15 @@ extern "C" {
 
 		AUTOINIT;
 
+		if (!to_domain) {
+			errno = EINVAL;
+			return(-1);
+		}
+		if (dont_change_private_stores_as_root((struct local_domain*)to_domain)) {
+			errno = EACCES;
+			return(-1);
+		}
+
 		for (i = 0; i < count; i++) {
 			if (cert_files[i]) {
 				if (file_exists(cert_files[i])) {
@@ -1054,6 +1078,9 @@ extern "C" {
 
 		AUTOINIT;
 
+		/*
+		 * Allow removing certificates as root
+		 */
 		if (!mydomain)
 			return(EINVAL);
 
@@ -1183,7 +1210,9 @@ extern "C" {
 							   char* with_passwd)
 	{
 		AUTOINIT;
-
+		if (0 == getuid()) {
+			MAEMOSEC_ERROR("adding private key as root");
+		}
 		return(store_key_to_file(with_id, the_key, with_passwd));
 	}
 

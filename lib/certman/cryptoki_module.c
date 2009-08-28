@@ -928,7 +928,6 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
-	MAEMOSEC_DEBUG(1, "Opened session for slot %d", (int)slotID);
 	*phSession = open_session(slotID);
 	MAEMOSEC_DEBUG(1, "Exit %s", __func__);
 	return CKR_OK;
@@ -940,7 +939,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags,
 CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "Enter %s", __func__);
+	MAEMOSEC_DEBUG(1, "Enter %s (%d)", __func__, hSession);
 	rv = close_session(hSession);
 	MAEMOSEC_DEBUG(1, "exit %ld", rv);
 	return(rv);
@@ -950,7 +949,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession)
 CK_DECLARE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID)
 {
 	CK_RV rv = CKR_OK;
-	MAEMOSEC_DEBUG(1, "%s: Enter", __func__);
+	MAEMOSEC_DEBUG(1, "%s: Enter %d", __func__, slotID);
 	rv = close_all_sessions(slotID);
 	MAEMOSEC_DEBUG(1, "%s: exit %ld", __func__, rv);
 	return(rv);

@@ -130,9 +130,10 @@ get_storage_directory(storage::visibility_t visibility,
 		 * processes to handle the same files as user
 		 * processes.
 		 */
-		if (0 == getuid())
+		if (0 == getuid()) {
+			MAEMOSEC_DEBUG(1, "%s: warning: handling private storage as root", __func__);
 			dir_name.assign("/home/user");
-		else
+		} else
 			dir_name.assign(GETENV("HOME",""));
 
 		if (dir_name.empty()) {
@@ -142,15 +143,7 @@ get_storage_directory(storage::visibility_t visibility,
 
 		dir_name.append(PATH_SEP);
 		dir_name.append(sec_private_root);
-		if (0 == getuid())
-			/*
-			 * When creating a directory in /home as root,
-			 * make it world-writable or otherwise the user
-			 * account is not able to use it.
-			 */
-			access_mode = 0777;
-		else
-			access_mode = 0700;
+		access_mode = 0700;
 	}
 
 	dir_name.append(PATH_SEP);
