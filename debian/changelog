@@ -4,7 +4,7 @@ maemo-security-certman (0.1.4) unstable; urgency=low
   * Prevented creation of private certificate stores as root.
       Fixes: NB#135144
 
- -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Thu, 03 Sep 2009 15:28180 +0300
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Thu, 03 Sep 2009 15:28:18 +0300
 
 maemo-security-certman (0.1.3) unstable; urgency=low
 
