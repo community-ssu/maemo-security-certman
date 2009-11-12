@@ -23,7 +23,7 @@ Description: Debug symbols for maemo security base library
  Debug symbols for the the maemo security base library 
 
 Package: libmaemosec-dev
-Section: devel
+Section: libdevel
 Architecture: any
 Depends: libmaemosec0 (=${binary:Version}), libssl-dev
 Description: Maemo security base library
@@ -44,7 +44,7 @@ Description: Debug symbols for maemo certificate manager shared library
  Debug symbols for the maemo certificate manager shared library.
 
 Package: libmaemosec-certman-dev
-Section: devel
+Section: libdevel
 Architecture: any
 # Conflicts: libcst-dev
 # Replaces: libcst-dev
@@ -74,7 +74,7 @@ Description: Common CA certificates
  The common CA certificate store.
 
 Package: maemosec-certman-doc
-Section: user/doc
+Section: doc
 Architecture: all
 Description: Maemo certificate manager documentation
  Maemo certificate manager documentation is currently empty.
