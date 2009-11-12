@@ -1,3 +1,8 @@
+maemo-security-certman (0.1.5) unstable; urgency=low
+
+  * Fixed the mozilla libnssckbi-diversion the same way as in Harmattan
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Thu, 03 Sep 2009 15:28:18 +0300
 maemo-security-certman (0.1.4) unstable; urgency=low
 
   * Enabled using empty passwords with client certs in cryptoki.

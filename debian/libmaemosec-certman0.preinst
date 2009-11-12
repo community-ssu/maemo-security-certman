@@ -1,5 +1,0 @@
-#!/bin/sh
-# Create a diversion for libnssckbi.so
-dpkg-divert --package libmaemosec-certman0 --add --rename \
- --divert /usr/lib/microb-engine/libnssckbi.so.real /usr/lib/microb-engine/libnssckbi.so
-#DEBHELPER#

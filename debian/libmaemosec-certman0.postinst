@@ -1,5 +1,8 @@
 #!/bin/sh
 if [ -f /usr/lib/microb-engine/libnssckbi.so ] ; then
+    dpkg-divert --package libmaemosec-certman0 \
+    --divert /usr/lib/microb-engine/libnssckbi.so.mozilla \
+    --rename /usr/lib/microb-engine/libnssckbi.so
     ln -sf /usr/lib/libmaemosec_certman.so.0.0.0 /usr/lib/microb-engine/libnssckbi.so
 else
     echo Warning: microb-engine not installed yet

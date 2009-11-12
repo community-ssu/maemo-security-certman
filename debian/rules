@@ -15,6 +15,10 @@ else
 	CFLAGS += -O2
 endif
 
+ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
+	CFLAGS += -DMAEMOSEC_DEBUG_ENABLED
+endif
+
 # shared library versions, option 1
 version=0.0.0
 major=0
