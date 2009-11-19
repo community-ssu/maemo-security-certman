@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Juhani Mäkelä <ext-juhani.3.makela@nokia.com>
 Build-Depends: debhelper (>= 5), autotools-dev, fakeroot, libtool, pkg-config,
  libssl-dev, libosso-dev (>= 1.0.2-1), libdbus-glib-1-2 (>= 0.60-1osso1), 
- libexpat1-dev, microb-engine-dev | libnss3-dev (>= 1.8)
+ libexpat1-dev, microb-engine-dev
 Standards-Version: 3.7.2
 
 Package: libmaemosec0
