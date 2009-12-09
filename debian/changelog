@@ -1,8 +1,11 @@
 maemo-security-certman (0.1.6) unstable; urgency=low
 
-  * Updated the root certificate set as in libnss3-3.12.3.1-0ubuntu0.9.04.2.
+  * Updated the root certificate set as in Mozilla trunk.
+      Fixes: NB#148509
+  * Removed the "bool" definition from maemosec_common.h, as
+    it collides easily with other sources (libcurl, for instance)
 
- -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 27 Nov 2009 19:10:00 +0300
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Wed, 09 Dec 2009 17:10:00 +0300
 
 maemo-security-certman (0.1.5) unstable; urgency=low
 

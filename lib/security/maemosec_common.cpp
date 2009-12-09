@@ -255,7 +255,7 @@ extern "C"
 		}
 	}
 
-	bool 
+	int
 	file_exists(const char* name)
 	{
 		int rc;
@@ -264,15 +264,15 @@ extern "C"
 		rc = stat(name, &fs);
 		if (rc == -1) {
 			MAEMOSEC_DEBUG(1, "cannot stat '%s' (%s)", name, strerror(errno));
-			return(false);
+			return(0);
 		}
 		if (S_ISREG(fs.st_mode))
-			return(true);
+			return(1);
 		else
-			return(false);
+			return(0);
 	}
 
-	bool 
+	int
 	directory_exists(const char* name)
 	{
 		int rc;
@@ -281,12 +281,12 @@ extern "C"
 		rc = stat(name, &fs);
 		if (rc == -1) {
 			MAEMOSEC_DEBUG(1, "cannot stat '%s' (%s)", name, strerror(errno));
-			return(false);
+			return(0);
 		}
 		if (S_ISDIR(fs.st_mode))
-			return(true);
+			return(1);
 		else
-			return(false);
+			return(0);
 	}
 
 	static int

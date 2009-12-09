@@ -78,12 +78,6 @@ extern "C" {
 	bool process_name(std::string& to_this);
 	void append_hex(std::string& to_this, unsigned char* dta, unsigned len);
 	
-#else
-	/**
-	 * \def bool
-	 * \brief In C-environment, define 'bool' as 'int'
-	 */
-	 #define bool int
 #endif
 
 	/**
@@ -95,16 +89,16 @@ extern "C" {
     /**
 	 * \brief Test if a file exists
 	 * \param name (in) filename
-	 * \returns true, if the file exists and is a regular file
+	 * \returns 1, if the file exists and is a regular file
 	 */
-	bool file_exists(const char* name);
+	int file_exists(const char* name);
 
     /**
 	 * \brief Test if a directory exists
 	 * \param name (in) directory name
-	 * \returns true, if the file exists and is a directory
+	 * \returns 1, if the file exists and is a directory
 	 */
-	bool directory_exists(const char* name);
+	int directory_exists(const char* name);
 
 	/**
 	 * \brief Create a new directory. Create also all missing
