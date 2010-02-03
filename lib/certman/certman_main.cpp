@@ -1145,6 +1145,7 @@ extern "C" {
 		NID_organizationName, NID_countryName, -1,
 		NID_organizationName, -1, 
 		NID_organizationalUnitName, -1,
+        NID_pkcs9_emailAddress, -1,
 		-1
 	};
 
