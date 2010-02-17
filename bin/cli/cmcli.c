@@ -141,10 +141,7 @@ show_certificate_id(domain_handle domain, X509* cert)
     if (   0 == maemosec_certman_get_key_id((X509*)cert, key_id)
         && 0 == maemosec_certman_key_id_to_str(key_id, key_id_str, MAEMOSEC_KEY_ID_STR_LEN)) 
     {
-        printf("%s:%d:%s\n", 
-               domain_name(domain), 
-               domain_flags(domain),
-               key_id_str);
+        printf("%s\n", key_id_str);
     }
 }
 

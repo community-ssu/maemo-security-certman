@@ -1,3 +1,11 @@
+maemo-security-certman (0.1.7) unstable; urgency=low
+
+  * Added '-e' command line switch to cmcli to echo the
+    key id of installed certificates.
+      Fixes: NB#154963
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Wed, 17 Feb 2010 18:00:00 +0300
+
 maemo-security-certman (0.1.6) unstable; urgency=low
 
   * Updated the root certificate set as in Mozilla trunk.
