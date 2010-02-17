@@ -62,6 +62,7 @@ extern int inspect_certificate(const char* pathname);
  */
 static int force_opt = 0;
 static int save_cert = 0;
+static int do_echo = 0;
 
 /*
  * Utilities. Should maybe be added to libmaemosec_certman0
@@ -75,6 +76,76 @@ report_openssl_error(const char* str, size_t len, void* u)
 	MAEMOSEC_DEBUG(1, "OpenSSL error '%s'", str);
 	ERR_clear_error();
 	return(0);
+}
+
+static int
+remember_certificate(int pos, X509* cert, void* context)
+{
+    maemosec_key_id key_id;
+
+    if (   0 == maemosec_certman_get_key_id((X509*)cert, key_id)
+        && 0 == maemosec_certman_key_id_to_str(key_id, *(char**)context, MAEMOSEC_KEY_ID_STR_LEN)) 
+    {
+        MAEMOSEC_DEBUG(1, "%s: remember '%s'", __func__, *(char**)context);
+        *(char**)(context) += MAEMOSEC_KEY_ID_STR_LEN;
+    }
+    return(0);
+}
+
+void
+remember_certificates(domain_handle domain, char** inlist)
+{
+    char* tmp;
+    tmp = (char*)malloc((MAEMOSEC_KEY_ID_STR_LEN) * maemosec_certman_nbrof_certs(domain) + 1);
+    *inlist = tmp;
+    maemosec_certman_iterate_certs(domain, remember_certificate, &tmp);
+    *tmp = '\0';
+}
+
+static int
+print_if_not_in_list(int pos, X509* cert, void* context)
+{
+    maemosec_key_id key_id;
+    char key_id_str[MAEMOSEC_KEY_ID_STR_LEN] = "";
+    char* seenlist = (char*)context;
+
+    if (   0 == maemosec_certman_get_key_id((X509*)cert, key_id)
+        && 0 == maemosec_certman_key_id_to_str(key_id, key_id_str, MAEMOSEC_KEY_ID_STR_LEN)) 
+    {
+        
+        MAEMOSEC_DEBUG(1, "%s: check if '%s' is seen", __func__, key_id_str);
+        if (NULL != seenlist) {
+            while (*seenlist) {
+                if (0 == strcmp(seenlist, key_id_str))
+                    return(0);
+                seenlist += strlen(seenlist) + 1;
+            }
+        }
+        printf("%s\n", key_id_str);
+    }
+    return(0);
+}
+
+void
+list_certificates(domain_handle domain, char* notinlist)
+{
+    maemosec_certman_iterate_certs(domain, print_if_not_in_list, notinlist);
+}
+
+void
+show_certificate_id(domain_handle domain, X509* cert)
+{
+    maemosec_key_id key_id;
+    char key_id_str[MAEMOSEC_KEY_ID_STR_LEN] = "";
+
+    if (   0 == maemosec_certman_get_key_id((X509*)cert, key_id)
+        && 0 == maemosec_certman_key_id_to_str(key_id, key_id_str, MAEMOSEC_KEY_ID_STR_LEN)) 
+    {
+        printf("%s:%d:%s\n", 
+               domain_name(domain), 
+               domain_flags(domain),
+               key_id_str);
+    }
 }
 
 typedef enum {ft_x509_pem, ft_x509_der, ft_x509_sig, ft_pkcs12, ft_unknown} ft_filetype;
@@ -268,7 +339,6 @@ X509_STORE_dup(X509_STORE* model)
 	}
 	return(res);
 }
-
 
 struct check_ssl_args {
 	int result;
@@ -514,7 +584,7 @@ install_pkcs12(PKCS12* cont)
 
 	success = PKCS12_parse(cont, password, &pkey, &ucert, &cas);
 	if (0 == success) {
-		printf("%s\n", "ERROR: could not parse container. Quit.");
+		fprintf(stderr, "%s\n", "ERROR: could not parse container. Quit.");
 		goto done;
 	}
 
@@ -535,18 +605,23 @@ install_pkcs12(PKCS12* cont)
 
 			if (0 == rc) {
 				rc = maemosec_certman_add_cert(user_domain, ucert);
-				if (0 == rc)
-					printf("Added user certificate to '%s'\n", storename);
-				else
-					printf("ERROR: could not add user certificate to '%s' (%d)\n", 
-						   storename, rc);
+				if (0 == rc) {
+                    if (!do_echo)
+                        printf("Added user certificate to '%s'\n", storename);
+                    else
+                        show_certificate_id(user_domain, ucert);
+				} else
+					fprintf(stderr, 
+                            "ERROR: could not add user certificate to '%s' (%d)\n", 
+                            storename, rc);
 
 				maemosec_certman_close_domain(user_domain);
 
 				rc = maemosec_certman_store_key(key_id, pkey, password);
-				if (0 == rc)
-					printf("Saved private key\n");
-				else
+				if (0 == rc) {
+                    if (!do_echo)
+                        printf("Saved private key\n");
+				} else
 					fprintf(stderr, "ERROR: could not save private key (%d)\n", rc);
 			} else {
 				fprintf(stderr, "ERROR: could not open private domain (%d)\n", rc);
@@ -575,10 +650,14 @@ install_pkcs12(PKCS12* cont)
 			for (i = 0; i < sk_X509_num(cas); i++) {
 				X509* cacert = sk_X509_value(cas, i);
 				rc = maemosec_certman_add_cert(cas_domain, cacert);
-				if (0 == rc)
-					printf("Added CA certificate to '%s'\n", storename);
-				else
-					printf("ERROR: could not add CA certificate to '%s' (%d)\n", 
+				if (0 == rc) {
+                    if (!do_echo)
+                        printf("Added CA certificate to '%s'\n", storename);
+                    else
+                        show_certificate_id(cas_domain, cacert);
+				} else
+					fprintf(stderr, 
+                            "ERROR: could not add CA certificate to '%s' (%d)\n", 
 						   storename, rc);
 			}
 			maemosec_certman_close_domain(cas_domain);
@@ -633,7 +712,11 @@ install_file(domain_handle into_domain, const char* filename)
 					if (EACCES != rc || !dont_change_private_stores_as_root(0, NULL)) {
 						fprintf(stderr, "ERROR: cannot install certificate (%d)\n", rc);
 					}
-				}
+				} else {
+                    if (do_echo) {
+                        print_if_not_in_list(0, (X509*)idata, NULL);
+                    }
+                }
 			} else
 				fprintf(stderr, "ERROR: must specify domain first\n");
 			X509_free((X509*)idata);
@@ -664,7 +747,7 @@ usage(void)
 		       "-a <cert-file [<cert-file>...]> -i <pkcs12-file>\n"
 		       "-v <cert-file|hostname:port>\n"
 		       "-k <fingerprint> -r <key-id> -b <file>\n" 
-		       "[-DL] -d{d}* [-f]\n"
+		       "[-DL] -d{d}* [-fe]\n"
 		" -T to load CA certificates from one or more shared domains\n"
 		" -t to load CA certificates from one or more private domains\n"
 		" -c to open/create a shared domain for modifications\n"
@@ -679,6 +762,7 @@ usage(void)
 		" -K to list private\n"
 		" -d, -dd... to increase level of debug info shown\n"
 		" -f to force an operation despite warnings\n"
+		" -e to echo added certificate ids to stdout\n"
 		);
 }
 
@@ -695,6 +779,7 @@ main(int argc, char* argv[])
 	domain_handle my_domain = NULL;
 	X509_STORE* certs = NULL;
 	maemosec_key_id my_key_id;
+    char** ocerts = NULL;
 
 	if (1 == argc) {
 		usage();
@@ -710,12 +795,16 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLKdfhsA:?");
+		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLKdfhseA:?j");
 		if (a < 0) {
 			break;
 		}
 		switch(a) 
 		{
+        case 'e':
+            do_echo = 1;
+            break;
+
 		case 'T':
 		case 't':
 			rc = maemosec_certman_collect(optarg, ('T' == a), certs);
@@ -788,6 +877,9 @@ main(int argc, char* argv[])
 				fprintf(stderr, "ERROR: must specify domain first\n");
 				return(-1);
 			}
+            if (do_echo)
+                remember_certificates(my_domain, &ocerts);
+
 			MAEMOSEC_DEBUG(1, "Adding %d certificates\n", argc - optind + 1);
 			for (i = optind - 1; i < argc; i++) {
 				MAEMOSEC_DEBUG(1, "Add %s\n", argv[i]);
@@ -803,7 +895,10 @@ main(int argc, char* argv[])
 			}
 			rc = maemosec_certman_add_certs(my_domain, argv + optind - 1, argc - optind + 1);
 			if (0 < rc) {
-				printf("Added %d certificates\n", rc);
+                if (!do_echo)
+                    printf("Added %d certificates\n", rc);
+                else
+                    list_certificates(my_domain, ocerts);
 			} else if (0 != errno) {
 				if (EACCES != errno || !dont_change_private_stores_as_root(argc, argv)) {
 					fprintf(stderr, "ERROR: cannot add any certificates (%s)\n", strerror(errno));
@@ -813,7 +908,10 @@ main(int argc, char* argv[])
 			break;
 
 		case 'i':
-			install_file(my_domain, optarg);
+			rc = install_file(my_domain, optarg);
+            if (0 > rc) {
+                fprintf(stderr, "ERROR: cannot install certificates (%s)\n", strerror(rc));
+            }
 			break;
 
 		case 'k':
@@ -872,6 +970,20 @@ main(int argc, char* argv[])
 			save_cert = 1;
 			break;
 
+        case 'j':
+            /*
+             * Copytest
+             */
+            if (NULL != certs) {
+                X509_STORE* dup = X509_STORE_dup(certs);
+                MAEMOSEC_DEBUG(1, "original %d, copy %d", sk_X509_num(certs->objs), sk_X509_num(dup->objs));
+                if (sk_X509_num(dup->objs) < sk_X509_num(certs->objs)) {
+                    printf("copy failed: %d != %d\n", sk_X509_num(dup->objs), sk_X509_num(certs->objs));
+                }
+                X509_STORE_free(dup);
+            }
+            break;
+
 		default:
 			usage();
 			return(-1);
@@ -879,6 +991,8 @@ main(int argc, char* argv[])
 	}
 
 end:
+    if (NULL != ocerts)
+        free(ocerts);
 	if (my_domain)
 		maemosec_certman_close_domain(my_domain);
 
