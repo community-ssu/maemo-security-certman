@@ -1,3 +1,12 @@
+maemo-security-certman (0.1.8) unstable; urgency=low
+
+  * Backported fix of NB#172389 from Harmattan: cryptoki_module causes
+    a crash if not all certificates can be fetched from the store.
+    This can be caused by a broken store or similar causes.
+      Fixes: MB#10423
+
+ -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 09 Jul 2010 14:18:36 +0300
+
 maemo-security-certman (0.1.7) unstable; urgency=low
 
   * Added '-e' command line switch to cmcli to echo the

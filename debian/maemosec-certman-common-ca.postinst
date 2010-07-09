@@ -1,3 +1,5 @@
 #!/bin/sh
-c_rehash /etc/certs/common-ca
+if [ -x /usr/bin/c_rehash ] ; then
+    perl /usr/bin/c_rehash /etc/certs/common-ca
+fi
 #DEBHELPER#
