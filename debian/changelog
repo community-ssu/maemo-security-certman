@@ -4,6 +4,7 @@ maemo-security-certman (0.1.8) unstable; urgency=low
     a crash if not all certificates can be fetched from the store.
     This can be caused by a broken store or similar causes.
       Fixes: MB#10423
+  * Updated the root certificate set.
 
  -- Juhani Mäkelä <ext-juhani.3.makela@nokia.com>  Fri, 09 Jul 2010 14:18:36 +0300
 
