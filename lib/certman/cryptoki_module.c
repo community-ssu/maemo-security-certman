@@ -1179,6 +1179,10 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 		for (i = sess->find_point; i < nbrof_certs; i++) {
 			int is_match = 1;
 			X509* cert = get_cert(sess, i);
+            if (NULL == cert) {
+                MAEMOSEC_DEBUG(1, "%s: cannot get cert", __func__);
+                continue;
+            }
 			for (j = 0; j < sess->find_count; j++) {
 				CK_RV tst = access_attribute(sess, objtype, cert, i, 
 											 &sess->find_template[j],
