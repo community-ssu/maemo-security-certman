@@ -693,11 +693,17 @@ install_file(domain_handle into_domain, const char* filename)
 	ft_filetype ft;
 	void* idata = NULL;
 	int rc = 0;
+    char *seenlist = NULL;
 
 	if (!fp) {
 		fprintf(stderr, "ERROR: cannot open file '%s' (%s)\n",
 				filename, strerror(errno));
+        return errno;
 	}
+
+    if (NULL != into_domain)
+        remember_certificates(into_domain, &seenlist);
+
 	ft = determine_filetype(fp, &idata);
 	switch (ft) 
 		{
@@ -711,7 +717,7 @@ install_file(domain_handle into_domain, const char* filename)
 					}
 				} else {
                     if (do_echo) {
-                        print_if_not_in_list(0, (X509*)idata, NULL);
+                        print_if_not_in_list(0, (X509*)idata, seenlist);
                     }
                 }
 			} else
@@ -731,6 +737,7 @@ install_file(domain_handle into_domain, const char* filename)
 			rc = EINVAL;
 		}
 	fclose(fp);
+    free(seenlist);
 	return(rc);
 }
 
