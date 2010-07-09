@@ -22,9 +22,6 @@
  *
  */
 
-/* DEBUG */
-#define MAEMOSEC_DEBUG_ENABLED
-
 /**
   
   \file maemosec_common.h
