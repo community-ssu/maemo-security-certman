@@ -1,3 +1,15 @@
+maemo-security-certman (0.1.9) unstable; urgency=low
+
+  Updated the root certificate set. Removed the compromised
+  DigiNotar CA and a bunch of expired roots and added the new
+  roots. Common-ca now matches NSS 3.13 changeset 76201:04a58ba1ce1e
+  of Aug 31, 2011 from  http://hg.mozilla.org/mozilla-central/.
+    Also backported from Harmattan the handling of several certificates
+  with the same public key, which is needed for Verisign roots
+  00d85a4c25c... and f3a27298eeb...
+
+ -- Juhani Mäkelä <juhani.makela@asiaa.fi>  Fri, 02 Sep 2011 14:54:13 +0300
+
 maemo-security-certman (0.1.8) unstable; urgency=low
 
   * Backported fix of NB#172389 from Harmattan: cryptoki_module causes
