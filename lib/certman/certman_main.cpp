@@ -346,38 +346,6 @@ remove_spec_chars(char* in_string)
 }
 
 
-/*
- * Make a unique filename for each certificate
- */
-static void
-make_unique_filename(X509* of_cert, const char* in_dir, string& to_string)
-{
-	const char* c;
-	char nbuf[1024], *name;
-	long serial;
-	int rc;
-	struct stat fs;
-
-	to_string.assign(in_dir);
-	to_string.append(PATH_SEP);
-	maemosec_key_id key_id;
-	if (0 == maemosec_certman_get_key_id(of_cert, key_id)) {
-		append_hex(to_string, key_id, MAEMOSEC_KEY_ID_LEN);
-		to_string.append(".pem");
-	} else {
-		MAEMOSEC_ERROR("Cannot get key id out of certificate");
-		goto failed;
-	}
-
-  ok:
-	MAEMOSEC_DEBUG(1, "=> %s", to_string.c_str());
-	return;
-
-  failed:
-	;
-}
-
-
 static void
 hex_to_key_id(const char* hstring, unsigned char* to_id)
 {
@@ -401,16 +369,80 @@ load_cert_from_file(const char* from_file)
 
 	fp = fopen(from_file, "r");
 	if (!fp) {
-		fprintf(stderr, "Cannot read '%s' (%d)\n", from_file, errno);
+		MAEMOSEC_ERROR("%s: Cannot read '%s' (%d)\n", __func__, from_file, errno);
 		return(0);
 	}
 	cert = PEM_read_X509(fp, NULL, 0, NULL);
 	if (!cert) {
-		fprintf(stderr, "Cannot read certificate from '%s'\n", from_file);
+		MAEMOSEC_ERROR("%s: Cannot read certificate from '%s'\n", from_file);
 	}
 	fclose(fp);
 	return(cert);
 }
+
+
+/*
+ * Make a unique filename for each certificate
+ */
+static bool
+make_unique_filename(X509* of_cert, struct local_domain* in_domain, string& to_string)
+{
+       bool result = true;
+       maemosec_key_id key_id;
+       char nickname[255];
+
+       to_string.assign(in_domain->dirname.c_str());
+       to_string.append(PATH_SEP);
+       if (NULL == of_cert || 
+               0 != maemosec_certman_get_nickname(of_cert, nickname, sizeof(nickname))) 
+       {
+		   MAEMOSEC_ERROR("%s: invalid parameter", __func__);
+		   return false;
+	   }
+       MAEMOSEC_DEBUG(1, "%s: for '%s'", __func__, nickname);
+
+       if (0 != maemosec_certman_get_key_id(of_cert, key_id)) {
+		   MAEMOSEC_ERROR("Cannot get key id out of certificate");
+		   return false;
+       }
+
+       for (int i = 0; result && i < 1000 ; i++) {
+		   string test_name;
+		   test_name.assign(to_string);
+		   append_hex(test_name, key_id, MAEMOSEC_KEY_ID_LEN);
+		   if (0 < i) {
+			   char onbr[10];
+			   sprintf(onbr, "-%d", i);
+			   test_name.append(onbr);
+		   }
+		   test_name.append(".pem");
+		   MAEMOSEC_DEBUG(1, "%s: testing '%s'", __func__, test_name.c_str());
+		   if (in_domain->index->contains_file(test_name.c_str())) {
+			   X509* ocert = load_cert_from_file(test_name.c_str());
+			   if (NULL != ocert) {
+				   if (0 == X509_cmp(of_cert, ocert)) {
+					   MAEMOSEC_DEBUG(1, "%s: domain '%s' already contains equal certificate",
+									  __func__, in_domain->index->name());
+					   to_string.assign(test_name);
+					   result = false;
+				   } else {
+					   MAEMOSEC_DEBUG(1, "%s: domain '%s' contains same key but different cert",
+									  __func__, in_domain->index->name());
+				   }
+				   X509_free(ocert);
+			   } else {
+				   to_string.assign(test_name);
+				   break;
+			   }
+		   } else {
+			   to_string.assign(test_name);
+			   break;
+		   }
+       }
+       MAEMOSEC_DEBUG(1, "%s: %s (%s)", __func__, to_string.c_str(), result?"ok":"duplicate");
+       return result;
+}
+
 
 #define MAX_TRIES 100
 
@@ -990,7 +1022,8 @@ extern "C" {
 		}
 #endif
 
-		make_unique_filename(cert, mydomain->dirname.c_str(), filename);
+		if (!make_unique_filename(cert, mydomain, filename))
+			return(EEXIST);
 		
 		to_file = fopen(filename.c_str(), "w+");
 		if (to_file) {
@@ -1051,10 +1084,12 @@ extern "C" {
 					if (X509_LU_X509 == obj->type) {
 						rc = maemosec_certman_add_cert
 							(to_domain, obj->data.x509);
-						if (0 == rc)
+						if (0 == rc) {
 							added++;
-						else
+						} else {
 							MAEMOSEC_ERROR("Failed to add a certificate");
+							errno = rc;
+						}
 					}
 				}
 			} else {
@@ -1072,9 +1107,9 @@ extern "C" {
 	maemosec_certman_rm_cert(domain_handle from_domain, 
 							 maemosec_key_id key_id)
 	{
-		int pos, rc;
 		string filename;
 		struct local_domain* mydomain = (struct local_domain*)from_domain;
+		int removed = 0;
 
 		AUTOINIT;
 
@@ -1087,21 +1122,50 @@ extern "C" {
 		filename = mydomain->dirname;
 		filename.append(PATH_SEP);
 		append_hex(filename, key_id, MAEMOSEC_KEY_ID_LEN);
-		filename.append(".pem");
-		if (mydomain->index->contains_file(filename.c_str())) {
-			MAEMOSEC_DEBUG(1, "Remove cert file '%s'", filename.c_str());
-			mydomain->index->remove_file(filename.c_str());
-			rm_openssl_hash_file(mydomain->dirname.c_str(), filename.c_str());
-			unlink(filename.c_str());
-			/*
-			 * TODO: Never remove keys in case it is used for another
-			 * purpose. Must be fixed by checking other domains.
-			 */
-			// remove_key_file(key_id);
-			mydomain->index->commit();
-			return(0);
-		} else
-			return(ENOENT);
+		for (int i = 0; i < 1000; i++) {
+			string test_name(filename);
+			if (0 < i) {
+				char onbr[10];
+				sprintf(onbr, "-%d", i);
+				test_name.append(onbr);
+			}
+			test_name.append(".pem");
+			if (mydomain->index->contains_file(test_name.c_str())) {
+				MAEMOSEC_DEBUG(1, "Remove cert file '%s'", test_name.c_str());
+				mydomain->index->remove_file(test_name.c_str());
+				if (0 == mydomain->index->contains_file(test_name.c_str())) {
+					removed++;
+					if (0 != unlink(test_name.c_str())) {
+						if (0 == errno)
+							errno = EACCES;
+						break;
+					}
+					errno = 0;
+				} else {
+					MAEMOSEC_DEBUG(1, "%s: couldn't remove '%s' (%s)", 
+								   __func__, test_name.c_str(), strerror(errno));
+					return errno;
+				}
+			} else {
+				/* No such file
+				 */
+				break;
+			}
+		}
+
+		if (0 == removed) {
+			if (0 == errno)
+				return ENOENT;
+			else
+				return errno;
+		}
+
+		/* TODO: Never remove keys in case it is used for another
+		 * purpose. Must be fixed by checking other domains.
+		 */
+		// remove_key_file(key_id);
+		mydomain->index->commit();
+		return(0);
 	}
 
 
