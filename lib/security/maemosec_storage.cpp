@@ -440,7 +440,7 @@ storage::get_files(stringlist& names)
 		ii != m_contents.end();
 		ii++
 	) {
-		names.push_back(ii->first.c_str());
+		names.push_back(strdup(ii->first.c_str()));
 		pos++;
 	}
 	return(pos);
