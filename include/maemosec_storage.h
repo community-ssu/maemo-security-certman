@@ -114,6 +114,12 @@ namespace maemosec {
 		size_t get_files(stringlist &names);
 
 		/**
+		 * \brief Release the given stringlist
+		 */
+		void release(stringlist &list);
+
+
+		/**
 		 * \brief Check if the storage contains the given file
 		 */
 		bool contains_file(const char* pathname);

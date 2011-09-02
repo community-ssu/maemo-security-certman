@@ -327,7 +327,7 @@ X509_STORE_dup(X509_STORE* model)
 
 	if (model && model->objs) {
 		res = X509_STORE_new();	
-		for (i = 0; i < sk_X509_num(model->objs); i++) {
+		for (i = 0; i < sk_X509_OBJECT_num(model->objs); i++) {
 			obj = sk_X509_OBJECT_value(model->objs, i);
 			if (X509_LU_X509 == obj->type) {
 				X509_STORE_add_cert(res, obj->data.x509);
@@ -783,7 +783,7 @@ main(int argc, char* argv[])
 	domain_handle my_domain = NULL;
 	X509_STORE* certs = NULL;
 	maemosec_key_id my_key_id;
-    char** ocerts = NULL;
+    char *ocerts = NULL;
 
 	if (1 == argc) {
 		usage();
@@ -843,7 +843,7 @@ main(int argc, char* argv[])
 			if (my_domain)
 				maemosec_certman_iterate_certs(my_domain, show_cert, NULL);
 			else {
-				for (i = 0; i < sk_STORE_OBJECT_num(certs->objs); i++) {
+				for (i = 0; i < sk_X509_OBJECT_num(certs->objs); i++) {
 					X509_OBJECT* obj = sk_X509_OBJECT_value(certs->objs, i);
 					if (obj->type == X509_LU_X509) {
 						show_cert(i, obj->data.x509, NULL);
@@ -933,13 +933,22 @@ main(int argc, char* argv[])
 				if (0 == rc) {
 					BIO* outfile = BIO_new_fp(stdout, BIO_NOCLOSE);
 					if (outfile) {
-						rc = PEM_write_bio_PrivateKey(outfile,
+						if (!PEM_write_bio_PrivateKey(outfile,
 													  my_key,
 													  NULL,
 													  NULL,
 													  0,
 													  NULL,
-													  NULL);
+													  NULL))
+						{
+							if (0 == errno)
+								rc = EACCES;
+							else
+								rc = errno;
+							fprintf(stderr, "ERROR: failed to write key (%s)", 
+									strerror(rc));
+							
+						}
 						BIO_free(outfile);
 					}
 				} else {

@@ -447,6 +447,16 @@ storage::get_files(stringlist& names)
 }
 
 
+void
+storage::release(stringlist &list)
+{
+    for (size_t i = 0; i < list.size(); i++) {
+        free((void*)list[i]);
+    }
+    list.clear();
+}
+
+
 ssize_t
 storage::encrypted_length(ssize_t of_bytes)
 {

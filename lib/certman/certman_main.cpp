@@ -222,6 +222,18 @@ load_certs(vector<string> &certnames,
 				MAEMOSEC_DEBUG(1, "Issuer '%s' not found", cert->issuer_name());
 		}
 
+		/* Be really sure the certificate is not self-signed.
+		 * If for some reason OpenSSL cannot decode the public
+		 * key but the certificate is really self signed we end
+		 * up in an endless loop
+		 */
+		if(!cert->m_verified && (0 == strcmp(cert->key_id(), cert->issuer_key_id()) ||
+								 0 == strcmp(cert->subject_name(), cert->issuer_name())))
+		{
+			MAEMOSEC_DEBUG(1, "self signed certificate %s couldn't be verified", cert->key_id());
+			continue;
+		}
+
 		if (!cert->m_verified) {
 			temp.push(cert);
 
@@ -243,6 +255,11 @@ load_certs(vector<string> &certnames,
 						  cert->issuer_key_id(),
 						  cert->subject_name()); 
 					return(false);
+				}
+				if (temp.size() > cert_map.size() + 1) {
+					MAEMOSEC_DEBUG(1, "%s: cross signed certificate cycle",
+								   __func__);
+					break;
 				}
 				cert = issuer;
 			}
@@ -951,9 +968,9 @@ extern "C" {
 					res = 0;
 				if (res)
 					break;
-			} else
-				return(-ENOENT);
+			}
 		}
+		mydomain->index->release(files);
 		return(res);
 	}
 
@@ -1079,7 +1096,7 @@ extern "C" {
 		tmp_store = X509_STORE_new();
 		if (tmp_store) {
 			if (load_certs(certs, false, tmp_store)) {
-				for (i = 0; i < sk_X509_num(tmp_store->objs); i++) {
+				for (i = 0; i < sk_X509_OBJECT_num(tmp_store->objs); i++) {
 					obj = sk_X509_OBJECT_value(tmp_store->objs, i);
 					if (X509_LU_X509 == obj->type) {
 						rc = maemosec_certman_add_cert
