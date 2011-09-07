@@ -52,8 +52,10 @@ static char g_password [256] = "";
 
 static X509_STORE* root_certs = NULL;
 
+#ifdef MAEMOSEC_DEBUG_ENABLED
 static const char* attr_name(CK_ATTRIBUTE_TYPE of_a);
 static const char* attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned val_len);
+#endif
 
 /*
  * Support version 2.20 of the specs
@@ -1228,7 +1230,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_FindObjects)(CK_SESSION_HANDLE hSession,
 			if (CKA_ID == sess->find_template[i].type) {
 				if (sess->find_template[i].ulValueLen != MAEMOSEC_KEY_ID_LEN) {
 					MAEMOSEC_ERROR("key id len mismatch %d != %d", 
-								   sess->find_template[i].ulValueLen, 
+								   (int)sess->find_template[i].ulValueLen, 
 								   MAEMOSEC_KEY_ID_LEN);
 					goto out;
 				} else {
@@ -1447,7 +1449,7 @@ CK_DECLARE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession,
 	sess->signing_algorithm = pMechanism->mechanism;
 
 	if (hKey <= PPKEY_LIMIT) {
-		MAEMOSEC_ERROR("%s: %d is not a private key handle", __func__, hKey);
+		MAEMOSEC_ERROR("%s: %d is not a private key handle", __func__, (int)hKey);
 		rv = CKR_ARGUMENTS_BAD;
 		goto out;
 	}
@@ -1716,6 +1718,8 @@ CK_DECLARE_FUNCTION(CK_RV, C_GenerateRandom)(CK_SESSION_HANDLE hSession,
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
+#ifdef MAEMOSEC_DEBUG_ENABLED
+
 /*
  * Some help functions
  */
@@ -1928,3 +1932,4 @@ attr_value(CK_ATTRIBUTE_TYPE of_a, const void* val, const unsigned len)
 		}
 	return(dhbuf);
 }
+#endif
