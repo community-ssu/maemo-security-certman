@@ -46,6 +46,9 @@
 #if INCL_NETSCAPE_VDE
 #define PR_CALLBACK
 #include <pkcs11n.h>
+#ifndef CKT_NSS_NOT_TRUSTED
+#define CKT_NSS_NOT_TRUSTED (CKT_NSS + 10)
+#endif
 #endif
 
 static char g_password [256] = "";
@@ -555,13 +558,16 @@ access_attribute(SESSION sess,
 			break;
 
 #if INCL_NETSCAPE_VDE
+#define BLACKLIST "blacklist"
 
 		case CKA_TRUST_SERVER_AUTH:
 		case CKA_TRUST_CODE_SIGNING:
 			{
 				CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
 				if (X509_check_ca(cert))
-					 trust = CKT_NSS_TRUSTED_DELEGATOR;
+					trust = CKT_NSS_TRUSTED_DELEGATOR;
+				if (0 == strcmp(BLACKLIST, sess->domain_name))
+					trust = CKT_NSS_NOT_TRUSTED; 
 				rv = callback(&trust, sizeof(trust), attr);
 			}
 			break;
@@ -570,8 +576,9 @@ access_attribute(SESSION sess,
 			{
 				CK_TRUST trust = CKT_NSS_TRUST_UNKNOWN;
 				if (!X509_check_ca(cert))
-					// trust = CKT_NSS_TRUSTED;
 					trust = CKT_NSS_TRUSTED_DELEGATOR;
+				if (0 == strcmp(BLACKLIST, sess->domain_name))
+					trust = CKT_NSS_NOT_TRUSTED; 
 				rv = callback(&trust, sizeof(trust), attr);
 			}
 			break;

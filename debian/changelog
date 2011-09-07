@@ -1,3 +1,17 @@
+maemo-security-certman (0.2.0) unstable; urgency=low
+
+  Added explicit blacklisting of compromised or rogue
+  certificates following the Mozilla model. A new shared
+  cert domain "blacklist" now contains all blocker certs from
+  Mozilla's built-in certdata.txt as in changeset 76451:cf1ba8f0dbf7
+  Sep 02. See Mozilla bug 683261 for further information.
+    The downside is that the blacklisted certificates appear
+  in the settings applet as if they were valid since it shows the
+  contents of all domains regardless of their type the same way.
+  This must be fixed in the maemo-security-certificates-applet.
+
+ -- Juhani Mäkelä <juhani.makela@asiaa.fi>  Wed, 07 Sep 2011 16:21:41 +0300
+
 maemo-security-certman (0.1.9) unstable; urgency=low
 
   Updated the root certificate set. Removed the compromised
