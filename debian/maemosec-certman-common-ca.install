@@ -1,2 +1,3 @@
-etc/secure/s/certman.common-ca /etc/secure/s
+etc/secure/s/certman.* /etc/secure/s
 etc/certs/common-ca/* etc/certs/common-ca
+etc/certs/blacklist/* etc/certs/blacklist
