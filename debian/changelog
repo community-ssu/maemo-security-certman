@@ -1,3 +1,10 @@
+maemo-security-certman (0.2.1) unstable; urgency=low
+
+  Added the two compromised Malaysian signing certs to the
+  blacklist.
+
+ -- Juhani Mäkelä <juhani.makela@asiaa.fi>  Thu, 17 Nov 2011 14:57:50 +0200
+
 maemo-security-certman (0.2.0) unstable; urgency=low
 
   Added explicit blacklisting of compromised or rogue
