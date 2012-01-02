@@ -1,7 +1,7 @@
 Source: maemo-security-certman
 Section: user/other
 Priority: extra
-Maintainer: Juhani Mäkelä <ext-juhani.3.makela@nokia.com>
+Maintainer: Christian Ratzenhofer <christian_ratzenhofer@yahoo.de>
 Build-Depends: debhelper (>= 5), autotools-dev, fakeroot, libtool, pkg-config,
  libssl-dev, libosso-dev (>= 1.0.2-1), libdbus-glib-1-2 (>= 0.60-1osso1), 
  libexpat1-dev, microb-engine-dev
