@@ -1,3 +1,10 @@
+maemo-security-certman (0.2.2) unstable; urgency=low
+
+  Added the two wrongly issued intermediate certficates from TÜRKTRUST
+  see http://googleonlinesecurity.blogspot.co.at/2013/01/enhancing-digital-certificate-security.html
+
+ -- Christian Ratzenhofer <christian.ratzenhofer@cdnm.at>  Sun,  6 Jan 2013 22:19:22 +0100
+
 maemo-security-certman (0.2.1) unstable; urgency=low
 
   Added the two compromised Malaysian signing certs to the
