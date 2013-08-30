@@ -11,13 +11,19 @@ CFLAGS = -Wall -g -fPIC -Werror
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -O0
+	CXXFLAGS += -O0
 else
 	CFLAGS += -O2
+	CXXFLAGS += -O2
 endif
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -DMAEMOSEC_DEBUG_ENABLED
+	CXXFLAGS += -DMAEMOSEC_DEBUG_ENABLED
 endif
+
+export CFLAGS
+export CXXFLAGS
 
 # shared library versions, option 1
 version=0.0.0
