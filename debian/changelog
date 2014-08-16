@@ -1,3 +1,10 @@
+maemo-security-certman (0.2.3) unstable; urgency=low
+
+  Change the order of VerSign root certificates, so "newer" certificate
+  to appear first. Fixes supl server not working.
+
+ -- Ivaylo Dimitrov <freemangordon@abv.bg>  Fri,  30 Aug 2013 12:36:42 +0300
+
 maemo-security-certman (0.2.2) unstable; urgency=low
 
   Added the two wrongly issued intermediate certficates from TÜRKTRUST
