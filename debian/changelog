@@ -1,3 +1,13 @@
+maemo-security-certman (0.2.4) unstable; urgency=low
+
+  Backport a change from Harmattan to handle the fact that /etc is a symlink
+  in Scratchbox
+  Add a tool and instructions for updating the root CA store
+  Update the root CA store to match the Mozilla certdata.txt file from 
+  the mozilla-central repositiory at revision 64df3815df9c
+
+ -- Jonathan Wilson <jfwfreo@tpgi.com.au>  Mon,  8 Feb 2016 07:41:40 -0500
+
 maemo-security-certman (0.2.3) unstable; urgency=low
 
   Change the order of VerSign root certificates, so "newer" certificate

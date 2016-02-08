@@ -751,7 +751,7 @@ usage(void)
 		       "-a <cert-file [<cert-file>...]> -i <pkcs12-file>\n"
 		       "-v <cert-file|hostname:port>\n"
 		       "-k <fingerprint> -r <key-id> -b <file>\n" 
-		       "[-DL] -d{d}* [-fe]\n"
+		       "[-DLl] -d{d}* [-fe]\n"
 		" -T to load CA certificates from one or more shared domains\n"
 		" -t to load CA certificates from one or more private domains\n"
 		" -c to open/create a shared domain for modifications\n"
@@ -766,10 +766,12 @@ usage(void)
 		" -K to list private\n"
 		" -d, -dd... to increase level of debug info shown\n"
 		" -f to force an operation despite warnings\n"
+		" -l to not resolve symlinks (needed in scratchbox)\n"
 		" -e to echo added certificate ids to stdout\n"
 		);
 }
 
+extern int resolve_symlinks;
 
 /**
  * \brief The main program
@@ -799,7 +801,7 @@ main(int argc, char* argv[])
 	}
 
     while (1) {
-		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLKdfhseA:?j");
+		a = getopt(argc, argv, "T:t:c:p:a:i:v:k:r:DLKdfhsleA:?j");
 		if (a < 0) {
 			break;
 		}
@@ -874,6 +876,10 @@ main(int argc, char* argv[])
 
 		case 'A':
 			inspect_certificate(optarg);
+			break;
+
+		case 'l':
+			resolve_symlinks = 0;
 			break;
 
 		case 'a':

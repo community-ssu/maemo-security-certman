@@ -1,0 +1,14 @@
+To update the root CA store in maemo-security-certman do the following:
+1.Make sure you dont have maemosec-certman-common-ca package installed, if you do, remove it (and purge the config files)
+2.Remove /etc/secure/s/certman.common-ca, /etc/secure/s/certman.blacklist, /etc/certs/common-ca and /etc/certs/blaclkist if they exist.
+3.Build maemo-security-certman from this source tree and install all of 
+the packages except maemosec-certman-common-ca
+4.Run "make" in the updateca directory to compile parse-certdata-txt.
+5.Download the latest certdata.txt file from http://hg.mozilla.org/mozilla-central/raw-file/tip/security/nss/lib/ckfw/builtins/certdata.txt via wget or similar and place it in the updateca directory.
+6.Make a certs directory under the updateca directory
+7.Run parse-certdata-txt
+8.Run cmcli -l -c common-ca -a certs/*.pem
+9.Run cmcli -l -c blacklist -a certs/*.untrusted
+10.Remove etc/secure/s/certman.common-ca, etc/secure/s/certman.blacklist, etc/certs/common-ca and etc/certs/blaclkist from the maemo-security-certman source tree
+11.Copy /etc/secure/s/certman.common-ca, /etc/secure/s/certman.blacklist, /etc/certs/common-ca and /etc/certs/blacklist to the etc folder in the maemo-security-certman source tree
+12.Update the changelog to reflect the updated certificates (its a good idea to include the revision of certdata.txt used at the time of updating the root CA store so people can see if its up to date or not)

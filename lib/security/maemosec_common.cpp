@@ -36,6 +36,11 @@
 
 using namespace std;
 
+/*
+ * Reset this variable to build stores in scratchbox
+ */
+int resolve_symlinks = 1;
+
 extern "C" 
 {
 
@@ -140,6 +145,11 @@ extern "C"
 			}
 		}
 
+		if (!resolve_symlinks && ('/' == *pathname)) {
+			to_this.assign(pathname);
+			goto finish;
+		}
+
 		if (!S_ISDIR(fs.st_mode)) {
 			dirsep = strrchr(pathname, '/');
 			if (!dirsep) {
@@ -189,6 +199,7 @@ extern "C"
 			close(curdirh);
 		}
 
+ 	finish:
 		if (tgtname)
 			free(tgtname);
 		return(true);
