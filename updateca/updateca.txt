@@ -12,3 +12,5 @@ the packages except maemosec-certman-common-ca
 10.Remove etc/secure/s/certman.common-ca, etc/secure/s/certman.blacklist, etc/certs/common-ca and etc/certs/blaclkist from the maemo-security-certman source tree
 11.Copy /etc/secure/s/certman.common-ca, /etc/secure/s/certman.blacklist, /etc/certs/common-ca and /etc/certs/blacklist to the etc folder in the maemo-security-certman source tree
 12.Update the changelog to reflect the updated certificates (its a good idea to include the revision of certdata.txt used at the time of updating the root CA store so people can see if its up to date or not)
+13.Update the version number in configure.ac
+
