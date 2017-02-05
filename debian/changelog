@@ -1,3 +1,9 @@
+maemo-security-certman (0.2.8) unstable; urgency=low
+
+  Update the root CA store to match mozilla-central revision e581572bc9c1
+
+ -- Jonathan Wilson <jfwfreo@tpgi.com.au>  Sat,  4 Feb 2017 19:43:36 -0500
+
 maemo-security-certman (0.2.7) unstable; urgency=low
 
   Update the root CA store to match mozilla-central revision aca64a177c44 

@@ -87,3 +87,8 @@
 /missing
 /pkgconfig/maemosec-certman.pc
 /pkgconfig/maemosec.pc
+/updateca/certdata.txt
+/updateca/parse-certdata-txt
+/updateca/certs
+/autom4te.cache
+
