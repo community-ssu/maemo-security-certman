@@ -1,3 +1,9 @@
+maemo-security-certman (0.2.10) unstable; urgency=low
+
+  Update the root CA store to match mozilla-central revision d10c97627b51
+
+ -- Jonathan Wilson <jfwfreo@tpgi.com.au>  Mon, 28 Aug 2017 06:41:43 -0400
+
 maemo-security-certman (0.2.9) unstable; urgency=low
 
   Certificate fix for location-proxy
